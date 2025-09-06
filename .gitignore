@@ -1,0 +1,46 @@
+# Visual Studio / VSCode
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build outputs
+bin/
+obj/
+Debug/
+Release/
+*.dll
+*.exe
+*.pdb
+
+# .NET Core specific
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# EF Core Migrations (optional: include if you want to ignore)
+# Migrations/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# NuGet
+*.nupkg
+packages/
+.nuget/
+
+# Logs
+*.log
+
+# Secrets / appsettings overrides
+appsettings.Development.json
+appsettings.Local.json
+
+# JetBrains Rider
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
