@@ -8,11 +8,22 @@ namespace MySimulationAPI.Services
     {
         private readonly HttpClient _http = new();
 
+        private static readonly string[] LeisureAmenities = new[]
+        {
+            "park", "cinema", "theatre", "cafe", "pub", "bar", "sports_centre", "swimming_pool", "library"
+        };
+
+        private static readonly string[] MedicalAmenities = new[]
+        {
+            "hospital", "clinic", "doctors", "pharmacy"
+        };
+
+        private static readonly Random _rnd = new();
+
         public async Task<List<Location>> FetchLocationsAsync(double lat, double lon, double radiusKm)
         {
             double radiusMeters = radiusKm * 1000;
 
-            // Overpass QL query: fetch buildings and amenities
             string query = $@"
 [out:json];
 (
@@ -47,39 +58,50 @@ out center;
                     string? building = tags.TryGetProperty("building", out var b) ? b.GetString() : null;
                     string? amenity = tags.TryGetProperty("amenity", out var a) ? a.GetString() : null;
 
+                    // Map building types
                     if (building != null)
                     {
                         type = building switch
                         {
                             "residential" => "Home",
+                            "house" => "Home",
+                            "apartments" => "Home",
                             "office" => "Work",
                             "commercial" => "Work",
                             "retail" => "Shop",
-                            _ => "Other"
+                            "industrial" => "Work",
+                            "farm" => "Work",
+                            "warehouse" => "Work",
+                            _ => "Other" // will handle below
                         };
                     }
-                    else if (amenity != null)
+
+                    // Map amenity types
+                    if (amenity != null)
                     {
-                        type = amenity switch
-                        {
-                            "school" => "School",
-                            "restaurant" => "Restaurant",
-                            _ => "Other"
-                        };
+                        if (amenity == "school") type = "School";
+                        else if (amenity == "restaurant" || amenity == "cafe" || amenity == "pub" || amenity == "bar") type = "Leisure";
+                        else if (MedicalAmenities.Contains(amenity)) type = "Medical";
+                        else if (LeisureAmenities.Contains(amenity)) type = "Leisure";
+                        else if (type == "Other") type = "Work"; // fallback
                     }
+                }
+
+                // Randomly assign “Other” types as Home or Work if still Other
+                if (type == "Other")
+                {
+                    type = _rnd.NextDouble() < 0.8 ? "Home" : "Work";
                 }
 
                 double? elementLat = null;
                 double? elementLon = null;
 
-                // Try "lat" / "lon" first (nodes)
                 if (el.TryGetProperty("lat", out var latEl) &&
                     el.TryGetProperty("lon", out var lonEl))
                 {
                     elementLat = latEl.GetDouble();
                     elementLon = lonEl.GetDouble();
                 }
-                // If node doesn't exist (ways/relations), use "center"
                 else if (el.TryGetProperty("center", out var center) &&
                          center.TryGetProperty("lat", out var cLat) &&
                          center.TryGetProperty("lon", out var cLon))
@@ -95,7 +117,7 @@ out center;
                         OSMId = el.GetProperty("id").GetRawText(),
                         Type = type,
                         Lat = elementLat.Value,
-                        Lon = elementLon.Value,
+                        Lon = elementLon.Value
                     });
                 }
             }

@@ -37,6 +37,9 @@ packages/
 # Secrets / appsettings overrides
 appsettings.Development.json
 appsettings.Local.json
+appsettings.json
+appsettings.Development.json
+appsettings.Local.json
 
 # JetBrains Rider
 .idea/

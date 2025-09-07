@@ -10,6 +10,8 @@ namespace MySimulationAPI.Models
         public Simulation Simulation { get; set; } = null!;
 
         public string Name { get; set; } = null!;
+
+        public string Type { get; set; } = "Worker";
         public int HomeLocationId { get; set; }
         public Location HomeLocation { get; set; } = null!;
         public int WorkLocationId { get; set; }

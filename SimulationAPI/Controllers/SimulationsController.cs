@@ -6,6 +6,7 @@ using MySimulationAPI.Models;
 using MySimulationAPI.Services;
 using MySimulationAPI.DTOs;
 using System.Security.Claims;
+using MySimulationAPI.SimulationEngine;
 
 namespace MySimulationAPI.Controllers
 {
@@ -16,11 +17,13 @@ namespace MySimulationAPI.Controllers
     {
         private readonly SimDbContext _db;
         private readonly OsmService _osmService;
+        private readonly SimulationRunner _runner;
 
-        public SimulationsController(SimDbContext db, OsmService osmService)
+        public SimulationsController(SimDbContext db, OsmService osmService, SimulationRunner SimulationRunner)
         {
             _db = db;
             _osmService = osmService;
+            _runner = SimulationRunner;
         }
 
         // Helper to get logged-in user
@@ -83,5 +86,23 @@ namespace MySimulationAPI.Controllers
 
             return Ok(new { sim.Id, sim.Name, Agents = dto.NumAgents });
         }
+
+        [HttpPost("{id}/start")]
+        public IActionResult StartSimulation(int id)
+        {
+            var sim = _db.Simulations
+                .Include(s => s.Agents)
+                .Include(s => s.Locations)
+                .FirstOrDefault(s => s.Id == id);
+
+            if (sim == null) return NotFound();
+
+            var engine = new SimulationEngine.SimulationEngine(sim);
+            _runner.EnqueueSimulation(engine);
+
+            return Ok(new { Status = "Queued/Running" });
+        }
+
+
     }
 }

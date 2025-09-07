@@ -50,6 +50,10 @@ namespace SimulationAPI.Migrations
                     b.Property<int>("SimulationId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<int>("WorkLocationId")
                         .HasColumnType("integer");
 

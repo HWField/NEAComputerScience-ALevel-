@@ -9,7 +9,7 @@ namespace MySimulationAPI.Models
         public Simulation Simulation { get; set; } = null!;
 
         public string OSMId { get; set; } = null!;
-        public string Type { get; set; } = null!; // Home, Work, School, Restaurant, etc.
+        public string Type { get; set; } = null!; // Home, Work, School, Restaurant, Leisure, Medical
         public double Lat { get; set; }
         public double Lon { get; set; }
     }
