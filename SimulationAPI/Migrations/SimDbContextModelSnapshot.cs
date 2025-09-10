@@ -100,6 +100,35 @@ namespace SimulationAPI.Migrations
                     b.ToTable("Locations");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.RefreshToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceInfo")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RefreshTokens");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
                 {
                     b.Property<int>("Id")
@@ -138,6 +167,10 @@ namespace SimulationAPI.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -188,6 +221,17 @@ namespace SimulationAPI.Migrations
                     b.Navigation("Simulation");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.RefreshToken", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
                 {
                     b.HasOne("MySimulationAPI.Models.User", "User")
@@ -204,6 +248,11 @@ namespace SimulationAPI.Migrations
                     b.Navigation("Agents");
 
                     b.Navigation("Locations");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.User", b =>
+                {
+                    b.Navigation("RefreshTokens");
                 });
 #pragma warning restore 612, 618
         }

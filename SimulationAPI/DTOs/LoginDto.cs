@@ -4,5 +4,6 @@ namespace MySimulationAPI.DTOs
     {
         public string Username { get; set; } = null!;
         public string Password { get; set; } = null!;
+        public string DeviceInfo { get; set; } = null!;
     }
 }

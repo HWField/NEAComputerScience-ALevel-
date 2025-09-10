@@ -12,6 +12,7 @@ namespace MySimulationAPI.Data
         public DbSet<Simulation> Simulations { get; set; } = null!;
         public DbSet<Agent> Agents { get; set; } = null!;
         public DbSet<Location> Locations { get; set; } = null!;
+        public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {
             if (!options.IsConfigured)
