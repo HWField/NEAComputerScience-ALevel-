@@ -10,15 +10,14 @@ namespace MySimulationAPI.Models
         public Simulation Simulation { get; set; } = null!;
 
         public string Name { get; set; } = null!;
-        public string Type { get; set; } = "Worker";
+        public RoleType Role { get; set; }
 
-        public int HomeLocationId { get; set; }
-        public Location HomeLocation { get; set; } = null!;
+        public Building HomeLocation { get; set; } = null!;
+        public Building WorkLocation { get; set; } = null!;
 
-        public int WorkLocationId { get; set; }
-        public Location WorkLocation { get; set; } = null!;
+        public string Status { get; set; } = "Healthy";
 
-        public string HealthStatus { get; set; } = "Healthy";
+        public MedicalProfile MedicalProfile { get; set; } = null!;
 
         // Current absolute position
         public double CurrentLat { get; set; }
@@ -36,5 +35,16 @@ namespace MySimulationAPI.Models
 
         [NotMapped]
         public double SpeedMetersPerTick { get; set; } = 1.4; // ~5km/h walking default
+    }
+
+
+    public enum RoleType
+    {
+        Office,
+        Retail,
+        Medical,
+        Education,
+        Retired,
+        Unemployed
     }
 }
