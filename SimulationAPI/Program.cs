@@ -14,6 +14,7 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<OsmService>();
 builder.Services.AddScoped<RoutingService>();
 builder.Services.AddScoped<BuildingService>();
+builder.Services.AddScoped<PresetService>();
 builder.Services.AddSingleton<SimulationRunner>();
 
 // Read JWT settings

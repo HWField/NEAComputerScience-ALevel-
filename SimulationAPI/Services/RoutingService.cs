@@ -150,53 +150,81 @@ namespace MySimulationAPI.Services
         public List<int>? FindPathAStar(int mapId, int startNodeId, int endNodeId)
         {
             var key = $"{mapId}:{startNodeId}:{endNodeId}";
-            if (_routeCache.TryGetValue(key, out var cached)) return new List<int>(cached);
+            if (_routeCache.TryGetValue(key, out var cached))
+                return new List<int>(cached);
 
             if (!_graphs.TryGetValue(mapId, out var graph)) return null;
             var nodes = _nodesByMap[mapId];
 
-            var pq = new PriorityQueue<int, double>();
-            var gScore = new Dictionary<int, double>();
-            var fScore = new Dictionary<int, double>();
-            var cameFrom = new Dictionary<int, int>();
+            int nodeCount = nodes.Count;
 
-            foreach (var n in graph.Keys)
+            // Use ArrayPool to avoid heavy allocations
+            var gScore = System.Buffers.ArrayPool<double>.Shared.Rent(nodeCount);
+            var fScore = System.Buffers.ArrayPool<double>.Shared.Rent(nodeCount);
+            var cameFrom = System.Buffers.ArrayPool<int>.Shared.Rent(nodeCount);
+
+            try
             {
-                gScore[n] = double.PositiveInfinity;
-                fScore[n] = double.PositiveInfinity;
-            }
-
-            gScore[startNodeId] = 0;
-            fScore[startNodeId] = HeuristicMeters(nodes[startNodeId], nodes[endNodeId]);
-
-            pq.Enqueue(startNodeId, fScore[startNodeId]);
-
-            while (pq.Count > 0)
-            {
-                var current = pq.Dequeue();
-                if (current == endNodeId)
+                // init arrays
+                for (int i = 0; i < nodeCount; i++)
                 {
-                    var path = ReconstructPath(cameFrom, current);
-                    _routeCache[key] = path; // cache it
-                    return path;
+                    gScore[i] = double.PositiveInfinity;
+                    fScore[i] = double.PositiveInfinity;
+                    cameFrom[i] = -1;
                 }
 
-                if (!graph.TryGetValue(current, out var neighbors)) continue;
+                gScore[startNodeId] = 0;
+                fScore[startNodeId] = HeuristicMeters(nodes[startNodeId], nodes[endNodeId]);
 
-                foreach (var edge in neighbors)
+                var pq = new PriorityQueue<int, double>();
+                pq.Enqueue(startNodeId, fScore[startNodeId]);
+
+                while (pq.Count > 0)
                 {
-                    var tentativeG = gScore[current] + edge.DistanceMeters / edge.SpeedModifier; // cost
-                    if (tentativeG < gScore[edge.ToId])
+                    var current = pq.Dequeue();
+                    if (current == endNodeId)
                     {
-                        cameFrom[edge.ToId] = current;
-                        gScore[edge.ToId] = tentativeG;
-                        fScore[edge.ToId] = tentativeG + HeuristicMeters(nodes[edge.ToId], nodes[endNodeId]);
-                        pq.Enqueue(edge.ToId, fScore[edge.ToId]);
+                        var path = ReconstructPathArray(cameFrom, current);
+                        _routeCache[key] = path; // cache it
+                        return path;
+                    }
+
+                    if (!graph.TryGetValue(current, out var neighbors)) continue;
+
+                    foreach (var edge in neighbors)
+                    {
+                        var tentativeG = gScore[current] + edge.DistanceMeters / edge.SpeedModifier;
+                        if (tentativeG < gScore[edge.ToId])
+                        {
+                            cameFrom[edge.ToId] = current;
+                            gScore[edge.ToId] = tentativeG;
+                            fScore[edge.ToId] = tentativeG + HeuristicMeters(nodes[edge.ToId], nodes[endNodeId]);
+                            pq.Enqueue(edge.ToId, fScore[edge.ToId]);
+                        }
                     }
                 }
-            }
 
-            return null;
+                return null;
+            }
+            finally
+            {
+                // Always return pooled arrays
+                System.Buffers.ArrayPool<double>.Shared.Return(gScore);
+                System.Buffers.ArrayPool<double>.Shared.Return(fScore);
+                System.Buffers.ArrayPool<int>.Shared.Return(cameFrom);
+            }
+        }
+
+        private static List<int> ReconstructPathArray(int[] cameFrom, int current)
+        {
+            var path = new List<int> { current };
+            while (cameFrom[current] != -1)
+            {
+                current = cameFrom[current];
+                path.Add(current);
+            }
+            path.Reverse();
+            return path;
         }
 
         private static double HeuristicMeters(Node a, Node b)

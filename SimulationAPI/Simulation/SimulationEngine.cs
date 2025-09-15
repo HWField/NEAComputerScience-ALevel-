@@ -41,66 +41,46 @@ namespace MySimulationAPI.SimulationEngine
         private void MoveAgent(Agent agent)
         {
             // Simple pseudo-schedule
-            int hour = _tick % 24;
+            // int hour = _tick % 24;
 
-            if (agent.Type == "Student")
-            {
-                agent.CurrentLat = hour >= 8 && hour < 15
-                    ? GetLocationLat("School")
-                    : GetLocationLat("Home");
-                agent.CurrentLon = hour >= 8 && hour < 15
-                    ? GetLocationLon("School")
-                    : GetLocationLon("Home");
-            }
-            else
-            {
-                agent.CurrentLat = hour >= 9 && hour < 17
-                    ? GetLocationLat("Work")
-                    : GetLocationLat("Home");
-                agent.CurrentLon = hour >= 9 && hour < 17
-                    ? GetLocationLon("Work")
-                    : GetLocationLon("Home");
-            }
+            // if (agent.Type == "Student")
+            // {
+            //     agent.CurrentLat = hour >= 8 && hour < 15
+            //         ? GetLocationLat("School")
+            //         : GetLocationLat("Home");
+            //     agent.CurrentLon = hour >= 8 && hour < 15
+            //         ? GetLocationLon("School")
+            //         : GetLocationLon("Home");
+            // }
+            // else
+            // {
+            //     agent.CurrentLat = hour >= 9 && hour < 17
+            //         ? GetLocationLat("Work")
+            //         : GetLocationLat("Home");
+            //     agent.CurrentLon = hour >= 9 && hour < 17
+            //         ? GetLocationLon("Work")
+            //         : GetLocationLon("Home");
+            // }
         }
 
-        private double GetLocationLat(string type)
-        {
-            var loc = Simulation.Locations.FirstOrDefault(l => l.Type == type);
-            return loc?.Lat ?? 0;
-        }
 
-        private double GetLocationLon(string type)
-        {
-            var loc = Simulation.Locations.FirstOrDefault(l => l.Type == type);
-            return loc?.Lon ?? 0;
-        }
+
+
 
         private void ComputeInteractions()
         {
-            double radius = 0.0005; // ~50 meters
-            foreach (var a in Simulation.Agents.Where(a => a.HealthStatus == "Infected"))
-            {
-                foreach (var b in Simulation.Agents.Where(b => b.HealthStatus == "Healthy"))
-                {
-                    double dx = a.CurrentLat - b.CurrentLat;
-                    double dy = a.CurrentLon - b.CurrentLon;
-                    if (Math.Sqrt(dx * dx + dy * dy) < radius)
-                    {
-                        b.HealthStatus = "Infected";
-                    }
-                }
-            }
+            // will implement in infectionService
         }
 
-        public SimulationSnapshot GetSnapshot()
-        {
-            return new SimulationSnapshot
-            {
-                Tick = _tick,
-                HealthyCount = Simulation.Agents.Count(a => a.HealthStatus == "Healthy"),
-                InfectedCount = Simulation.Agents.Count(a => a.HealthStatus == "Infected"),
-                RecoveredCount = Simulation.Agents.Count(a => a.HealthStatus == "Recovered")
-            };
-        }
+        // public SimulationSnapshot GetSnapshot()
+        // {
+        //     return new SimulationSnapshot
+        //     {
+        //         Tick = _tick,
+        //         HealthyCount = Simulation.Agents.Count(a => a.HealthStatus == "Healthy"),
+        //         InfectedCount = Simulation.Agents.Count(a => a.HealthStatus == "Infected"),
+        //         RecoveredCount = Simulation.Agents.Count(a => a.HealthStatus == "Recovered")
+        //     };
+        // }
     }
 }

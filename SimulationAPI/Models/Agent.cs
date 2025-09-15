@@ -17,8 +17,7 @@ namespace MySimulationAPI.Models
 
         public abstract void GenerateRoutine(RoutingService routingService, BuildingService buildingService);
 
-        public Dictionary<DayOfWeek, List<RoutineEvent>> WeeklyRoutine { get; set; }
-            = new();
+        public List<RoutineEvent> RoutineEvents { get; set; } = new();
 
         public string Status { get; set; } = "Healthy";
 
@@ -27,6 +26,7 @@ namespace MySimulationAPI.Models
         // Current absolute position
         public double CurrentLat { get; set; }
         public double CurrentLon { get; set; }
+
 
         // Simplified simulation state - movement handled by MovementSystem
         [NotMapped]
@@ -45,14 +45,20 @@ namespace MySimulationAPI.Models
             // Check if we need to start a new event
             if (CurrentEvent == null || timeOfDay >= CurrentEvent.StartTime.Add(CurrentEvent.Duration))
             {
-                if (WeeklyRoutine.TryGetValue((DayOfWeek)dayIndex, out var events))
-                {
-                    CurrentEvent = events.FirstOrDefault(e => e.StartTime >= timeOfDay);
+                // Find all events for the current day
+                var todaysEvents = RoutineEvents
+                    .Where(e => e.DayIndex == (DayOfWeek)dayIndex)
+                    .OrderBy(e => e.StartTime)
+                    .ToList();
 
-                    if (CurrentEvent != null)
-                    {
-                        NextEventTick = currentTick + SimulationTimeHelper.ConvertTimeSpanToTicks(CurrentEvent.Duration, Simulation.TickLengthMinutes);
-                    }
+                // Find the next event after current time
+                CurrentEvent = todaysEvents
+                    .FirstOrDefault(e => e.StartTime >= timeOfDay);
+
+                if (CurrentEvent != null)
+                {
+                    NextEventTick = currentTick +
+                        SimulationTimeHelper.ConvertTimeSpanToTicks(CurrentEvent.Duration, Simulation.TickLengthMinutes);
                 }
             }
         }
@@ -159,9 +165,7 @@ namespace MySimulationAPI.Models
             }
 
             // Build WeeklyRoutine dictionary
-            WeeklyRoutine = events
-                .GroupBy(e => e.DayIndex)
-                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartTime).ToList());
+            RoutineEvents = events;
         }
     }
 
@@ -298,8 +302,7 @@ namespace MySimulationAPI.Models
                 events.Add(homeEvent);
             }
 
-            WeeklyRoutine = events.GroupBy(e => e.DayIndex)
-                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartTime).ToList());
+            RoutineEvents = events;
         }
     }
 
@@ -373,8 +376,7 @@ namespace MySimulationAPI.Models
                 events.Add(homeEvent);
             }
 
-            WeeklyRoutine = events.GroupBy(e => e.DayIndex)
-                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartTime).ToList());
+            RoutineEvents = events;
         }
     }
 
@@ -450,8 +452,7 @@ namespace MySimulationAPI.Models
                 }
             }
 
-            WeeklyRoutine = events.GroupBy(e => e.DayIndex)
-                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartTime).ToList());
+            RoutineEvents = events;
         }
     }
 
@@ -557,8 +558,7 @@ namespace MySimulationAPI.Models
                 events.Add(homeEvent);
             }
 
-            WeeklyRoutine = events.GroupBy(e => e.DayIndex)
-                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartTime).ToList());
+            RoutineEvents = events;
         }
     }
 
@@ -614,57 +614,9 @@ namespace MySimulationAPI.Models
                 }
             }
 
-            WeeklyRoutine = events.GroupBy(e => e.DayIndex)
-                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartTime).ToList());
+            RoutineEvents = events;
         }
     }
 
-    public class RoutineEvent
-    {
-        public int Id { get; set; }
 
-        /// <summary>
-        /// The tick when the event should nominally start.
-        /// </summary>
-        public DayOfWeek DayIndex { get; set; }
-        public TimeOnly StartTime { get; set; }
-
-        /// <summary>
-        /// Duration of the activity in ticks (excluding travel).
-        /// </summary>
-        public TimeSpan Duration { get; set; }
-
-        /// <summary>
-        /// Target building for the activity.
-        /// </summary>
-        public Building Building { get; set; } = null!;
-
-        public RoutineEventType EventType { get; set; }
-
-        // ---- Simulation-only ----
-        [NotMapped]
-        public List<(double Lat, double Lon)>? CachedPath { get; set; }
-
-        [NotMapped]
-        public TimeSpan CachedTravelDuration { get; set; }
-
-        /// <summary>
-        /// Returns the tick when the agent should actually depart from previous location,
-        /// factoring in travel time.
-        /// </summary>
-        public TimeOnly GetDepartureTime()
-        {
-            return StartTime.Add(-CachedTravelDuration); // add the negatie of travel time which effectively sutracts the time
-        }
-    }
-    public enum RoutineEventType
-    {
-        Work,
-        School,
-        Leisure,
-        Shopping,
-        Medical,
-        Home,
-        Other
-    }
 }

@@ -14,6 +14,7 @@ namespace MySimulationAPI.Models
 
     public class ResidentialBuilding : Building
     {
+        public ICollection<Agent> Residents { get; set; } = new List<Agent>();
 
     }
 

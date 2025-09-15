@@ -33,17 +33,17 @@ namespace MySimulationAPI.SimulationEngine
                     // TODO: persist snapshot asynchronously
 
                     // Example end condition
-                    if (!sim.Simulation.Agents.Any(a => a.HealthStatus == "Infected"))
-                    {
-                        sim.Stop();
-                        _activeSimulations.Remove(sim);
+                    // if (!sim.Simulation.Agents.Any(a => a.HealthStatus == "Infected"))
+                    // {
+                    //     sim.Stop();
+                    //     _activeSimulations.Remove(sim);
 
-                        if (_queue.TryDequeue(out var nextSim))
-                        {
-                            _activeSimulations.Add(nextSim);
-                            nextSim.Start();
-                        }
-                    }
+                    //     if (_queue.TryDequeue(out var nextSim))
+                    //     {
+                    //         _activeSimulations.Add(nextSim);
+                    //         nextSim.Start();
+                    //     }
+                    // }
                 }
 
                 await Task.Delay(1000, stoppingToken); // 1 second per tick

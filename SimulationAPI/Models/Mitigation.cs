@@ -4,6 +4,7 @@ namespace MySimulationAPI.Models
 {
     public abstract class Mitigation
     {
+        public int Id { get; set; }
         public string Name { get; set; } = null!;
         public abstract void Apply(Simulation sim);
     }

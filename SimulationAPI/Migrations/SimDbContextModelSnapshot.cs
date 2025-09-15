@@ -30,45 +30,351 @@ namespace SimulationAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AgentType")
+                        .IsRequired()
+                        .HasMaxLength(21)
+                        .HasColumnType("character varying(21)");
+
                     b.Property<double>("CurrentLat")
                         .HasColumnType("double precision");
 
                     b.Property<double>("CurrentLon")
                         .HasColumnType("double precision");
 
-                    b.Property<string>("HealthStatus")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("HomeId")
+                        .HasColumnType("integer");
 
-                    b.Property<int>("HomeLocationId")
+                    b.Property<int>("MedicalProfileId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("ResidentialBuildingId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("SimulationId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HomeId");
+
+                    b.HasIndex("MedicalProfileId");
+
+                    b.HasIndex("ResidentialBuildingId");
+
+                    b.HasIndex("SimulationId");
+
+                    b.ToTable("Agents");
+
+                    b.HasDiscriminator<string>("AgentType").HasValue("Agent");
+
+                    b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.Building", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BuildingType")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)");
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("MapAreaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MapAreaId");
+
+                    b.ToTable("Buildings");
+
+                    b.HasDiscriminator<string>("BuildingType").HasValue("Building");
+
+                    b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.Disease", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("InfectionRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("MortalityRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("RecoveryRate")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Diseases");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MapArea", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("CenterLat")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("CenterLon")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Preset")
+                        .HasColumnType("boolean");
+
+                    b.Property<double>("RadiusKm")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MapAreas");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MapAreaPreset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("Radius")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MapAreaPresets");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MedicalProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("HasChronicCondition")
+                        .HasColumnType("boolean");
+
+                    b.Property<double>("Immunity")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("InfectionSusceptibility")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MedicalProfiles");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.Mitigation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("MitigationType")
+                        .IsRequired()
+                        .HasMaxLength(21)
+                        .HasColumnType("character varying(21)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SimulationId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SimulationId");
+
+                    b.ToTable("Mitigations");
+
+                    b.HasDiscriminator<string>("MitigationType").HasValue("Mitigation");
+
+                    b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OSMBuildingPreset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("MapAreaPresetId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OSMId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("WorkLocationId")
+                    b.HasKey("Id");
+
+                    b.HasIndex("MapAreaPresetId");
+
+                    b.ToTable("OSMBuildingPresets");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OSMPathNodePreset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("OSMPathPresetId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HomeLocationId");
+                    b.HasIndex("OSMPathPresetId");
 
-                    b.HasIndex("SimulationId");
-
-                    b.HasIndex("WorkLocationId");
-
-                    b.ToTable("Agents");
+                    b.ToTable("OSMPathNodePresets");
                 });
 
-            modelBuilder.Entity("MySimulationAPI.Models.Location", b =>
+            modelBuilder.Entity("MySimulationAPI.Models.OSMPathPreset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsOneWay")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MapAreaPresetId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OSMId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("SpeedModifier")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MapAreaPresetId");
+
+                    b.ToTable("OSMPathPresets");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.Path", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsOneWay")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MapAreaId")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("SpeedModifier")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MapAreaId");
+
+                    b.ToTable("Paths");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.PathNode", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -82,22 +388,9 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("Lon")
                         .HasColumnType("double precision");
 
-                    b.Property<string>("OSMId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("SimulationId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("SimulationId");
-
-                    b.ToTable("Locations");
+                    b.ToTable("PathNode");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.RefreshToken", b =>
@@ -129,6 +422,41 @@ namespace SimulationAPI.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.RoutineEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BuildingId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DayIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("Duration")
+                        .HasColumnType("interval");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("BuildingId");
+
+                    b.ToTable("RoutineEvent");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
                 {
                     b.Property<int>("Id")
@@ -140,6 +468,15 @@ namespace SimulationAPI.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<long>("CurrentTick")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("DiseaseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MapAreaId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -148,14 +485,46 @@ namespace SimulationAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("TickLengthMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<int>("UserId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DiseaseId");
+
+                    b.HasIndex("MapAreaId");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("Simulations");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.SimulationSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("HealthyCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("InfectedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RecoveredCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Tick")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SimulationSnapshots");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.User", b =>
@@ -183,13 +552,172 @@ namespace SimulationAPI.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("PathPathNode", b =>
+                {
+                    b.Property<int>("ConnectedPathsId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("NodesId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ConnectedPathsId", "NodesId");
+
+                    b.HasIndex("NodesId");
+
+                    b.ToTable("PathPathNode");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.ElderlyRetiredAgent", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Agent");
+
+                    b.HasDiscriminator().HasValue("ElderlyRetired");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MedicalWorkerAgent", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Agent");
+
+                    b.Property<int>("HospitalId")
+                        .HasColumnType("integer");
+
+                    b.HasIndex("HospitalId");
+
+                    b.HasDiscriminator().HasValue("MedicalWorker");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OfficeWorkerAgent", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Agent");
+
+                    b.Property<int>("WorkplaceId")
+                        .HasColumnType("integer");
+
+                    b.HasIndex("WorkplaceId");
+
+                    b.HasDiscriminator().HasValue("OfficeWorker");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.RetailWorkerAgent", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Agent");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("integer");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasDiscriminator().HasValue("RetailWorker");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.ServiceWorkerAgent", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Agent");
+
+                    b.Property<int>("ServiceLocationId")
+                        .HasColumnType("integer");
+
+                    b.HasIndex("ServiceLocationId");
+
+                    b.HasDiscriminator().HasValue("ServiceWorker");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.StudentAgent", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Agent");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasDiscriminator().HasValue("Student");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.EducationBuilding", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Building");
+
+                    b.Property<int>("MaxStudents")
+                        .HasColumnType("integer");
+
+                    b.HasDiscriminator().HasValue("Education");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MedicalBuilding", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Building");
+
+                    b.Property<bool>("HasICU")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("NumBeds")
+                        .HasColumnType("integer");
+
+                    b.HasDiscriminator().HasValue("Medical");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OfficeBuilding", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Building");
+
+                    b.Property<bool>("HasCafeteria")
+                        .HasColumnType("boolean");
+
+                    b.HasDiscriminator().HasValue("Office");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.ResidentialBuilding", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Building");
+
+                    b.HasDiscriminator().HasValue("Residential");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.RetailBuilding", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Building");
+
+                    b.Property<bool>("HasFood")
+                        .HasColumnType("boolean");
+
+                    b.HasDiscriminator().HasValue("Retail");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MaskWearing", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Mitigation");
+
+                    b.Property<double>("Efficacy")
+                        .HasColumnType("double precision");
+
+                    b.HasDiscriminator().HasValue("MaskWearing");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.SocialDistancing", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Mitigation");
+
+                    b.HasDiscriminator().HasValue("SocialDistancing");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.Agent", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Location", "HomeLocation")
+                    b.HasOne("MySimulationAPI.Models.Building", "Home")
                         .WithMany()
-                        .HasForeignKey("HomeLocationId")
+                        .HasForeignKey("HomeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MySimulationAPI.Models.MedicalProfile", "MedicalProfile")
+                        .WithMany()
+                        .HasForeignKey("MedicalProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MySimulationAPI.Models.ResidentialBuilding", null)
+                        .WithMany("Residents")
+                        .HasForeignKey("ResidentialBuildingId");
 
                     b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
                         .WithMany("Agents")
@@ -197,28 +725,73 @@ namespace SimulationAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MySimulationAPI.Models.Location", "WorkLocation")
-                        .WithMany()
-                        .HasForeignKey("WorkLocationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("Home");
 
-                    b.Navigation("HomeLocation");
+                    b.Navigation("MedicalProfile");
 
                     b.Navigation("Simulation");
-
-                    b.Navigation("WorkLocation");
                 });
 
-            modelBuilder.Entity("MySimulationAPI.Models.Location", b =>
+            modelBuilder.Entity("MySimulationAPI.Models.Building", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
-                        .WithMany("Locations")
-                        .HasForeignKey("SimulationId")
+                    b.HasOne("MySimulationAPI.Models.MapArea", "MapArea")
+                        .WithMany("Buildings")
+                        .HasForeignKey("MapAreaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Simulation");
+                    b.Navigation("MapArea");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.Mitigation", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Simulation", null)
+                        .WithMany("Mitigations")
+                        .HasForeignKey("SimulationId");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OSMBuildingPreset", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.MapAreaPreset", "MapAreaPreset")
+                        .WithMany("Buildings")
+                        .HasForeignKey("MapAreaPresetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MapAreaPreset");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OSMPathNodePreset", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.OSMPathPreset", "OSMPathPreset")
+                        .WithMany("Nodes")
+                        .HasForeignKey("OSMPathPresetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("OSMPathPreset");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OSMPathPreset", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.MapAreaPreset", "MapAreaPreset")
+                        .WithMany("Paths")
+                        .HasForeignKey("MapAreaPresetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MapAreaPreset");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.Path", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.MapArea", "MapArea")
+                        .WithMany("Paths")
+                        .HasForeignKey("MapAreaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MapArea");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.RefreshToken", b =>
@@ -232,27 +805,161 @@ namespace SimulationAPI.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.RoutineEvent", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Agent", "Agent")
+                        .WithMany("RoutineEvents")
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MySimulationAPI.Models.Building", "Building")
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Building");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
                 {
+                    b.HasOne("MySimulationAPI.Models.Disease", "Disease")
+                        .WithMany()
+                        .HasForeignKey("DiseaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MySimulationAPI.Models.MapArea", "MapArea")
+                        .WithMany()
+                        .HasForeignKey("MapAreaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("MySimulationAPI.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Disease");
+
+                    b.Navigation("MapArea");
+
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PathPathNode", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Path", null)
+                        .WithMany()
+                        .HasForeignKey("ConnectedPathsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MySimulationAPI.Models.PathNode", null)
+                        .WithMany()
+                        .HasForeignKey("NodesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MedicalWorkerAgent", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Building", "Hospital")
+                        .WithMany()
+                        .HasForeignKey("HospitalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hospital");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OfficeWorkerAgent", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Building", "Workplace")
+                        .WithMany()
+                        .HasForeignKey("WorkplaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Workplace");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.RetailWorkerAgent", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Building", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.ServiceWorkerAgent", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Building", "ServiceLocation")
+                        .WithMany()
+                        .HasForeignKey("ServiceLocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceLocation");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.StudentAgent", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Building", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.Agent", b =>
+                {
+                    b.Navigation("RoutineEvents");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MapArea", b =>
+                {
+                    b.Navigation("Buildings");
+
+                    b.Navigation("Paths");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MapAreaPreset", b =>
+                {
+                    b.Navigation("Buildings");
+
+                    b.Navigation("Paths");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.OSMPathPreset", b =>
+                {
+                    b.Navigation("Nodes");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
                 {
                     b.Navigation("Agents");
 
-                    b.Navigation("Locations");
+                    b.Navigation("Mitigations");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.User", b =>
                 {
                     b.Navigation("RefreshTokens");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.ResidentialBuilding", b =>
+                {
+                    b.Navigation("Residents");
                 });
 #pragma warning restore 612, 618
         }
