@@ -104,5 +104,31 @@ namespace MySimulationAPI.Controllers
         }
 
 
+        // DELETE /api/simulations/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteSimulation(int id)
+        {
+            var userId = GetUserId();
+
+            // Load simulation with related entities, async as mght take a while for large simulations and so shouldnt block thread
+            var sim = await _db.Simulations
+                .Include(s => s.Agents)
+                .Include(s => s.Locations)
+                .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+
+            if (sim == null)
+                return NotFound("Simulation not found or you do not have permission");
+
+            // Remove related entities first (if cascade delete not configured)
+            _db.Agents.RemoveRange(sim.Agents);
+            _db.Locations.RemoveRange(sim.Locations);
+
+            // Remove the simulation
+            _db.Simulations.Remove(sim);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = $"Simulation '{sim.Name}' deleted successfully" });
+        }
+
     }
 }
