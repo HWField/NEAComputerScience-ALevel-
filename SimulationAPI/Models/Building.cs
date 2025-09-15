@@ -4,8 +4,8 @@ namespace MySimulationAPI.Models
     {
         public int Id { get; set; }
         public string Name { get; set; } = null!;
-        public double Lat { get; set; }
-        public double Lon { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
         public int? Capacity { get; set; }
 
         // All buildings belong to a MapArea

@@ -233,8 +233,8 @@ namespace MySimulationAPI.Services
         public List<(double Lat, double Lon)>? ConvertPathToCoordinates(int mapId, List<int> nodePath)
         {
             if (!_nodesByMap.TryGetValue(mapId, out var nodes)) return null;
-            
-            return nodePath.Select(nodeId => 
+
+            return nodePath.Select(nodeId =>
             {
                 var node = nodes[nodeId];
                 return (node.Lat, node.Lon);
@@ -243,7 +243,7 @@ namespace MySimulationAPI.Services
 
         // Main route computation method for agents
         public (List<(double Lat, double Lon)>? path, TimeSpan travelTime) ComputeRoute(
-            int mapId, double startLat, double startLon, double endLat, double endLon, 
+            int mapId, double startLat, double startLon, double endLat, double endLon,
             double avgSpeedMph = 3.0) // walking speed
         {
             var nodePath = GetRouteForPositions(mapId, startLat, startLon, endLat, endLon);
@@ -266,22 +266,6 @@ namespace MySimulationAPI.Services
             var travelTime = TimeSpan.FromSeconds(travelTimeSeconds);
 
             return (coordPath, travelTime);
-        }
-
-        // Building-related methods (these could be moved to a separate BuildingService)
-        public Building? GetRandomBuildingByType(int mapId, string buildingType, double centerLat, double centerLon, double radiusMeters = 5000)
-        {
-            // This would need access to your building database
-            // For now, placeholder - you'd inject IBuildingRepository or similar
-            throw new NotImplementedException("Inject building repository to implement this");
-        }
-
-        public List<Building> FindBuildingsWithinTravelTime(int mapId, double startLat, double startLon, 
-            string buildingType, TimeSpan maxTravelTime, double avgSpeedMph = 3.0)
-        {
-            // This would search buildings within travel time constraint
-            // Would need building repository and potentially cached distance matrix
-            throw new NotImplementedException("Requires building repository and distance calculations");
         }
 
         // utilities

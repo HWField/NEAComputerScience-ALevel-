@@ -12,6 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<SimDbContext>();
 builder.Services.AddControllers();
 builder.Services.AddScoped<OsmService>();
+builder.Services.AddScoped<RoutingService>();
+builder.Services.AddScoped<BuildingService>();
 builder.Services.AddSingleton<SimulationRunner>();
 
 // Read JWT settings
