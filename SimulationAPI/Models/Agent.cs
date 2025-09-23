@@ -13,7 +13,7 @@ namespace MySimulationAPI.Models
 
         public string Name { get; set; } = null!;
 
-        public Building Home { get; set; } = null!;
+        public ResidentialBuilding House { get; set; } = null!;
 
         public abstract void GenerateRoutine(RoutingService routingService, BuildingService buildingService);
 
@@ -73,7 +73,7 @@ namespace MySimulationAPI.Models
 
     public class StudentAgent : Agent
     {
-        public Building School { get; set; } = null!;
+        public EducationBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -88,7 +88,7 @@ namespace MySimulationAPI.Models
                 var schoolDuration = TimeSpan.FromHours(7);
 
                 var (cachedPath, travelDuration) = routingService.ComputeRoute(
-                    mapId, Home.Latitude, Home.Longitude, School.Latitude, School.Longitude);
+                    mapId, House.Latitude, House.Longitude, Workplace.Latitude, Workplace.Longitude);
 
                 var schoolEvent = new RoutineEvent
                 {
@@ -96,7 +96,7 @@ namespace MySimulationAPI.Models
                     StartTime = schoolStart,
                     Duration = schoolDuration,
                     EventType = RoutineEventType.School,
-                    Building = School,
+                    Building = Workplace,
                     CachedTravelDuration = travelDuration,
                     CachedPath = cachedPath
                 };
@@ -106,7 +106,7 @@ namespace MySimulationAPI.Models
                 var homeDuration = TimeSpan.FromHours(8);
 
                 var (homePathcachedPath, homeTravelDuration) = routingService.ComputeRoute(
-                    mapId, School.Latitude, School.Longitude, Home.Latitude, Home.Longitude);
+                    mapId, Workplace.Latitude, Workplace.Longitude, House.Latitude, House.Longitude);
 
                 var homeEvent = new RoutineEvent
                 {
@@ -114,7 +114,7 @@ namespace MySimulationAPI.Models
                     StartTime = homeStart,
                     Duration = homeDuration,
                     EventType = RoutineEventType.Home,
-                    Building = Home,
+                    Building = House,
                     CachedTravelDuration = homeTravelDuration,
                     CachedPath = homePathcachedPath
                 };
@@ -130,10 +130,10 @@ namespace MySimulationAPI.Models
 
                 bool isGoingOut = _rnd.NextDouble() < 0.5;
                 Building leisureLocation = isGoingOut ?
-                    buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Recreation, Home.Latitude, Home.Longitude, 30) : Home;
+                    buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Recreation, House.Latitude, House.Longitude, 30) : House;
 
                 var (leisurePath, leisureTravelTime) = isGoingOut ?
-                    routingService.ComputeRoute(mapId, Home.Latitude, Home.Longitude,
+                    routingService.ComputeRoute(mapId, House.Latitude, House.Longitude,
                         leisureLocation.Latitude, leisureLocation.Longitude) :
                     (null, TimeSpan.Zero);
 
@@ -158,7 +158,7 @@ namespace MySimulationAPI.Models
                     StartTime = homeStart,
                     Duration = homeDuration,
                     EventType = RoutineEventType.Home,
-                    Building = Home,
+                    Building = House,
                     CachedTravelDuration = TimeSpan.Zero
                 };
                 events.Add(homeEvent);
@@ -171,7 +171,7 @@ namespace MySimulationAPI.Models
 
     public class OfficeWorkerAgent : Agent
     {
-        public Building Workplace { get; set; } = null!;
+        public OfficeBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -186,7 +186,7 @@ namespace MySimulationAPI.Models
                 var workDuration = TimeSpan.FromHours(_rnd.Next(8, 10)); // 8-9 hour workday
 
                 var (workPath, workTravelTime) = routingService.ComputeRoute(
-                    mapId, Home.Latitude, Home.Longitude, Workplace.Latitude, Workplace.Longitude);
+                    mapId, House.Latitude, House.Longitude, Workplace.Latitude, Workplace.Longitude);
 
                 var workEvent = new RoutineEvent
                 {
@@ -230,7 +230,7 @@ namespace MySimulationAPI.Models
                 // Evening - return home
                 var homeStart = workStart.Add(workDuration);
                 var (homePath, homeTravelTime) = routingService.ComputeRoute(
-                    mapId, Workplace.Latitude, Workplace.Longitude, Home.Latitude, Home.Longitude);
+                    mapId, Workplace.Latitude, Workplace.Longitude, House.Latitude, House.Longitude);
 
                 var homeEvent = new RoutineEvent
                 {
@@ -238,7 +238,7 @@ namespace MySimulationAPI.Models
                     StartTime = homeStart,
                     Duration = TimeSpan.FromHours(12),
                     EventType = RoutineEventType.Home,
-                    Building = Home,
+                    Building = House,
                     CachedTravelDuration = homeTravelTime,
                     CachedPath = homePath
                 };
@@ -260,19 +260,19 @@ namespace MySimulationAPI.Models
                     var activityChoice = _rnd.NextDouble();
                     if (activityChoice < 0.4) // Shopping
                     {
-                        destination = buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Retail, Home.Latitude, Home.Longitude, 60);
+                        destination = buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Retail, House.Latitude, House.Longitude, 60);
                         eventType = RoutineEventType.Shopping;
                     }
                     else // Leisure
                     {
-                        destination = buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Recreation, Home.Latitude, Home.Longitude, 60);
+                        destination = buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Recreation, House.Latitude, House.Longitude, 60);
                         eventType = RoutineEventType.Leisure;
                     }
 
                     if (destination != null)
                     {
                         var (activityPath, activityTravelTime) = routingService.ComputeRoute(
-                            mapId, Home.Latitude, Home.Longitude, destination.Latitude, destination.Longitude);
+                            mapId, House.Latitude, House.Longitude, destination.Latitude, destination.Longitude);
 
                         var activityEvent = new RoutineEvent
                         {
@@ -296,7 +296,7 @@ namespace MySimulationAPI.Models
                     StartTime = homeStart,
                     Duration = TimeSpan.FromHours(12),
                     EventType = RoutineEventType.Home,
-                    Building = Home,
+                    Building = House,
                     CachedTravelDuration = TimeSpan.Zero
                 };
                 events.Add(homeEvent);
@@ -308,7 +308,7 @@ namespace MySimulationAPI.Models
 
     public class MedicalWorkerAgent : Agent
     {
-        public Building Hospital { get; set; } = null!;
+        public MedicalBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -327,7 +327,7 @@ namespace MySimulationAPI.Models
                     var workDuration = TimeSpan.FromHours(12); // 12-hour shifts common in healthcare
 
                     var (workPath, workTravelTime) = routingService.ComputeRoute(
-                        mapId, Home.Latitude, Home.Longitude, Hospital.Latitude, Hospital.Longitude);
+                        mapId, House.Latitude, House.Longitude, Workplace.Latitude, Workplace.Longitude);
 
                     var workEvent = new RoutineEvent
                     {
@@ -335,7 +335,7 @@ namespace MySimulationAPI.Models
                         StartTime = workStart,
                         Duration = workDuration,
                         EventType = RoutineEventType.Work,
-                        Building = Hospital,
+                        Building = Workplace,
                         CachedTravelDuration = workTravelTime,
                         CachedPath = workPath
                     };
@@ -347,7 +347,7 @@ namespace MySimulationAPI.Models
                     var workDuration = TimeSpan.FromHours(12);
 
                     var (workPath, workTravelTime) = routingService.ComputeRoute(
-                        mapId, Home.Latitude, Home.Longitude, Hospital.Latitude, Hospital.Longitude);
+                        mapId, House.Latitude, House.Longitude, Workplace.Latitude, Workplace.Longitude);
 
                     var workEvent = new RoutineEvent
                     {
@@ -355,7 +355,7 @@ namespace MySimulationAPI.Models
                         StartTime = workStart,
                         Duration = workDuration,
                         EventType = RoutineEventType.Work,
-                        Building = Hospital,
+                        Building = Workplace,
                         CachedTravelDuration = workTravelTime,
                         CachedPath = workPath
                     };
@@ -370,7 +370,7 @@ namespace MySimulationAPI.Models
                     StartTime = new TimeOnly(0, 0),
                     Duration = TimeSpan.FromHours(24),
                     EventType = RoutineEventType.Home,
-                    Building = Home,
+                    Building = House,
                     CachedTravelDuration = TimeSpan.Zero
                 };
                 events.Add(homeEvent);
@@ -382,7 +382,7 @@ namespace MySimulationAPI.Models
 
     public class RetailWorkerAgent : Agent
     {
-        public Building Store { get; set; } = null!;
+        public RetailBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -419,7 +419,7 @@ namespace MySimulationAPI.Models
                     }
 
                     var (workPath, workTravelTime) = routingService.ComputeRoute(
-                        mapId, Home.Latitude, Home.Longitude, Store.Latitude, Store.Longitude);
+                        mapId, House.Latitude, House.Longitude, Workplace.Latitude, Workplace.Longitude);
 
                     var workEvent = new RoutineEvent
                     {
@@ -427,7 +427,7 @@ namespace MySimulationAPI.Models
                         StartTime = workStart,
                         Duration = workDuration,
                         EventType = RoutineEventType.Work,
-                        Building = Store,
+                        Building = Workplace,
                         CachedTravelDuration = workTravelTime,
                         CachedPath = workPath
                     };
@@ -436,7 +436,7 @@ namespace MySimulationAPI.Models
                     // Return home after work
                     var homeStart = workStart.Add(workDuration);
                     var (homePath, homeTravelTime) = routingService.ComputeRoute(
-                        mapId, Store.Latitude, Store.Longitude, Home.Latitude, Home.Longitude);
+                        mapId, Workplace.Latitude, Workplace.Longitude, House.Latitude, House.Longitude);
 
                     var homeEvent = new RoutineEvent
                     {
@@ -444,7 +444,7 @@ namespace MySimulationAPI.Models
                         StartTime = homeStart,
                         Duration = TimeSpan.FromHours(12),
                         EventType = RoutineEventType.Home,
-                        Building = Home,
+                        Building = House,
                         CachedTravelDuration = homeTravelTime,
                         CachedPath = homePath
                     };
@@ -473,12 +473,12 @@ namespace MySimulationAPI.Models
                 {
                     var shopStart = new TimeOnly(9, 0).AddMinutes(_rnd.Next(-30, 61));
                     var grocery = buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Retail,
-                        Home.Latitude, Home.Longitude, 75);
+                        House.Latitude, House.Longitude, 75);
 
                     if (grocery != null)
                     {
                         var (shopPath, shopTravelTime) = routingService.ComputeRoute(
-                            mapId, Home.Latitude, Home.Longitude, grocery.Latitude, grocery.Longitude);
+                            mapId, House.Latitude, House.Longitude, grocery.Latitude, grocery.Longitude);
 
                         var shopEvent = new RoutineEvent
                         {
@@ -499,12 +499,12 @@ namespace MySimulationAPI.Models
                 {
                     var medStart = new TimeOnly(14, 0).AddMinutes(_rnd.Next(-60, 61));
                     var clinic = buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Medical,
-                        Home.Latitude, Home.Longitude, 120);
+                        House.Latitude, House.Longitude, 120);
 
                     if (clinic != null)
                     {
                         var (medPath, medTravelTime) = routingService.ComputeRoute(
-                            mapId, Home.Latitude, Home.Longitude, clinic.Latitude, clinic.Longitude);
+                            mapId, House.Latitude, House.Longitude, clinic.Latitude, clinic.Longitude);
 
                         var medEvent = new RoutineEvent
                         {
@@ -524,12 +524,12 @@ namespace MySimulationAPI.Models
                 if ((day == 5 || day == 6) && _rnd.NextDouble() < 0.5)
                 {
                     var socialStart = new TimeOnly(11, 0).AddMinutes(_rnd.Next(-60, 61));
-                    var leisureBuilding = buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Recreation, Home.Latitude, Home.Longitude, 60);
+                    var leisureBuilding = buildingService.GetBuildingFromTypeAndTravelTime(BuildingType.Recreation, House.Latitude, House.Longitude, 60);
 
                     if (leisureBuilding != null)
                     {
                         var (socialPath, socialTravelTime) = routingService.ComputeRoute(
-                            mapId, Home.Latitude, Home.Longitude, leisureBuilding.Latitude, leisureBuilding.Longitude);
+                            mapId, House.Latitude, House.Longitude, leisureBuilding.Latitude, leisureBuilding.Longitude);
 
                         var socialEvent = new RoutineEvent
                         {
@@ -552,7 +552,7 @@ namespace MySimulationAPI.Models
                     StartTime = new TimeOnly(18, 0),
                     Duration = TimeSpan.FromHours(12),
                     EventType = RoutineEventType.Home,
-                    Building = Home,
+                    Building = House,
                     CachedTravelDuration = TimeSpan.Zero
                 };
                 events.Add(homeEvent);
@@ -598,7 +598,7 @@ namespace MySimulationAPI.Models
                     }
 
                     var (workPath, workTravelTime) = routingService.ComputeRoute(
-                        mapId, Home.Latitude, Home.Longitude, ServiceLocation.Latitude, ServiceLocation.Longitude);
+                        mapId, House.Latitude, House.Longitude, ServiceLocation.Latitude, ServiceLocation.Longitude);
 
                     var workEvent = new RoutineEvent
                     {

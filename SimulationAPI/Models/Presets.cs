@@ -20,7 +20,7 @@ namespace MySimulationAPI.Models
         public double Latitude { get; set; }
         public double Longitude { get; set; }
 
-        public string OSMId { get; set; } // OSM unique identifier
+        public string? OSMId { get; set; } // OSM unique identifier
         public int? Capacity { get; set; }
         public string Type { get; set; } = null!; // Home, School, Work, Medical, etc.
 
@@ -31,7 +31,7 @@ namespace MySimulationAPI.Models
     public class OSMPathPreset
     {
         public int Id { get; set; }
-        public string OSMId { get; set; }
+        public string? OSMId { get; set; }
         public ICollection<OSMPathNodePreset> Nodes { get; set; } = new List<OSMPathNodePreset>();
         public string Type { get; set; } = "Road";
         public double SpeedModifier { get; set; } = 1.0;

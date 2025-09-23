@@ -41,7 +41,7 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("CurrentLon")
                         .HasColumnType("double precision");
 
-                    b.Property<int>("HomeId")
+                    b.Property<int>("HouseId")
                         .HasColumnType("integer");
 
                     b.Property<int>("MedicalProfileId")
@@ -50,9 +50,6 @@ namespace SimulationAPI.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<int?>("ResidentialBuildingId")
-                        .HasColumnType("integer");
 
                     b.Property<int>("SimulationId")
                         .HasColumnType("integer");
@@ -63,11 +60,9 @@ namespace SimulationAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HomeId");
+                    b.HasIndex("HouseId");
 
                     b.HasIndex("MedicalProfileId");
-
-                    b.HasIndex("ResidentialBuildingId");
 
                     b.HasIndex("SimulationId");
 
@@ -91,7 +86,7 @@ namespace SimulationAPI.Migrations
                         .HasMaxLength(13)
                         .HasColumnType("character varying(13)");
 
-                    b.Property<int?>("Capacity")
+                    b.Property<int>("Capacity")
                         .HasColumnType("integer");
 
                     b.Property<double>("Latitude")
@@ -106,6 +101,9 @@ namespace SimulationAPI.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("RemainingCapacity")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -162,8 +160,8 @@ namespace SimulationAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<bool>("Preset")
-                        .HasColumnType("boolean");
+                    b.Property<int>("PresetRefID")
+                        .HasColumnType("integer");
 
                     b.Property<double>("RadiusKm")
                         .HasColumnType("double precision");
@@ -277,7 +275,6 @@ namespace SimulationAPI.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("OSMId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Type")
@@ -330,7 +327,6 @@ namespace SimulationAPI.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("OSMId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<double>("SpeedModifier")
@@ -578,10 +574,10 @@ namespace SimulationAPI.Migrations
                 {
                     b.HasBaseType("MySimulationAPI.Models.Agent");
 
-                    b.Property<int>("HospitalId")
+                    b.Property<int>("WorkplaceId")
                         .HasColumnType("integer");
 
-                    b.HasIndex("HospitalId");
+                    b.HasIndex("WorkplaceId");
 
                     b.HasDiscriminator().HasValue("MedicalWorker");
                 });
@@ -595,6 +591,12 @@ namespace SimulationAPI.Migrations
 
                     b.HasIndex("WorkplaceId");
 
+                    b.ToTable("Agents", t =>
+                        {
+                            t.Property("WorkplaceId")
+                                .HasColumnName("OfficeWorkerAgent_WorkplaceId");
+                        });
+
                     b.HasDiscriminator().HasValue("OfficeWorker");
                 });
 
@@ -602,10 +604,16 @@ namespace SimulationAPI.Migrations
                 {
                     b.HasBaseType("MySimulationAPI.Models.Agent");
 
-                    b.Property<int>("StoreId")
+                    b.Property<int>("WorkplaceId")
                         .HasColumnType("integer");
 
-                    b.HasIndex("StoreId");
+                    b.HasIndex("WorkplaceId");
+
+                    b.ToTable("Agents", t =>
+                        {
+                            t.Property("WorkplaceId")
+                                .HasColumnName("RetailWorkerAgent_WorkplaceId");
+                        });
 
                     b.HasDiscriminator().HasValue("RetailWorker");
                 });
@@ -626,10 +634,16 @@ namespace SimulationAPI.Migrations
                 {
                     b.HasBaseType("MySimulationAPI.Models.Agent");
 
-                    b.Property<int>("SchoolId")
+                    b.Property<int>("WorkplaceId")
                         .HasColumnType("integer");
 
-                    b.HasIndex("SchoolId");
+                    b.HasIndex("WorkplaceId");
+
+                    b.ToTable("Agents", t =>
+                        {
+                            t.Property("WorkplaceId")
+                                .HasColumnName("StudentAgent_WorkplaceId");
+                        });
 
                     b.HasDiscriminator().HasValue("Student");
                 });
@@ -703,9 +717,9 @@ namespace SimulationAPI.Migrations
 
             modelBuilder.Entity("MySimulationAPI.Models.Agent", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Building", "Home")
-                        .WithMany()
-                        .HasForeignKey("HomeId")
+                    b.HasOne("MySimulationAPI.Models.ResidentialBuilding", "House")
+                        .WithMany("Residents")
+                        .HasForeignKey("HouseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -715,17 +729,13 @@ namespace SimulationAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MySimulationAPI.Models.ResidentialBuilding", null)
-                        .WithMany("Residents")
-                        .HasForeignKey("ResidentialBuildingId");
-
                     b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
                         .WithMany("Agents")
                         .HasForeignKey("SimulationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Home");
+                    b.Navigation("House");
 
                     b.Navigation("MedicalProfile");
 
@@ -868,18 +878,18 @@ namespace SimulationAPI.Migrations
 
             modelBuilder.Entity("MySimulationAPI.Models.MedicalWorkerAgent", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Building", "Hospital")
+                    b.HasOne("MySimulationAPI.Models.MedicalBuilding", "Workplace")
                         .WithMany()
-                        .HasForeignKey("HospitalId")
+                        .HasForeignKey("WorkplaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Hospital");
+                    b.Navigation("Workplace");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.OfficeWorkerAgent", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Building", "Workplace")
+                    b.HasOne("MySimulationAPI.Models.OfficeBuilding", "Workplace")
                         .WithMany()
                         .HasForeignKey("WorkplaceId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -890,13 +900,13 @@ namespace SimulationAPI.Migrations
 
             modelBuilder.Entity("MySimulationAPI.Models.RetailWorkerAgent", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Building", "Store")
+                    b.HasOne("MySimulationAPI.Models.RetailBuilding", "Workplace")
                         .WithMany()
-                        .HasForeignKey("StoreId")
+                        .HasForeignKey("WorkplaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Store");
+                    b.Navigation("Workplace");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.ServiceWorkerAgent", b =>
@@ -912,13 +922,13 @@ namespace SimulationAPI.Migrations
 
             modelBuilder.Entity("MySimulationAPI.Models.StudentAgent", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Building", "School")
+                    b.HasOne("MySimulationAPI.Models.EducationBuilding", "Workplace")
                         .WithMany()
-                        .HasForeignKey("SchoolId")
+                        .HasForeignKey("WorkplaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("School");
+                    b.Navigation("Workplace");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Agent", b =>

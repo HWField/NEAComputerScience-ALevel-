@@ -16,6 +16,7 @@ builder.Services.AddScoped<RoutingService>();
 builder.Services.AddScoped<BuildingService>();
 builder.Services.AddScoped<PresetService>();
 builder.Services.AddSingleton<SimulationRunner>();
+builder.Services.AddScoped<SimulationSetup>();
 
 // Read JWT settings
 var jwtKey = builder.Configuration["Jwt:Key"];

@@ -18,74 +18,77 @@ namespace MySimulationAPI.Controllers
         private readonly SimDbContext _db;
         private readonly OsmService _osmService;
         private readonly SimulationRunner _runner;
+        private readonly PresetService _presetService;
 
-        public SimulationsController(SimDbContext db, OsmService osmService, SimulationRunner SimulationRunner)
+        private readonly SimulationSetup _simulationSetup;
+
+        public SimulationsController(SimDbContext db, OsmService osmService, SimulationRunner SimulationRunner, PresetService presetService, SimulationSetup simulationSetup)
         {
             _db = db;
             _osmService = osmService;
             _runner = SimulationRunner;
+            _presetService = presetService;
+            _simulationSetup = simulationSetup;
         }
 
         // Helper to get logged-in user
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-        // [HttpPost("create")]
-        // public async Task<IActionResult> CreateSimulation([FromBody] CreateSimulationDto dto)
-        // {
-        //     var userId = GetUserId();
+        [HttpPost("create")]
+        public async Task<IActionResult> CreateSimulation([FromBody] CreateSimulationDto dto)
+        {
+            try
+            {
+                Simulation createdSimulation;
 
-        //     // Step 1: Fetch or reuse OSM locations
-        //     var locations = await _osmService.FetchLocationsAsync(dto.CenterLat, dto.CenterLon, dto.RadiusKm);
+                Console.WriteLine(dto);
+                if (dto.PresetId.HasValue)
+                {
+                    var exists = await _db.MapAreaPresets
+                     .AnyAsync(p => p.Id == dto.PresetId.Value);
+                    if (!exists)
+                        return NotFound("Preset not found");
 
-        //     if (!locations.Any())
-        //         return BadRequest("No locations found in selected area");
+                    createdSimulation = await _simulationSetup.CreateSimulation(dto.SimulationName, dto.PresetId.Value, dto.AgentCount, GetUserId());
+                }
+                else
+                {
+                    // Create new preset from OSM data
+                    if (string.IsNullOrEmpty(dto.PresetName) ||
+                        !dto.Latitude.HasValue ||
+                        !dto.Longitude.HasValue ||
+                        !dto.RadiusKm.HasValue)
+                    {
+                        return BadRequest("Name, Latitude, Longitude, and RadiusKm are required for creating a new preset");
+                    }
 
-        //     var sim = new Simulation
-        //     {
-        //         UserId = userId,
-        //         Status = "Created",
-        //         CreatedAt = DateTime.UtcNow,
-        //         Name = dto.Name
-        //     };
+                    MapAreaPreset preset = await _presetService.FetchAndCreatePresetAsync(
+                        dto.PresetName,
+                        dto.Latitude.Value,
+                        dto.Longitude.Value,
+                        dto.RadiusKm.Value);
 
-        //     _db.Simulations.Add(sim);
-        //     await _db.SaveChangesAsync();
+                    createdSimulation = await _simulationSetup.CreateSimulation(dto.SimulationName, preset.Id, dto.AgentCount, GetUserId());
+                }
 
-        //     // Step 2: Assign locations to this simulation
-        //     foreach (var loc in locations)
-        //     {
-        //         loc.SimulationId = sim.Id;
-        //         _db.Locations.Add(loc);
-        //     }
-        //     await _db.SaveChangesAsync();
+                return Ok(new
+                {
+                    Message = "Simulation created successfully",
+                    Preset = new
+                    {
+                        createdSimulation
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to create simulation: {ex.Message}");
+            }
+        }
 
-        //     // Step 3: Generate agents
-        //     var homes = locations.Where(l => l.Type == "Home").ToList();
-        //     var works = locations.Where(l => l.Type == "Work" || l.Type == "School" || l.Type == "Restaurant").ToList();
 
-        //     var rnd = new Random();
-        //     for (int i = 0; i < dto.NumAgents; i++)
-        //     {
-        //         var home = homes[rnd.Next(homes.Count)];
-        //         var work = works[rnd.Next(works.Count)];
 
-        //         var agent = new Agent
-        //         {
-        //             SimulationId = sim.Id,
-        //             Name = $"Agent{i}",
-        //             HomeLocationId = home.Id,
-        //             WorkLocationId = work.Id,
-        //             CurrentLat = home.Lat,
-        //             CurrentLon = home.Lon
-        //         };
 
-        //         _db.Agents.Add(agent);
-        //     }
-
-        //     await _db.SaveChangesAsync();
-
-        //     return Ok(new { sim.Id, sim.Name, Agents = dto.NumAgents });
-        // }
 
         // [HttpPost("{id}/start")]
         // public IActionResult StartSimulation(int id)

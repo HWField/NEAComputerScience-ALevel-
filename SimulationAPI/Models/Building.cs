@@ -6,9 +6,12 @@ namespace MySimulationAPI.Models
         public string Name { get; set; } = null!;
         public double Latitude { get; set; }
         public double Longitude { get; set; }
-        public int? Capacity { get; set; }
+        public int Capacity { get; set; }
+        public int RemainingCapacity { get; set; }
 
         // All buildings belong to a MapArea
+
+        public int MapAreaId { get; set; }
         public MapArea MapArea { get; set; } = null!;
     }
 
@@ -38,4 +41,10 @@ namespace MySimulationAPI.Models
     {
         public bool HasFood { get; set; }
     }
+
+    public class LeisureBuilding : Building
+    {
+        public bool HasFood { get; set; }
+    }
+
 }

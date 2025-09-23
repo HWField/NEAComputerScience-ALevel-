@@ -6,7 +6,8 @@ namespace MySimulationAPI.Models
     {
         public int Id { get; set; }
         public string Name { get; set; } = null!; // e.g. "London"
-        public bool Preset { get; set; } = false; // "Preset" or "Custom"
+
+        public int PresetRefID { get; set; } // Reference to geographicAreaPreset
 
         // Boundaries
         public double CenterLat { get; set; }

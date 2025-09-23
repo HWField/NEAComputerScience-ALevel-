@@ -5,10 +5,9 @@ namespace MySimulationAPI.Models
     public class Simulation
     {
         public int Id { get; set; }
-
-        public string Name { get; set; } = null!;
+        public required string Name { get; set; }
         public int UserId { get; set; }
-        public User User { get; set; } = null!;
+        public required User User { get; set; }
         public string Status { get; set; } = "Created";
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public long CurrentTick { get; set; } = 0;
@@ -20,6 +19,5 @@ namespace MySimulationAPI.Models
         public Disease Disease { get; set; } = null!;
 
         public List<Mitigation> Mitigations { get; set; } = new();
-
     }
 }

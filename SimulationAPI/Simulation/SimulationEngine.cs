@@ -35,52 +35,13 @@ namespace MySimulationAPI.SimulationEngine
                 MoveAgent(agent);
             }
 
-            ComputeInteractions();
+            // ComputeInteractions
         }
 
         private void MoveAgent(Agent agent)
         {
-            // Simple pseudo-schedule
-            // int hour = _tick % 24;
 
-            // if (agent.Type == "Student")
-            // {
-            //     agent.CurrentLat = hour >= 8 && hour < 15
-            //         ? GetLocationLat("School")
-            //         : GetLocationLat("Home");
-            //     agent.CurrentLon = hour >= 8 && hour < 15
-            //         ? GetLocationLon("School")
-            //         : GetLocationLon("Home");
-            // }
-            // else
-            // {
-            //     agent.CurrentLat = hour >= 9 && hour < 17
-            //         ? GetLocationLat("Work")
-            //         : GetLocationLat("Home");
-            //     agent.CurrentLon = hour >= 9 && hour < 17
-            //         ? GetLocationLon("Work")
-            //         : GetLocationLon("Home");
-            // }
         }
 
-
-
-
-
-        private void ComputeInteractions()
-        {
-            // will implement in infectionService
-        }
-
-        // public SimulationSnapshot GetSnapshot()
-        // {
-        //     return new SimulationSnapshot
-        //     {
-        //         Tick = _tick,
-        //         HealthyCount = Simulation.Agents.Count(a => a.HealthStatus == "Healthy"),
-        //         InfectedCount = Simulation.Agents.Count(a => a.HealthStatus == "Infected"),
-        //         RecoveredCount = Simulation.Agents.Count(a => a.HealthStatus == "Recovered")
-        //     };
-        // }
     }
 }

@@ -51,16 +51,16 @@ namespace MySimulationAPI.Data
 
 
             modelBuilder.Entity<Building>()
-.HasDiscriminator<string>("BuildingType")
-.HasValue<ResidentialBuilding>("Residential")
-.HasValue<OfficeBuilding>("Office")
-.HasValue<EducationBuilding>("Education")
-.HasValue<MedicalBuilding>("Medical")
-.HasValue<RetailBuilding>("Retail");
+                .HasDiscriminator<string>("BuildingType")
+                .HasValue<ResidentialBuilding>("Residential")
+                .HasValue<OfficeBuilding>("Office")
+                .HasValue<EducationBuilding>("Education")
+                .HasValue<MedicalBuilding>("Medical")
+                .HasValue<RetailBuilding>("Retail");
             modelBuilder.Entity<Mitigation>()
-                    .HasDiscriminator<string>("MitigationType")
-                    .HasValue<MaskWearing>("MaskWearing")
-                    .HasValue<SocialDistancing>("SocialDistancing");
+                .HasDiscriminator<string>("MitigationType")
+                .HasValue<MaskWearing>("MaskWearing")
+                .HasValue<SocialDistancing>("SocialDistancing");
         }
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {

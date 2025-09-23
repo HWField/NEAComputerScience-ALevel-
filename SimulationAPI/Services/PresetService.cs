@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text.Json;
 using MySimulationAPI.Models;
 using MySimulationAPI.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace MySimulationAPI.Services
 {
@@ -23,13 +24,7 @@ namespace MySimulationAPI.Services
 
             // Create preset from fetched data
             return await CreatePresetAsync(name, latitude, longitude, radiusKm,
-                buildings.Select(l => new OSMBuildingPreset
-                {
-                    Name = l.OSMId,
-                    Latitude = l.Latitude,
-                    Longitude = l.Longitude,
-                    Type = l.Type
-                }).ToList(),
+                buildings,
                 paths);
         }
 
@@ -50,6 +45,7 @@ namespace MySimulationAPI.Services
                 preset.Buildings.Add(new OSMBuildingPreset
                 {
                     Name = building.Name ?? "Unknown",
+                    OSMId = building.OSMId,
                     Latitude = building.Latitude,
                     Longitude = building.Longitude,
                     Type = building.Type
@@ -81,5 +77,6 @@ namespace MySimulationAPI.Services
             await _db.SaveChangesAsync();
             return preset;
         }
+
     }
 }

@@ -18,6 +18,7 @@ namespace MySimulationAPI.Models
         // One-way restrictions
         public bool IsOneWay { get; set; } = false;
 
+        public int MapAreaId { get; set; }
         public MapArea MapArea { get; set; } = null!;
     }
 

@@ -68,7 +68,7 @@ out center;
                             "apartments" => "Home",
                             "office" => "Work",
                             "commercial" => "Work",
-                            "retail" => "Shop",
+                            "retail" => "Retail",
                             "industrial" => "Work",
                             "farm" => "Work",
                             "warehouse" => "Work",
@@ -95,7 +95,7 @@ out center;
 
                 double? elementLat = null;
                 double? elementLon = null;
-
+                double? OSMId = null;
                 if (el.TryGetProperty("lat", out var latEl) &&
                     el.TryGetProperty("lon", out var lonEl))
                 {
@@ -109,12 +109,16 @@ out center;
                     elementLat = cLat.GetDouble();
                     elementLon = cLon.GetDouble();
                 }
+                if (el.TryGetProperty("id", out var idEl))
+                {
+                    OSMId = idEl.GetDouble();
+                }
 
-                if (elementLat.HasValue && elementLon.HasValue)
+                if (elementLat.HasValue && elementLon.HasValue && OSMId.HasValue)
                 {
                     locations.Add(new OSMBuildingPreset
                     {
-                        OSMId = el.GetProperty("id").GetRawText(),
+                        OSMId = OSMId.Value.ToString(),
                         Type = type,
                         Latitude = elementLat.Value,
                         Longitude = elementLon.Value
