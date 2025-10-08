@@ -1,29 +1,42 @@
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MySimulationAPI.Models;
+using System.Collections.Concurrent;
 
 namespace MySimulationAPI.Services
 {
     public class OsmService
     {
         private readonly HttpClient _http = new();
+        private static readonly Random _rnd = new();
 
-        private static readonly string[] LeisureAmenities = new[]
+        private static readonly HashSet<string> LeisureAmenities = new()
         {
             "park", "cinema", "theatre", "cafe", "pub", "bar", "sports_centre", "swimming_pool", "library"
         };
 
-        private static readonly string[] MedicalAmenities = new[]
+        private static readonly HashSet<string> MedicalAmenities = new()
         {
             "hospital", "clinic", "doctors", "pharmacy"
         };
 
-        private static readonly Random _rnd = new();
+        private static readonly Dictionary<string, string> BuildingTypeMap = new()
+        {
+            {"residential","Home"},
+            {"house","Home"},
+            {"apartments","Home"},
+            {"office","Work"},
+            {"commercial","Work"},
+            {"retail","Retail"},
+            {"industrial","Work"},
+            {"farm","Work"},
+            {"warehouse","Work"}
+        };
 
         public async Task<List<OSMBuildingPreset>> FetchLocationsAsync(double lat, double lon, double radiusKm)
         {
             double radiusMeters = radiusKm * 1000;
-
             string query = $@"
 [out:json];
 (
@@ -37,102 +50,63 @@ namespace MySimulationAPI.Services
 out center;
 ";
 
-            var response = await _http.GetAsync(
-                "https://overpass-api.de/api/interpreter?data=" + Uri.EscapeDataString(query)
+            using var response = await _http.GetAsync(
+                "https://overpass-api.de/api/interpreter?data=" + Uri.EscapeDataString(query),
+                HttpCompletionOption.ResponseHeadersRead
             );
-
             response.EnsureSuccessStatusCode();
-            string json = await response.Content.ReadAsStringAsync();
 
-            using var doc = JsonDocument.Parse(json);
-            var elements = doc.RootElement.GetProperty("elements");
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            var osmResponse = await JsonSerializer.DeserializeAsync<OverpassResponse>(stream);
 
-            var locations = new List<OSMBuildingPreset>();
-
-            foreach (var el in elements.EnumerateArray())
+            var locations = new ConcurrentBag<OSMBuildingPreset>();
+            if (osmResponse?.Elements == null) return locations.ToList();
+            Console.WriteLine($"Fetched {osmResponse.Elements.Count} location elements from OSM.");
+            Parallel.ForEach(osmResponse.Elements, el =>
             {
                 string type = "Other";
 
-                if (el.TryGetProperty("tags", out var tags))
+                if (el.Tags != null)
                 {
-                    string? building = tags.TryGetProperty("building", out var b) ? b.GetString() : null;
-                    string? amenity = tags.TryGetProperty("amenity", out var a) ? a.GetString() : null;
+                    if (!string.IsNullOrEmpty(el.Tags.Building))
+                        type = BuildingTypeMap.TryGetValue(el.Tags.Building, out var mapped) ? mapped : "Other";
 
-                    // Map building types
-                    if (building != null)
+                    if (!string.IsNullOrEmpty(el.Tags.Amenity))
                     {
-                        type = building switch
-                        {
-                            "residential" => "Home",
-                            "house" => "Home",
-                            "apartments" => "Home",
-                            "office" => "Work",
-                            "commercial" => "Work",
-                            "retail" => "Retail",
-                            "industrial" => "Work",
-                            "farm" => "Work",
-                            "warehouse" => "Work",
-                            _ => "Other" // will handle below
-                        };
-                    }
-
-                    // Map amenity types
-                    if (amenity != null)
-                    {
+                        string amenity = el.Tags.Amenity;
                         if (amenity == "school") type = "School";
-                        else if (amenity == "restaurant" || amenity == "cafe" || amenity == "pub" || amenity == "bar") type = "Leisure";
+                        else if (amenity is "restaurant" or "cafe" or "pub" or "bar")
+                            type = "Leisure";
                         else if (MedicalAmenities.Contains(amenity)) type = "Medical";
                         else if (LeisureAmenities.Contains(amenity)) type = "Leisure";
-                        else if (type == "Other") type = "Work"; // fallback
+                        else if (type == "Other") type = "Work";
                     }
                 }
 
-                // Randomly assign “Other” types as Home or Work if still Other
                 if (type == "Other")
-                {
                     type = _rnd.NextDouble() < 0.8 ? "Home" : "Work";
-                }
 
-                double? elementLat = null;
-                double? elementLon = null;
-                double? OSMId = null;
-                if (el.TryGetProperty("lat", out var latEl) &&
-                    el.TryGetProperty("lon", out var lonEl))
-                {
-                    elementLat = latEl.GetDouble();
-                    elementLon = lonEl.GetDouble();
-                }
-                else if (el.TryGetProperty("center", out var center) &&
-                         center.TryGetProperty("lat", out var cLat) &&
-                         center.TryGetProperty("lon", out var cLon))
-                {
-                    elementLat = cLat.GetDouble();
-                    elementLon = cLon.GetDouble();
-                }
-                if (el.TryGetProperty("id", out var idEl))
-                {
-                    OSMId = idEl.GetDouble();
-                }
+                double? elementLat = el.Lat ?? el.Center?.Lat;
+                double? elementLon = el.Lon ?? el.Center?.Lon;
 
-                if (elementLat.HasValue && elementLon.HasValue && OSMId.HasValue)
+                if (elementLat.HasValue && elementLon.HasValue && el.Id.HasValue)
                 {
                     locations.Add(new OSMBuildingPreset
                     {
-                        OSMId = OSMId.Value.ToString(),
+                        OSMId = el.Id.Value.ToString(),
                         Type = type,
                         Latitude = elementLat.Value,
                         Longitude = elementLon.Value
                     });
                 }
-            }
+            });
 
-            return locations;
+            return locations.ToList();
         }
 
         public async Task<List<OSMPathPreset>> FetchPathsAsync(double lat, double lon, double radiusKm)
         {
             double radiusMeters = radiusKm * 1000;
-
             string query = $@"
 [out:json];
 (
@@ -144,89 +118,60 @@ out center;
 out geom;
 ";
 
-            var response = await _http.GetAsync(
-                "https://overpass-api.de/api/interpreter?data=" + Uri.EscapeDataString(query)
+            using var response = await _http.GetAsync(
+                "https://overpass-api.de/api/interpreter?data=" + Uri.EscapeDataString(query),
+                HttpCompletionOption.ResponseHeadersRead
             );
-
             response.EnsureSuccessStatusCode();
-            string json = await response.Content.ReadAsStringAsync();
 
-            using var doc = JsonDocument.Parse(json);
-            var elements = doc.RootElement.GetProperty("elements");
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            var osmResponse = await JsonSerializer.DeserializeAsync<OverpassResponse>(stream);
 
-            var paths = new List<OSMPathPreset>();
+            var paths = new ConcurrentBag<OSMPathPreset>();
+            if (osmResponse?.Elements == null) return paths.ToList();
 
-            foreach (var el in elements.EnumerateArray())
+            Parallel.ForEach(osmResponse.Elements, el =>
             {
-                if (!el.TryGetProperty("geometry", out var geometry))
-                    continue;
+                if (el.Geometry == null || el.Geometry.Count < 2) return;
 
-                var pathType = "Road";
-                var isOneWay = false;
+                string pathType = "Road";
+                bool isOneWay = false;
 
-                if (el.TryGetProperty("tags", out var tags))
+                if (el.Tags != null)
                 {
-                    // Determine path type
-                    if (tags.TryGetProperty("highway", out var highway))
-                    {
-                        string highwayType = highway.GetString() ?? "unclassified";
-                        pathType = highwayType switch
+                    if (!string.IsNullOrEmpty(el.Tags.Highway))
+                        pathType = el.Tags.Highway switch
                         {
                             "footway" or "path" or "pedestrian" => "Footpath",
                             "cycleway" => "Cycleway",
                             "motorway" or "trunk" or "primary" or "secondary" => "MainRoad",
-                            _ => "Road" // residential, tertiary, service, etc.
+                            _ => "Road"
                         };
-                    }
-                    else if (tags.TryGetProperty("footway", out _))
-                    {
-                        pathType = "Footpath";
-                    }
-                    else if (tags.TryGetProperty("cycleway", out _))
-                    {
-                        pathType = "Cycleway";
-                    }
+                    else if (!string.IsNullOrEmpty(el.Tags.Footway)) pathType = "Footpath";
+                    else if (!string.IsNullOrEmpty(el.Tags.Cycleway)) pathType = "Cycleway";
 
-                    // Check if path is one-way
-                    if (tags.TryGetProperty("oneway", out var oneway))
-                    {
-                        string onewayValue = oneway.GetString() ?? "no";
-                        isOneWay = onewayValue == "yes" || onewayValue == "1" || onewayValue == "true";
-                    }
+                    if (!string.IsNullOrEmpty(el.Tags.Oneway))
+                        isOneWay = el.Tags.Oneway is "yes" or "1" or "true";
                 }
 
-                var nodes = new List<OSMPathNodePreset>();
-
-                foreach (var point in geometry.EnumerateArray())
+                var nodes = el.Geometry.Select(g => new OSMPathNodePreset
                 {
-                    if (point.TryGetProperty("lat", out var nodeLat) &&
-                        point.TryGetProperty("lon", out var nodeLon))
-                    {
-                        nodes.Add(new OSMPathNodePreset
-                        {
-                            Latitude = nodeLat.GetDouble(),
-                            Longitude = nodeLon.GetDouble()
-                        });
-                    }
-                }
+                    Latitude = g.Lat,
+                    Longitude = g.Lon
+                }).ToList();
 
-                if (nodes.Count >= 2) // Only add paths with at least 2 nodes
+                paths.Add(new OSMPathPreset
                 {
-                    paths.Add(new OSMPathPreset
-                    {
-                        OSMId = el.GetProperty("id").GetRawText(),
-                        Type = pathType,
-                        IsOneWay = isOneWay,
-                        Nodes = nodes
-                    });
-                }
-            }
+                    OSMId = el.Id.ToString(),
+                    Type = pathType,
+                    IsOneWay = isOneWay,
+                    Nodes = nodes
+                });
+            });
 
-            return paths;
+            return paths.ToList();
         }
 
-
-        // Combined method to fetch both buildings and paths in one call
         public async Task<(List<OSMBuildingPreset> Buildings, List<OSMPathPreset> Paths)> FetchMapDataAsync(double lat, double lon, double radiusKm)
         {
             var buildingsTask = FetchLocationsAsync(lat, lon, radiusKm);
@@ -236,5 +181,74 @@ out geom;
 
             return (buildingsTask.Result, pathsTask.Result);
         }
+    }
+
+    // ---------------------------
+    // DTOs for deserialization
+    // ---------------------------
+    public class OverpassResponse
+    {
+        [JsonPropertyName("elements")]
+        public List<Element>? Elements { get; set; }
+    }
+
+    public class Element
+    {
+        [JsonPropertyName("id")]
+        public long? Id { get; set; }
+
+        [JsonPropertyName("lat")]
+        public double? Lat { get; set; }
+
+        [JsonPropertyName("lon")]
+        public double? Lon { get; set; }
+
+        [JsonPropertyName("center")]
+        public Center? Center { get; set; }
+
+        [JsonPropertyName("tags")]
+        public Tags? Tags { get; set; }
+
+        [JsonPropertyName("geometry")]
+        public List<GeometryPoint>? Geometry { get; set; }
+    }
+
+    public class Center
+    {
+        [JsonPropertyName("lat")]
+        public double Lat { get; set; }
+
+        [JsonPropertyName("lon")]
+        public double Lon { get; set; }
+    }
+
+    public class Tags
+    {
+        [JsonPropertyName("building")]
+        public string? Building { get; set; }
+
+        [JsonPropertyName("amenity")]
+        public string? Amenity { get; set; }
+
+        [JsonPropertyName("highway")]
+        public string? Highway { get; set; }
+
+        [JsonPropertyName("footway")]
+        public string? Footway { get; set; }
+
+        [JsonPropertyName("cycleway")]
+        public string? Cycleway { get; set; }
+
+        [JsonPropertyName("oneway")]
+        public string? Oneway { get; set; }
+    }
+
+    public class GeometryPoint
+    {
+        [JsonPropertyName("lat")]
+        public double Lat { get; set; }
+
+        [JsonPropertyName("lon")]
+        public double Lon { get; set; }
     }
 }

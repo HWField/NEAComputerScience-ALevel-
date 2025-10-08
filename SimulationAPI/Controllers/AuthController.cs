@@ -55,7 +55,8 @@ namespace MySimulationAPI.Controllers
                 return Unauthorized("Invalid credentials");
 
             // Generate access token
-            var accessToken = GenerateJwt(user, TimeSpan.FromMinutes(5));
+            // var accessToken = GenerateJwt(user, TimeSpan.FromMinutes(5));
+            var accessToken = GenerateJwt(user, TimeSpan.FromHours(99999)); // TEMP: long-lived token for testing
 
             // Generate per-device refresh token
             var refreshToken = Guid.NewGuid().ToString("N");

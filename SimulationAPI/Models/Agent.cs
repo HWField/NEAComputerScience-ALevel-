@@ -9,12 +9,13 @@ namespace MySimulationAPI.Models
     {
         public int Id { get; set; }
         public int SimulationId { get; set; }
-        public Simulation Simulation { get; set; } = null!;
+        public Simulation Simulation { get; set; }
 
-        public string Name { get; set; } = null!;
+        public string Name { get; set; }
 
         public ResidentialBuilding House { get; set; } = null!;
 
+        public Building Workplace { get; set; } = null!;
         public abstract void GenerateRoutine(RoutingService routingService, BuildingService buildingService);
 
         public List<RoutineEvent> RoutineEvents { get; set; } = new();
@@ -73,7 +74,7 @@ namespace MySimulationAPI.Models
 
     public class StudentAgent : Agent
     {
-        public EducationBuilding Workplace { get; set; } = null!;
+        // public EducationBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -171,7 +172,6 @@ namespace MySimulationAPI.Models
 
     public class OfficeWorkerAgent : Agent
     {
-        public OfficeBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -308,7 +308,6 @@ namespace MySimulationAPI.Models
 
     public class MedicalWorkerAgent : Agent
     {
-        public MedicalBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -382,7 +381,6 @@ namespace MySimulationAPI.Models
 
     public class RetailWorkerAgent : Agent
     {
-        public RetailBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -564,7 +562,6 @@ namespace MySimulationAPI.Models
 
     public class ServiceWorkerAgent : Agent
     {
-        public Building ServiceLocation { get; set; } = null!; // restaurant, hotel, etc.
         private static readonly Random _rnd = new();
 
         public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -598,7 +595,7 @@ namespace MySimulationAPI.Models
                     }
 
                     var (workPath, workTravelTime) = routingService.ComputeRoute(
-                        mapId, House.Latitude, House.Longitude, ServiceLocation.Latitude, ServiceLocation.Longitude);
+                        mapId, House.Latitude, House.Longitude, Workplace.Latitude, Workplace.Longitude);
 
                     var workEvent = new RoutineEvent
                     {
@@ -606,7 +603,7 @@ namespace MySimulationAPI.Models
                         StartTime = workStart,
                         Duration = workDuration,
                         EventType = RoutineEventType.Work,
-                        Building = ServiceLocation,
+                        Building = Workplace,
                         CachedTravelDuration = workTravelTime,
                         CachedPath = workPath
                     };

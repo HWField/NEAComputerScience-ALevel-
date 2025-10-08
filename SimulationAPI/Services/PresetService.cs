@@ -39,7 +39,6 @@ namespace MySimulationAPI.Services
                 Buildings = new List<OSMBuildingPreset>(),
                 Paths = new List<OSMPathPreset>()
             };
-
             foreach (var building in buildings)
             {
                 preset.Buildings.Add(new OSMBuildingPreset

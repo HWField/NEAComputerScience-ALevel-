@@ -16,7 +16,7 @@ namespace MySimulationAPI.Models
         public List<Agent> Agents { get; set; } = new();
 
 
-        public Disease Disease { get; set; } = null!;
+        public List<Disease> Diseases { get; set; } = null!;
 
         public List<Mitigation> Mitigations { get; set; } = new();
     }

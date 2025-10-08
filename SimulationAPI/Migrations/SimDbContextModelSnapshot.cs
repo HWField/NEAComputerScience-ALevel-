@@ -58,6 +58,9 @@ namespace SimulationAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("WorkplaceId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("HouseId");
@@ -65,6 +68,8 @@ namespace SimulationAPI.Migrations
                     b.HasIndex("MedicalProfileId");
 
                     b.HasIndex("SimulationId");
+
+                    b.HasIndex("WorkplaceId");
 
                     b.ToTable("Agents");
 
@@ -137,7 +142,12 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("RecoveryRate")
                         .HasColumnType("double precision");
 
+                    b.Property<int?>("SimulationId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("SimulationId");
 
                     b.ToTable("Diseases");
                 });
@@ -467,9 +477,6 @@ namespace SimulationAPI.Migrations
                     b.Property<long>("CurrentTick")
                         .HasColumnType("bigint");
 
-                    b.Property<int>("DiseaseId")
-                        .HasColumnType("integer");
-
                     b.Property<int>("MapAreaId")
                         .HasColumnType("integer");
 
@@ -488,8 +495,6 @@ namespace SimulationAPI.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DiseaseId");
 
                     b.HasIndex("MapAreaId");
 
@@ -574,28 +579,12 @@ namespace SimulationAPI.Migrations
                 {
                     b.HasBaseType("MySimulationAPI.Models.Agent");
 
-                    b.Property<int>("WorkplaceId")
-                        .HasColumnType("integer");
-
-                    b.HasIndex("WorkplaceId");
-
                     b.HasDiscriminator().HasValue("MedicalWorker");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.OfficeWorkerAgent", b =>
                 {
                     b.HasBaseType("MySimulationAPI.Models.Agent");
-
-                    b.Property<int>("WorkplaceId")
-                        .HasColumnType("integer");
-
-                    b.HasIndex("WorkplaceId");
-
-                    b.ToTable("Agents", t =>
-                        {
-                            t.Property("WorkplaceId")
-                                .HasColumnName("OfficeWorkerAgent_WorkplaceId");
-                        });
 
                     b.HasDiscriminator().HasValue("OfficeWorker");
                 });
@@ -604,17 +593,6 @@ namespace SimulationAPI.Migrations
                 {
                     b.HasBaseType("MySimulationAPI.Models.Agent");
 
-                    b.Property<int>("WorkplaceId")
-                        .HasColumnType("integer");
-
-                    b.HasIndex("WorkplaceId");
-
-                    b.ToTable("Agents", t =>
-                        {
-                            t.Property("WorkplaceId")
-                                .HasColumnName("RetailWorkerAgent_WorkplaceId");
-                        });
-
                     b.HasDiscriminator().HasValue("RetailWorker");
                 });
 
@@ -622,28 +600,12 @@ namespace SimulationAPI.Migrations
                 {
                     b.HasBaseType("MySimulationAPI.Models.Agent");
 
-                    b.Property<int>("ServiceLocationId")
-                        .HasColumnType("integer");
-
-                    b.HasIndex("ServiceLocationId");
-
                     b.HasDiscriminator().HasValue("ServiceWorker");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.StudentAgent", b =>
                 {
                     b.HasBaseType("MySimulationAPI.Models.Agent");
-
-                    b.Property<int>("WorkplaceId")
-                        .HasColumnType("integer");
-
-                    b.HasIndex("WorkplaceId");
-
-                    b.ToTable("Agents", t =>
-                        {
-                            t.Property("WorkplaceId")
-                                .HasColumnName("StudentAgent_WorkplaceId");
-                        });
 
                     b.HasDiscriminator().HasValue("Student");
                 });
@@ -656,6 +618,13 @@ namespace SimulationAPI.Migrations
                         .HasColumnType("integer");
 
                     b.HasDiscriminator().HasValue("Education");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.LeisureBuilding", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Building");
+
+                    b.HasDiscriminator().HasValue("Leisure");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.MedicalBuilding", b =>
@@ -735,11 +704,19 @@ namespace SimulationAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MySimulationAPI.Models.Building", "Workplace")
+                        .WithMany()
+                        .HasForeignKey("WorkplaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("House");
 
                     b.Navigation("MedicalProfile");
 
                     b.Navigation("Simulation");
+
+                    b.Navigation("Workplace");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Building", b =>
@@ -751,6 +728,13 @@ namespace SimulationAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("MapArea");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.Disease", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Simulation", null)
+                        .WithMany("Diseases")
+                        .HasForeignKey("SimulationId");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Mitigation", b =>
@@ -836,12 +820,6 @@ namespace SimulationAPI.Migrations
 
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Disease", "Disease")
-                        .WithMany()
-                        .HasForeignKey("DiseaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("MySimulationAPI.Models.MapArea", "MapArea")
                         .WithMany()
                         .HasForeignKey("MapAreaId")
@@ -853,8 +831,6 @@ namespace SimulationAPI.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Disease");
 
                     b.Navigation("MapArea");
 
@@ -874,61 +850,6 @@ namespace SimulationAPI.Migrations
                         .HasForeignKey("NodesId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("MySimulationAPI.Models.MedicalWorkerAgent", b =>
-                {
-                    b.HasOne("MySimulationAPI.Models.MedicalBuilding", "Workplace")
-                        .WithMany()
-                        .HasForeignKey("WorkplaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Workplace");
-                });
-
-            modelBuilder.Entity("MySimulationAPI.Models.OfficeWorkerAgent", b =>
-                {
-                    b.HasOne("MySimulationAPI.Models.OfficeBuilding", "Workplace")
-                        .WithMany()
-                        .HasForeignKey("WorkplaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Workplace");
-                });
-
-            modelBuilder.Entity("MySimulationAPI.Models.RetailWorkerAgent", b =>
-                {
-                    b.HasOne("MySimulationAPI.Models.RetailBuilding", "Workplace")
-                        .WithMany()
-                        .HasForeignKey("WorkplaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Workplace");
-                });
-
-            modelBuilder.Entity("MySimulationAPI.Models.ServiceWorkerAgent", b =>
-                {
-                    b.HasOne("MySimulationAPI.Models.Building", "ServiceLocation")
-                        .WithMany()
-                        .HasForeignKey("ServiceLocationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ServiceLocation");
-                });
-
-            modelBuilder.Entity("MySimulationAPI.Models.StudentAgent", b =>
-                {
-                    b.HasOne("MySimulationAPI.Models.EducationBuilding", "Workplace")
-                        .WithMany()
-                        .HasForeignKey("WorkplaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Workplace");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Agent", b =>
@@ -958,6 +879,8 @@ namespace SimulationAPI.Migrations
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
                 {
                     b.Navigation("Agents");
+
+                    b.Navigation("Diseases");
 
                     b.Navigation("Mitigations");
                 });

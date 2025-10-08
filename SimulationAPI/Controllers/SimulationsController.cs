@@ -41,7 +41,6 @@ namespace MySimulationAPI.Controllers
             {
                 Simulation createdSimulation;
 
-                Console.WriteLine(dto);
                 if (dto.PresetId.HasValue)
                 {
                     var exists = await _db.MapAreaPresets
@@ -53,6 +52,7 @@ namespace MySimulationAPI.Controllers
                 }
                 else
                 {
+                    Console.WriteLine("Creating new preset from OSM data");
                     // Create new preset from OSM data
                     if (string.IsNullOrEmpty(dto.PresetName) ||
                         !dto.Latitude.HasValue ||
@@ -67,6 +67,8 @@ namespace MySimulationAPI.Controllers
                         dto.Latitude.Value,
                         dto.Longitude.Value,
                         dto.RadiusKm.Value);
+
+                    Console.WriteLine($"Created preset {preset.Id} - {preset.Name}");
 
                     createdSimulation = await _simulationSetup.CreateSimulation(dto.SimulationName, preset.Id, dto.AgentCount, GetUserId());
                 }

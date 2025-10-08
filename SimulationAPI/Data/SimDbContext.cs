@@ -56,7 +56,8 @@ namespace MySimulationAPI.Data
                 .HasValue<OfficeBuilding>("Office")
                 .HasValue<EducationBuilding>("Education")
                 .HasValue<MedicalBuilding>("Medical")
-                .HasValue<RetailBuilding>("Retail");
+                .HasValue<RetailBuilding>("Retail")
+                .HasValue<LeisureBuilding>("Leisure");
             modelBuilder.Entity<Mitigation>()
                 .HasDiscriminator<string>("MitigationType")
                 .HasValue<MaskWearing>("MaskWearing")

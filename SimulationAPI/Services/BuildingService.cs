@@ -151,42 +151,87 @@ namespace MySimulationAPI.Services
         }
 
         public static void AssignWorkplaces(
-            List<Agent> agents,
-            List<Building> buildings,
-            double beta,
-            int shortlistSize,
-            int spilloverIncrement,
-            Random rng)
+    List<Agent> agents,
+    List<Building> buildings,
+    double beta,
+    int shortlistSize,
+    int spilloverIncrement,
+    Random rng)
         {
+            // Reset building capacities
             foreach (var b in buildings) b.RemainingCapacity = b.Capacity;
 
-            // Build KD-trees by concrete building type
-            var kdTrees = buildings
-                .GroupBy(b => b.GetType())
-                .ToDictionary(
-                    g => g.Key,
-                    g => new KDTree<Building>(g.Select(b => (b.Latitude, b.Longitude, b)))
-                );
+            // Dictionary to track and prevent duplicate workplace IDs
+            var assignedWorkplaces = new Dictionary<Agent, int>();
 
-            Parallel.ForEach(agents, agent =>
+            // Build KD-trees by building type (not by workplace property type)
+            var buildingTypeToKdTree = new Dictionary<Type, KDTree<Building>>();
+
+            var residentialBuildings = buildings.OfType<ResidentialBuilding>().ToList();
+            var officeBuildings = buildings.OfType<OfficeBuilding>().ToList();
+            var educationBuildings = buildings.OfType<EducationBuilding>().ToList();
+            var medicalBuildings = buildings.OfType<MedicalBuilding>().ToList();
+            var retailBuildings = buildings.OfType<RetailBuilding>().ToList();
+            var leisureBuildings = buildings.OfType<LeisureBuilding>().ToList();
+
+            if (officeBuildings.Any())
+                buildingTypeToKdTree[typeof(OfficeBuilding)] =
+                    new KDTree<Building>(officeBuildings.Select(b => (b.Latitude, b.Longitude, (Building)b)));
+
+            if (educationBuildings.Any())
+                buildingTypeToKdTree[typeof(EducationBuilding)] =
+                    new KDTree<Building>(educationBuildings.Select(b => (b.Latitude, b.Longitude, (Building)b)));
+
+            if (medicalBuildings.Any())
+                buildingTypeToKdTree[typeof(MedicalBuilding)] =
+                    new KDTree<Building>(medicalBuildings.Select(b => (b.Latitude, b.Longitude, (Building)b)));
+
+            if (retailBuildings.Any())
+                buildingTypeToKdTree[typeof(RetailBuilding)] =
+                    new KDTree<Building>(retailBuildings.Select(b => (b.Latitude, b.Longitude, (Building)b)));
+
+            if (leisureBuildings.Any())
+                buildingTypeToKdTree[typeof(LeisureBuilding)] =
+                    new KDTree<Building>(leisureBuildings.Select(b => (b.Latitude, b.Longitude, (Building)b)));
+
+            // Process sequentially to avoid race conditions
+            foreach (var agent in agents)
             {
-                var workplaceProp = agent.GetType().GetProperty("Workplace");
-                if (workplaceProp == null) return;
+                // Skip retired agents
+                if (agent is ElderlyRetiredAgent) continue;
 
-                Type targetType = workplaceProp.PropertyType;
-                if (!kdTrees.TryGetValue(targetType, out var tree)) return;
+                // Match agent type to building type
+                Type buildingType = agent switch
+                {
+                    StudentAgent => typeof(EducationBuilding),
+                    MedicalWorkerAgent => typeof(MedicalBuilding),
+                    RetailWorkerAgent => typeof(RetailBuilding),
+                    ServiceWorkerAgent => typeof(LeisureBuilding),
+                    _ => typeof(OfficeBuilding) // Default for office workers and others
+                };
+
+                // If no buildings of this type, skip
+                if (!buildingTypeToKdTree.TryGetValue(buildingType, out var tree))
+                    continue;
+
+                if (agent.House == null) continue; // Skip if no home assigned
 
                 int k = shortlistSize;
-                while (workplaceProp.GetValue(agent) == null && k <= buildings.Count)
+                bool assigned = false;
+
+                // Keep expanding search until workplace found or no more options
+                while (!assigned && k <= buildings.Count)
                 {
                     var shortlist = tree.KNearest(agent.House.Latitude, agent.House.Longitude, k);
 
-                    // Compute weights
+                    // Compute weights based on distance and capacity
                     var weights = new List<double>();
                     double totalW = 0;
+
                     foreach (var b in shortlist)
                     {
-                        double dist = GeoUtils.Distance(agent.House.Latitude, agent.House.Longitude, b.Latitude, b.Longitude);
+                        double dist = GeoUtils.Distance(agent.House.Latitude, agent.House.Longitude,
+                                                       b.Latitude, b.Longitude);
                         double w = (b.RemainingCapacity + 1) / Math.Pow(dist + 1, beta);
                         weights.Add(w);
                         totalW += w;
@@ -198,36 +243,32 @@ namespace MySimulationAPI.Services
                         continue;
                     }
 
-                    // Sample
+                    // Sample from weighted distribution
                     double r = rng.NextDouble() * totalW;
                     double cum = 0;
+
                     for (int i = 0; i < shortlist.Count; i++)
                     {
                         cum += weights[i];
                         if (r <= cum)
                         {
                             var chosen = shortlist[i];
-                            lock (chosen)
+
+                            if (chosen.RemainingCapacity > 0)
                             {
-                                if (chosen.RemainingCapacity > 0)
-                                {
-                                    chosen.RemainingCapacity--;
-                                    // Dynamically set agent.Workplace with the correct typed building
-                                    workplaceProp.SetValue(agent, chosen);
-                                }
+                                chosen.RemainingCapacity--;
+                                agent.Workplace = chosen;
+                                assigned = true;
                             }
                             break;
                         }
                     }
 
-                    if (workplaceProp.GetValue(agent) == null)
-                    {
-                        k += spilloverIncrement; // keep expanding if all chosen full
-                    }
+                    if (!assigned)
+                        k += spilloverIncrement; // Expand search radius
                 }
-            });
+            }
         }
-
     }
 
     public enum BuildingType

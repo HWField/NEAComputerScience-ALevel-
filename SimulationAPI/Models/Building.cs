@@ -3,7 +3,7 @@ namespace MySimulationAPI.Models
     public abstract class Building
     {
         public int Id { get; set; }
-        public string Name { get; set; } = null!;
+        public string Name { get; set; }
         public double Latitude { get; set; }
         public double Longitude { get; set; }
         public int Capacity { get; set; }
@@ -12,7 +12,7 @@ namespace MySimulationAPI.Models
         // All buildings belong to a MapArea
 
         public int MapAreaId { get; set; }
-        public MapArea MapArea { get; set; } = null!;
+        public MapArea? MapArea { get; set; }
     }
 
     public class ResidentialBuilding : Building
@@ -44,7 +44,7 @@ namespace MySimulationAPI.Models
 
     public class LeisureBuilding : Building
     {
-        public bool HasFood { get; set; }
+
     }
 
 }
