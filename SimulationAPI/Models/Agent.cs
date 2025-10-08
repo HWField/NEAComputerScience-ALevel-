@@ -13,16 +13,22 @@ namespace MySimulationAPI.Models
 
         public string Name { get; set; }
 
-        public ResidentialBuilding House { get; set; } = null!;
+        public int? HouseId { get; set; }
+        public ResidentialBuilding? House { get; set; }
 
-        public Building Workplace { get; set; } = null!;
+
+        public int? WorkplaceId { get; set; }
+        public Building? Workplace { get; set; }
         public abstract void GenerateRoutine(RoutingService routingService, BuildingService buildingService);
 
         public List<RoutineEvent> RoutineEvents { get; set; } = new();
 
         public string Status { get; set; } = "Healthy";
 
-        public MedicalProfile MedicalProfile { get; set; } = null!;
+
+        // One-to-one relationship with MedicalProfile
+        [InverseProperty("Agent")]
+        public virtual MedicalProfile MedicalProfile { get; set; } = null!;
 
         // Current absolute position
         public double CurrentLat { get; set; }

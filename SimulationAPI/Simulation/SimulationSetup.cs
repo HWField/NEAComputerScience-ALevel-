@@ -18,14 +18,14 @@ namespace MySimulationAPI.SimulationEngine
         }
         public async Task<Simulation> CreateSimulation(string simulationName, int presetId, int agentCount, int userId)
         {
-            // 1. Load just the MapAreaPreset metadata
+            // Load just the MapAreaPreset metadata
             var preset = await _db.MapAreaPresets
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == presetId);
 
             if (preset == null) throw new Exception("Preset not found");
 
-            // 2. Create a new MapArea 
+            // Create a new MapArea 
             var mapArea = new MapArea
             {
                 Name = $"{simulationName} - {preset.Name}-{Guid.NewGuid()}",
@@ -38,14 +38,14 @@ namespace MySimulationAPI.SimulationEngine
             _db.MapAreas.Add(mapArea);
             await _db.SaveChangesAsync();
 
-            // 3. Load Buildings separately
+            // Load Buildings separately
             var buildingPresets = await _db.OSMBuildingPresets
                 .AsNoTracking()
                 .Where(b => b.MapAreaPresetId == presetId)
                 .ToListAsync();
-            // Transform into real Buildings
+            // Transform into 'real' Buildings
             var newBuildings = new List<Building>(buildingPresets.Count);
-
+            int numHousing = buildingPresets.Count(bp => bp.Type == "Home");
             foreach (var b in buildingPresets)
             {
                 Building building = b.Type switch
@@ -62,8 +62,21 @@ namespace MySimulationAPI.SimulationEngine
                 building.Name = b.Name;
                 building.Latitude = b.Latitude;
                 building.Longitude = b.Longitude;
-                building.Capacity = b.Capacity ?? 0;
-                building.RemainingCapacity = b.Capacity ?? 0;
+                building.Capacity = 4; // FOR NOW ASSUME CAPACITY OF FOUR BUT NEEDS CHANGING
+                // building.Capacity = b.Capacity ?? 4;
+                // Calculate number of residential buildings (housing)
+
+                // if (b.Type == "Home" && numHousing > 0)
+                // {
+                //     // Distribute agents evenly across housing buildings, can be made more complex in future
+                //     building.Capacity = agentCount / numHousing;
+                //     building.RemainingCapacity = building.Capacity;
+                // }
+                // else
+                // {
+                //     building.RemainingCapacity = b.Capacity ?? 0;
+                // }
+
                 building.MapAreaId = mapArea.Id;
 
                 switch (building)
@@ -88,11 +101,9 @@ namespace MySimulationAPI.SimulationEngine
                 newBuildings.Add(building);
             }
             Console.WriteLine($"Loaded {newBuildings.Count} building presets for presetId {presetId}");
-            // Bulk insert all buildings in one go
-            // await _db.BulkInsertAsync(newBuildings);
             try
             {
-                // Group buildings by their concrete type
+                // Group buildings by their implemented type
                 var residentialBuildings = newBuildings.OfType<ResidentialBuilding>().ToList();
                 var officeBuildings = newBuildings.OfType<OfficeBuilding>().ToList();
                 var educationBuildings = newBuildings.OfType<EducationBuilding>().ToList();
@@ -219,6 +230,8 @@ namespace MySimulationAPI.SimulationEngine
             _db.Simulations.Add(sim);
             await _db.SaveChangesAsync();
             Console.WriteLine($"Created simulation {sim.Name} with ID {sim.Id}");
+
+
             // 6. Generate Agents
             var agents = new List<Agent>(agentCount);
             for (int i = 0; i < agentCount; i++)
@@ -227,12 +240,6 @@ namespace MySimulationAPI.SimulationEngine
             }
             Console.WriteLine($"Generated {agents.Count} agents for simulation {sim.Id}");
 
-            // await _db.BulkInsertAsync(agents);
-            // 7. Assign housing & jobs (in-memory assignment, then bulk update agents)
-            BuildingService.AssignHousing(agents, newBuildings.OfType<ResidentialBuilding>().ToList(), _rng);
-            Console.WriteLine("Assigned housing to agents");
-            BuildingService.AssignWorkplaces(agents, newBuildings.ToList(), 2, 20, 5, _rng);
-            Console.WriteLine("Assigned workplaces to agents");
 
             // Group agents by their concrete type
             var studentAgents = agents.OfType<StudentAgent>().ToList();
@@ -244,31 +251,29 @@ namespace MySimulationAPI.SimulationEngine
 
 
             foreach (var agent in agents.OfType<StudentAgent>())
-                _db.Entry(agent).Property("AgentType").CurrentValue = "Residential";
+                _db.Entry(agent).Property("AgentType").CurrentValue = "Student";
 
             foreach (var agent in agents.OfType<OfficeWorkerAgent>())
-                _db.Entry(agent).Property("AgentType").CurrentValue = "Office";
+                _db.Entry(agent).Property("AgentType").CurrentValue = "OfficeWorker";
 
             foreach (var agent in agents.OfType<MedicalWorkerAgent>())
-                _db.Entry(agent).Property("AgentType").CurrentValue = "Education";
+                _db.Entry(agent).Property("AgentType").CurrentValue = "MedicalWorker";
 
             foreach (var agent in agents.OfType<RetailWorkerAgent>())
-                _db.Entry(agent).Property("AgentType").CurrentValue = "Medical";
+                _db.Entry(agent).Property("AgentType").CurrentValue = "RetailWorker";
 
             foreach (var agent in agents.OfType<ElderlyRetiredAgent>())
-                _db.Entry(agent).Property("AgentType").CurrentValue = "Retail";
+                _db.Entry(agent).Property("AgentType").CurrentValue = "ElderlyRetired";
 
             foreach (var agent in agents.OfType<ServiceWorkerAgent>())
-                _db.Entry(agent).Property("AgentType").CurrentValue = "Leisure";
+                _db.Entry(agent).Property("AgentType").CurrentValue = "ServiceWorker";
 
             // Create a bulk config without trying to include shadow properties
             var agentBulkConfig = new BulkConfig
             {
-                // Let EF Core handle the discriminator automatically
-                PreserveInsertOrder = true
+                PreserveInsertOrder = true, // to keep order (no longer needed)
             };
 
-            // Insert each agent type separately
             Console.WriteLine($"Inserting {studentAgents.Count} student agents...");
             if (studentAgents.Any())
             {
@@ -304,7 +309,69 @@ namespace MySimulationAPI.SimulationEngine
             {
                 await _db.BulkInsertAsync(serviceWorkerAgents, agentBulkConfig);
             }
-            // await _db.BulkUpdateAsync(agents);
+
+            // Then fetch agents back with their IDs
+            var savedAgents = await _db.Agents
+                .Where(a => a.SimulationId == sim.Id)
+                .ToListAsync();
+            Console.WriteLine($"Retrieved {savedAgents.Count} agents from database with IDs");
+
+
+            // create and insert medical profiles
+            var medicalProfiles = new List<MedicalProfile>(agents.Count);
+            foreach (var agent in savedAgents)
+            {
+                var profile = CreateRandomMedicalProfile(agent);
+                profile.AgentId = agent.Id; // Set FK explicitly
+                medicalProfiles.Add(profile);
+            }
+
+            // Bulk insert medical profiles
+            var profileBulkConfig = new BulkConfig { PreserveInsertOrder = true };
+            try
+            {
+                Console.WriteLine($"Inserting {medicalProfiles.Count} medical profiles...");
+                await _db.BulkInsertAsync(medicalProfiles, profileBulkConfig);
+                Console.WriteLine("All medical profiles inserted successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error inserting medical profiles: {ex.Message}");
+                throw;
+            }
+
+
+            // Fetch the saved buildings with their real IDs
+            var residentialBuildingsForAssignment = await _db.Buildings
+                .OfType<ResidentialBuilding>()
+                .Where(b => b.MapAreaId == mapArea.Id)
+                .ToListAsync();
+
+            var allBuildingsForWorkplace = await _db.Buildings
+                .Where(b => b.MapAreaId == mapArea.Id)
+                .ToListAsync();
+
+            BuildingService.AssignHousing(savedAgents, residentialBuildingsForAssignment, _rng);
+            Console.WriteLine("Assigned housing to agents");
+            BuildingService.AssignWorkplaces(savedAgents, allBuildingsForWorkplace, 2, 20, 5, _rng);
+            Console.WriteLine("Assigned workplaces to agents");
+
+
+            // Set the FK IDs explicitly
+            foreach (var agent in savedAgents)
+            {
+                agent.HouseId = agent.House?.Id;
+                agent.WorkplaceId = agent.Workplace?.Id;
+            }
+
+            // Update only the foreign key properties
+            var bulkUpdateConfig = new BulkConfig
+            {
+                PropertiesToInclude = new List<string> { "HouseId", "WorkplaceId" },
+                UpdateByProperties = new List<string> { "Id" }
+            };
+
+            await _db.BulkUpdateAsync(savedAgents, bulkUpdateConfig);
 
             return sim;
         }
@@ -330,6 +397,62 @@ namespace MySimulationAPI.SimulationEngine
             agent.SimulationId = sim.Id;
 
             return agent;
+        }
+
+        private MedicalProfile CreateRandomMedicalProfile(Agent agent)
+        {
+            // Randomize medical traits based on agent type
+            double baseImmunity = 0.7; // Base immunity level (70%)
+            double chronicConditionChance = 0.1; // 10% chance for chronic condition
+            double baseSusceptibility = 0.3; // Base susceptibility (30%)
+
+            // Adjust parameters based on agent type
+            if (agent is ElderlyRetiredAgent)
+            {
+                baseImmunity = 0.5; // Elderly have lower immunity
+                chronicConditionChance = 0.4; // Higher chance of chronic conditions
+                baseSusceptibility = 0.6; // More susceptible to infections
+            }
+            else if (agent is StudentAgent)
+            {
+                baseImmunity = 0.8; // Students have higher immunity
+                chronicConditionChance = 0.05; // Lower chance of chronic conditions
+            }
+            else if (agent is MedicalWorkerAgent)
+            {
+                baseImmunity = 0.75; // Medical workers have slightly higher immunity
+                baseSusceptibility = 0.4; // But higher exposure risk
+            }
+
+            // Add some randomness
+            double immunityVariation = 0.2; // +/- 20% variation
+            double susceptibilityVariation = 0.2; // +/- 20% variation
+
+            // Calculate final values with randomness
+            double finalImmunity = Math.Clamp(
+                baseImmunity + (_rng.NextDouble() * immunityVariation * 2 - immunityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            bool hasChronicCondition = _rng.NextDouble() < chronicConditionChance;
+
+            double finalSusceptibility = Math.Clamp(
+                baseSusceptibility + (_rng.NextDouble() * susceptibilityVariation * 2 - susceptibilityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            // Increase susceptibility if they have a chronic condition
+            if (hasChronicCondition)
+            {
+                finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% increase, capped at 100%
+            }
+
+            // Create and return the medical profile
+            return new MedicalProfile
+            {
+                Agent = agent,
+                Immunity = finalImmunity,
+                HasChronicCondition = hasChronicCondition,
+                InfectionSusceptibility = finalSusceptibility
+            };
         }
         private string GenerateRandomName()
         {

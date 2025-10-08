@@ -41,10 +41,7 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("CurrentLon")
                         .HasColumnType("double precision");
 
-                    b.Property<int>("HouseId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("MedicalProfileId")
+                    b.Property<int?>("HouseId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Name")
@@ -58,14 +55,12 @@ namespace SimulationAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("WorkplaceId")
+                    b.Property<int?>("WorkplaceId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("HouseId");
-
-                    b.HasIndex("MedicalProfileId");
 
                     b.HasIndex("SimulationId");
 
@@ -215,6 +210,9 @@ namespace SimulationAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("AgentId")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("HasChronicCondition")
                         .HasColumnType("boolean");
 
@@ -225,6 +223,9 @@ namespace SimulationAPI.Migrations
                         .HasColumnType("double precision");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AgentId")
+                        .IsUnique();
 
                     b.ToTable("MedicalProfiles");
                 });
@@ -688,15 +689,7 @@ namespace SimulationAPI.Migrations
                 {
                     b.HasOne("MySimulationAPI.Models.ResidentialBuilding", "House")
                         .WithMany("Residents")
-                        .HasForeignKey("HouseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MySimulationAPI.Models.MedicalProfile", "MedicalProfile")
-                        .WithMany()
-                        .HasForeignKey("MedicalProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("HouseId");
 
                     b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
                         .WithMany("Agents")
@@ -706,13 +699,9 @@ namespace SimulationAPI.Migrations
 
                     b.HasOne("MySimulationAPI.Models.Building", "Workplace")
                         .WithMany()
-                        .HasForeignKey("WorkplaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("WorkplaceId");
 
                     b.Navigation("House");
-
-                    b.Navigation("MedicalProfile");
 
                     b.Navigation("Simulation");
 
@@ -735,6 +724,17 @@ namespace SimulationAPI.Migrations
                     b.HasOne("MySimulationAPI.Models.Simulation", null)
                         .WithMany("Diseases")
                         .HasForeignKey("SimulationId");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MedicalProfile", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Agent", "Agent")
+                        .WithOne("MedicalProfile")
+                        .HasForeignKey("MySimulationAPI.Models.MedicalProfile", "AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Mitigation", b =>
@@ -854,6 +854,9 @@ namespace SimulationAPI.Migrations
 
             modelBuilder.Entity("MySimulationAPI.Models.Agent", b =>
                 {
+                    b.Navigation("MedicalProfile")
+                        .IsRequired();
+
                     b.Navigation("RoutineEvents");
                 });
 

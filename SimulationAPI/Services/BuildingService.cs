@@ -120,6 +120,7 @@ namespace MySimulationAPI.Services
 
         public static void AssignHousing(List<Agent> agents, List<ResidentialBuilding> houses, Random rng)
         {
+            Console.WriteLine($"Assigning housing to {agents.Count} agents across {houses.Count} houses");
             foreach (var h in houses) h.RemainingCapacity = h.Capacity;
 
             var cumulative = new List<(ResidentialBuilding house, int cumulative)>();
@@ -129,7 +130,7 @@ namespace MySimulationAPI.Services
                 totalCap += h.Capacity;
                 cumulative.Add((h, totalCap));
             }
-
+            Console.WriteLine($"Total housing capacity: {totalCap}");
             foreach (var agent in agents)
             {
                 while (true)

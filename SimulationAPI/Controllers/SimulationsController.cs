@@ -76,10 +76,10 @@ namespace MySimulationAPI.Controllers
                 return Ok(new
                 {
                     Message = "Simulation created successfully",
-                    Preset = new
-                    {
-                        createdSimulation
-                    }
+                    // Preset = new
+                    // {
+                    //     createdSimulation
+                    // }
                 });
             }
             catch (Exception ex)

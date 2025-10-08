@@ -49,6 +49,11 @@ namespace MySimulationAPI.Data
                 .HasForeignKey(e => e.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Configure one-to-one relationship between Agent and MedicalProfile
+            modelBuilder.Entity<Agent>()
+                .HasOne(a => a.MedicalProfile)
+                .WithOne(m => m.Agent)
+                .HasForeignKey<MedicalProfile>(m => m.AgentId);
 
             modelBuilder.Entity<Building>()
                 .HasDiscriminator<string>("BuildingType")
