@@ -9,12 +9,14 @@ namespace MySimulationAPI.SimulationEngine
     {
         private readonly SimDbContext _db;
         private readonly BuildingService _buildingService;
+        private readonly RoutingService _routingService;
         private readonly Random _rng = new Random();
 
-        public SimulationSetup(SimDbContext db, BuildingService buildingService)
+        public SimulationSetup(SimDbContext db, BuildingService buildingService, RoutingService routingService)
         {
             _db = db;
             _buildingService = buildingService;
+            _routingService = routingService;
         }
         public async Task<Simulation> CreateSimulation(string simulationName, int presetId, int agentCount, int userId)
         {
@@ -351,6 +353,9 @@ namespace MySimulationAPI.SimulationEngine
                 .Where(b => b.MapAreaId == mapArea.Id)
                 .ToListAsync();
 
+
+            // Assign housing and workplaces
+
             BuildingService.AssignHousing(savedAgents, residentialBuildingsForAssignment, _rng);
             Console.WriteLine("Assigned housing to agents");
             BuildingService.AssignWorkplaces(savedAgents, allBuildingsForWorkplace, 2, 20, 5, _rng);
@@ -372,6 +377,43 @@ namespace MySimulationAPI.SimulationEngine
             };
 
             await _db.BulkUpdateAsync(savedAgents, bulkUpdateConfig);
+
+
+            Console.WriteLine("Generating agent routines...");
+            // Generate routines for all agents
+            foreach (var agent in savedAgents)
+            {
+                {
+                    try
+                    {
+                        // Generate routine events
+                        agent.GenerateRoutine(_routingService, _buildingService);
+                        foreach (var routineEvent in agent.RoutineEvents)
+                        {
+                            routineEvent.AgentId = agent.Id;
+                            routineEvent.BuildingId = routineEvent.Building.Id;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error generating routine for agent {agent.Id}: {ex.Message}");
+                    }
+                }
+            }
+            // Save all routine events to the database
+            var routineEvents = savedAgents.SelectMany(a => a.RoutineEvents).ToList();
+            Console.WriteLine($"Generatedr outine events for {savedAgents.Count} agents");
+
+            // Set up bulk config for routine events
+            var routineEventConfig = new BulkConfig
+            {
+                PreserveInsertOrder = true,
+                SetOutputIdentity = true
+            };
+
+            // Bulk insert routine events
+            await _db.BulkInsertAsync(routineEvents, routineEventConfig);
+            Console.WriteLine($"Saved {routineEvents.Count} routine events to database");
 
             return sim;
         }

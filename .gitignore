@@ -47,3 +47,6 @@ appsettings.Local.json
 # Temporary files
 *.tmp
 *.temp
+
+# Notes
+*.txt

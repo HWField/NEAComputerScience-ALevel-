@@ -6,7 +6,9 @@ namespace MySimulationAPI.Models
     public class RoutineEvent
     {
         public int Id { get; set; }
+        // Add this explicit foreign key property
         public int AgentId { get; set; }
+        [ForeignKey("AgentId")]
         public Agent Agent { get; set; } = null!;
         /// <summary>
         /// The tick when the event should nominally start.
@@ -22,6 +24,8 @@ namespace MySimulationAPI.Models
         /// <summary>
         /// Target building for the activity.
         /// </summary>
+        public int BuildingId { get; set; }
+        [ForeignKey("BuildingId")]
         public Building Building { get; set; } = null!;
 
         public RoutineEventType EventType { get; set; }
