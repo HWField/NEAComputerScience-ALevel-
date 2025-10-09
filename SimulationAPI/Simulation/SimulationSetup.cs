@@ -387,7 +387,7 @@ namespace MySimulationAPI.SimulationEngine
                     try
                     {
                         // Generate routine events
-                        agent.GenerateRoutine(_routingService, _buildingService);
+                        agent.RoutineEvents = agent.GenerateRoutine(_routingService, _buildingService);
                         foreach (var routineEvent in agent.RoutineEvents)
                         {
                             routineEvent.AgentId = agent.Id;

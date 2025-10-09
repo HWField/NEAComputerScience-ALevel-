@@ -19,8 +19,6 @@ namespace MySimulationAPI.Models
 
         public int? WorkplaceId { get; set; }
         public Building? Workplace { get; set; }
-        public abstract void GenerateRoutine(RoutingService routingService, BuildingService buildingService);
-
         public List<RoutineEvent> RoutineEvents { get; set; } = new();
 
         public string Status { get; set; } = "Healthy";
@@ -70,6 +68,9 @@ namespace MySimulationAPI.Models
             }
         }
 
+        public abstract List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService);
+        // public abstract MedicalProfile GenerateMedicalProfile();
+
         // Get current target location for movement system
         public (double lat, double lon)? GetCurrentTarget()
         {
@@ -83,7 +84,7 @@ namespace MySimulationAPI.Models
         // public EducationBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
-        public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
+        public override List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService)
         {
             var events = new List<RoutineEvent>();
             int mapId = Simulation.MapArea.Id;
@@ -171,8 +172,7 @@ namespace MySimulationAPI.Models
                 events.Add(homeEvent);
             }
 
-            // Build WeeklyRoutine dictionary
-            RoutineEvents = events;
+            return events;
         }
     }
 
@@ -180,7 +180,7 @@ namespace MySimulationAPI.Models
     {
         private static readonly Random _rnd = new();
 
-        public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
+        public override List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService)
         {
             var events = new List<RoutineEvent>();
             int mapId = Simulation.MapArea.Id;
@@ -308,7 +308,7 @@ namespace MySimulationAPI.Models
                 events.Add(homeEvent);
             }
 
-            RoutineEvents = events;
+            return events;
         }
     }
 
@@ -316,7 +316,7 @@ namespace MySimulationAPI.Models
     {
         private static readonly Random _rnd = new();
 
-        public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
+        public override List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService)
         {
             var events = new List<RoutineEvent>();
             int mapId = Simulation.MapArea.Id;
@@ -381,7 +381,7 @@ namespace MySimulationAPI.Models
                 events.Add(homeEvent);
             }
 
-            RoutineEvents = events;
+            return events;
         }
     }
 
@@ -389,7 +389,7 @@ namespace MySimulationAPI.Models
     {
         private static readonly Random _rnd = new();
 
-        public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
+        public override List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService)
         {
             var events = new List<RoutineEvent>();
             int mapId = Simulation.MapArea.Id;
@@ -456,7 +456,7 @@ namespace MySimulationAPI.Models
                 }
             }
 
-            RoutineEvents = events;
+            return events;
         }
     }
 
@@ -464,7 +464,7 @@ namespace MySimulationAPI.Models
     {
         private static readonly Random _rnd = new();
 
-        public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
+        public override List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService)
         {
             var events = new List<RoutineEvent>();
             int mapId = Simulation.MapArea.Id;
@@ -562,7 +562,7 @@ namespace MySimulationAPI.Models
                 events.Add(homeEvent);
             }
 
-            RoutineEvents = events;
+            return events;
         }
     }
 
@@ -570,7 +570,7 @@ namespace MySimulationAPI.Models
     {
         private static readonly Random _rnd = new();
 
-        public override void GenerateRoutine(RoutingService routingService, BuildingService buildingService)
+        public override List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService)
         {
             var events = new List<RoutineEvent>();
             int mapId = Simulation.MapArea.Id;
@@ -617,7 +617,7 @@ namespace MySimulationAPI.Models
                 }
             }
 
-            RoutineEvents = events;
+            return events;
         }
     }
 
