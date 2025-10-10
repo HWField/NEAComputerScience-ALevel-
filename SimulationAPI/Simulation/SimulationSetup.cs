@@ -10,7 +10,7 @@ namespace MySimulationAPI.SimulationEngine
         private readonly SimDbContext _db;
         private readonly BuildingService _buildingService;
         private readonly RoutingService _routingService;
-        private readonly Random _rng = new Random();
+        private readonly Random _rng = new Random(); // can seed for reproducibility
 
         public SimulationSetup(SimDbContext db, BuildingService buildingService, RoutingService routingService)
         {
@@ -312,38 +312,12 @@ namespace MySimulationAPI.SimulationEngine
                 await _db.BulkInsertAsync(serviceWorkerAgents, agentBulkConfig);
             }
 
-            // Then fetch agents back with their IDs
+            // Fetch objects back with DB IDs
             var savedAgents = await _db.Agents
                 .Where(a => a.SimulationId == sim.Id)
                 .ToListAsync();
             Console.WriteLine($"Retrieved {savedAgents.Count} agents from database with IDs");
 
-
-            // create and insert medical profiles
-            var medicalProfiles = new List<MedicalProfile>(agents.Count);
-            foreach (var agent in savedAgents)
-            {
-                var profile = CreateRandomMedicalProfile(agent);
-                profile.AgentId = agent.Id; // Set FK explicitly
-                medicalProfiles.Add(profile);
-            }
-
-            // Bulk insert medical profiles
-            var profileBulkConfig = new BulkConfig { PreserveInsertOrder = true };
-            try
-            {
-                Console.WriteLine($"Inserting {medicalProfiles.Count} medical profiles...");
-                await _db.BulkInsertAsync(medicalProfiles, profileBulkConfig);
-                Console.WriteLine("All medical profiles inserted successfully");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error inserting medical profiles: {ex.Message}");
-                throw;
-            }
-
-
-            // Fetch the saved buildings with their real IDs
             var residentialBuildingsForAssignment = await _db.Buildings
                 .OfType<ResidentialBuilding>()
                 .Where(b => b.MapAreaId == mapArea.Id)
@@ -415,6 +389,30 @@ namespace MySimulationAPI.SimulationEngine
             await _db.BulkInsertAsync(routineEvents, routineEventConfig);
             Console.WriteLine($"Saved {routineEvents.Count} routine events to database");
 
+            // create and insert medical profiles
+            var medicalProfiles = new List<MedicalProfile>(agents.Count);
+            foreach (var agent in savedAgents)
+            {
+                var profile = agent.GenerateMedicalProfile(_rng);
+                profile.AgentId = agent.Id; // Set FK explicitly
+                medicalProfiles.Add(profile);
+            }
+
+            // Bulk insert medical profiles
+            var profileBulkConfig = new BulkConfig { PreserveInsertOrder = true };
+            try
+            {
+                Console.WriteLine($"Inserting {medicalProfiles.Count} medical profiles...");
+                await _db.BulkInsertAsync(medicalProfiles, profileBulkConfig);
+                Console.WriteLine("All medical profiles inserted successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error inserting medical profiles: {ex.Message}");
+                throw;
+            }
+
+
             return sim;
         }
 
@@ -439,62 +437,6 @@ namespace MySimulationAPI.SimulationEngine
             agent.SimulationId = sim.Id;
 
             return agent;
-        }
-
-        private MedicalProfile CreateRandomMedicalProfile(Agent agent)
-        {
-            // Randomize medical traits based on agent type
-            double baseImmunity = 0.7; // Base immunity level (70%)
-            double chronicConditionChance = 0.1; // 10% chance for chronic condition
-            double baseSusceptibility = 0.3; // Base susceptibility (30%)
-
-            // Adjust parameters based on agent type
-            if (agent is ElderlyRetiredAgent)
-            {
-                baseImmunity = 0.5; // Elderly have lower immunity
-                chronicConditionChance = 0.4; // Higher chance of chronic conditions
-                baseSusceptibility = 0.6; // More susceptible to infections
-            }
-            else if (agent is StudentAgent)
-            {
-                baseImmunity = 0.8; // Students have higher immunity
-                chronicConditionChance = 0.05; // Lower chance of chronic conditions
-            }
-            else if (agent is MedicalWorkerAgent)
-            {
-                baseImmunity = 0.75; // Medical workers have slightly higher immunity
-                baseSusceptibility = 0.4; // But higher exposure risk
-            }
-
-            // Add some randomness
-            double immunityVariation = 0.2; // +/- 20% variation
-            double susceptibilityVariation = 0.2; // +/- 20% variation
-
-            // Calculate final values with randomness
-            double finalImmunity = Math.Clamp(
-                baseImmunity + (_rng.NextDouble() * immunityVariation * 2 - immunityVariation),
-                0.1, 1.0); // Between 10% and 100%
-
-            bool hasChronicCondition = _rng.NextDouble() < chronicConditionChance;
-
-            double finalSusceptibility = Math.Clamp(
-                baseSusceptibility + (_rng.NextDouble() * susceptibilityVariation * 2 - susceptibilityVariation),
-                0.1, 1.0); // Between 10% and 100%
-
-            // Increase susceptibility if they have a chronic condition
-            if (hasChronicCondition)
-            {
-                finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% increase, capped at 100%
-            }
-
-            // Create and return the medical profile
-            return new MedicalProfile
-            {
-                Agent = agent,
-                Immunity = finalImmunity,
-                HasChronicCondition = hasChronicCondition,
-                InfectionSusceptibility = finalSusceptibility
-            };
         }
         private string GenerateRandomName()
         {

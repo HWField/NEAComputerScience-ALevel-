@@ -69,7 +69,7 @@ namespace MySimulationAPI.Models
         }
 
         public abstract List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService);
-        // public abstract MedicalProfile GenerateMedicalProfile();
+        public abstract MedicalProfile GenerateMedicalProfile(Random rng);
 
         // Get current target location for movement system
         public (double lat, double lon)? GetCurrentTarget()
@@ -81,7 +81,6 @@ namespace MySimulationAPI.Models
 
     public class StudentAgent : Agent
     {
-        // public EducationBuilding Workplace { get; set; } = null!;
         private static readonly Random _rnd = new();
 
         public override List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService)
@@ -173,6 +172,49 @@ namespace MySimulationAPI.Models
             }
 
             return events;
+        }
+
+        public override MedicalProfile GenerateMedicalProfile(Random rng)
+        {
+            // Randomize medical traits based on agent type
+            double baseImmunity = 0.7; // Base immunity level (70%)
+            double chronicConditionChance = 0.1; // 10% chance for chronic condition
+            double baseSusceptibility = 0.3; // Base susceptibility (30%)
+
+
+            baseImmunity = 0.8; // Students have higher immunity
+            chronicConditionChance = 0.05; // Lower chance of chronic conditions
+
+            // Add some randomness
+            double immunityVariation = 0.2; // +/- 20% variation
+            double susceptibilityVariation = 0.2; // +/- 20% variation
+
+            // Calculate final values with randomness
+            double finalImmunity = Math.Clamp(
+                baseImmunity + (rng.NextDouble() * immunityVariation * 2 - immunityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            bool hasChronicCondition = rng.NextDouble() < chronicConditionChance;
+
+            double finalSusceptibility = Math.Clamp(
+                baseSusceptibility + (rng.NextDouble() * susceptibilityVariation * 2 - susceptibilityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            // Increase susceptibility if they have a chronic condition
+            if (hasChronicCondition)
+            {
+                finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% increase, capped at 100%
+            }
+
+            // Create and return the medical profile
+            return new MedicalProfile
+            {
+                Agent = this,
+                Immunity = finalImmunity,
+                HasChronicCondition = hasChronicCondition,
+                InfectionSusceptibility = finalSusceptibility
+            };
+
         }
     }
 
@@ -310,6 +352,45 @@ namespace MySimulationAPI.Models
 
             return events;
         }
+
+        public override MedicalProfile GenerateMedicalProfile(Random rng)
+        {
+            // Randomize medical traits based on agent type
+            double baseImmunity = 0.7; // Base immunity level (70%)
+            double chronicConditionChance = 0.1; // 10% chance for chronic condition
+            double baseSusceptibility = 0.3; // Base susceptibility (30%)
+
+            // Add some randomness
+            double immunityVariation = 0.2; // +/- 20% variation
+            double susceptibilityVariation = 0.2; // +/- 20% variation
+
+            // Calculate final values with randomness
+            double finalImmunity = Math.Clamp(
+                baseImmunity + (rng.NextDouble() * immunityVariation * 2 - immunityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            bool hasChronicCondition = rng.NextDouble() < chronicConditionChance;
+
+            double finalSusceptibility = Math.Clamp(
+                baseSusceptibility + (rng.NextDouble() * susceptibilityVariation * 2 - susceptibilityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            // Increase susceptibility if they have a chronic condition
+            if (hasChronicCondition)
+            {
+                finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% increase, capped at 100%
+            }
+
+            // Create and return the medical profile
+            return new MedicalProfile
+            {
+                Agent = this,
+                Immunity = finalImmunity,
+                HasChronicCondition = hasChronicCondition,
+                InfectionSusceptibility = finalSusceptibility
+            };
+
+        }
     }
 
     public class MedicalWorkerAgent : Agent
@@ -382,6 +463,51 @@ namespace MySimulationAPI.Models
             }
 
             return events;
+        }
+
+        public override MedicalProfile GenerateMedicalProfile(Random rng)
+        {
+            // Randomize medical traits based on agent type
+            double baseImmunity = 0.7; // Base immunity level (70%)
+            double chronicConditionChance = 0.1; // 10% chance for chronic condition
+            double baseSusceptibility = 0.3; // Base susceptibility (30%)
+
+            // Adjust parameters based on agent type
+
+            baseImmunity = 0.75; // Medical workers have slightly higher immunity
+            baseSusceptibility = 0.4; // But higher exposure risk
+
+
+            // Add some randomness
+            double immunityVariation = 0.2; // +/- 20% variation
+            double susceptibilityVariation = 0.2; // +/- 20% variation
+
+            // Calculate final values with randomness
+            double finalImmunity = Math.Clamp(
+                baseImmunity + (rng.NextDouble() * immunityVariation * 2 - immunityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            bool hasChronicCondition = rng.NextDouble() < chronicConditionChance;
+
+            double finalSusceptibility = Math.Clamp(
+                baseSusceptibility + (rng.NextDouble() * susceptibilityVariation * 2 - susceptibilityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            // Increase susceptibility if they have a chronic condition
+            if (hasChronicCondition)
+            {
+                finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% increase, capped at 100%
+            }
+
+            // Create and return the medical profile
+            return new MedicalProfile
+            {
+                Agent = this,
+                Immunity = finalImmunity,
+                HasChronicCondition = hasChronicCondition,
+                InfectionSusceptibility = finalSusceptibility
+            };
+
         }
     }
 
@@ -457,6 +583,45 @@ namespace MySimulationAPI.Models
             }
 
             return events;
+        }
+
+        public override MedicalProfile GenerateMedicalProfile(Random rng)
+        {
+            // Randomize medical traits based on agent type
+            double baseImmunity = 0.7; // Base immunity level (70%)
+            double chronicConditionChance = 0.1; // 10% chance for chronic condition
+            double baseSusceptibility = 0.3; // Base susceptibility (30%)
+
+            // Add some randomness
+            double immunityVariation = 0.2; // +/- 20% variation
+            double susceptibilityVariation = 0.2; // +/- 20% variation
+
+            // Calculate final values with randomness
+            double finalImmunity = Math.Clamp(
+                baseImmunity + (rng.NextDouble() * immunityVariation * 2 - immunityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            bool hasChronicCondition = rng.NextDouble() < chronicConditionChance;
+
+            double finalSusceptibility = Math.Clamp(
+                baseSusceptibility + (rng.NextDouble() * susceptibilityVariation * 2 - susceptibilityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            // Increase susceptibility if they have a chronic condition
+            if (hasChronicCondition)
+            {
+                finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% increase, capped at 100%
+            }
+
+            // Create and return the medical profile
+            return new MedicalProfile
+            {
+                Agent = this,
+                Immunity = finalImmunity,
+                HasChronicCondition = hasChronicCondition,
+                InfectionSusceptibility = finalSusceptibility
+            };
+
         }
     }
 
@@ -564,6 +729,50 @@ namespace MySimulationAPI.Models
 
             return events;
         }
+
+        public override MedicalProfile GenerateMedicalProfile(Random rng)
+        {
+            // Randomize medical traits based on agent type
+            double baseImmunity = 0.7; // Base immunity level (70%)
+            double chronicConditionChance = 0.1; // 10% chance for chronic condition
+            double baseSusceptibility = 0.3; // Base susceptibility (30%)
+
+            baseImmunity = 0.5; // Elderly have lower immunity
+            chronicConditionChance = 0.4; // Higher chance of chronic conditions
+            baseSusceptibility = 0.6; // More susceptible to infections
+
+
+            // Add some randomness
+            double immunityVariation = 0.2; // +/- 20% variation
+            double susceptibilityVariation = 0.2; // +/- 20% variation
+
+            // Calculate final values with randomness
+            double finalImmunity = Math.Clamp(
+                baseImmunity + (rng.NextDouble() * immunityVariation * 2 - immunityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            bool hasChronicCondition = rng.NextDouble() < chronicConditionChance;
+
+            double finalSusceptibility = Math.Clamp(
+                baseSusceptibility + (rng.NextDouble() * susceptibilityVariation * 2 - susceptibilityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            // Increase susceptibility if they have a chronic condition
+            if (hasChronicCondition)
+            {
+                finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% increase, capped at 100%
+            }
+
+            // Create and return the medical profile
+            return new MedicalProfile
+            {
+                Agent = this,
+                Immunity = finalImmunity,
+                HasChronicCondition = hasChronicCondition,
+                InfectionSusceptibility = finalSusceptibility
+            };
+
+        }
     }
 
     public class ServiceWorkerAgent : Agent
@@ -618,6 +827,45 @@ namespace MySimulationAPI.Models
             }
 
             return events;
+        }
+
+        public override MedicalProfile GenerateMedicalProfile(Random rng)
+        {
+            // Randomize medical traits based on agent type
+            double baseImmunity = 0.7; // Base immunity level (70%)
+            double chronicConditionChance = 0.1; // 10% chance for chronic condition
+            double baseSusceptibility = 0.3; // Base susceptibility (30%)
+
+            // Add some randomness
+            double immunityVariation = 0.2; // +/- 20% variation
+            double susceptibilityVariation = 0.2; // +/- 20% variation
+
+            // Calculate final values with randomness
+            double finalImmunity = Math.Clamp(
+                baseImmunity + (rng.NextDouble() * immunityVariation * 2 - immunityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            bool hasChronicCondition = rng.NextDouble() < chronicConditionChance;
+
+            double finalSusceptibility = Math.Clamp(
+                baseSusceptibility + (rng.NextDouble() * susceptibilityVariation * 2 - susceptibilityVariation),
+                0.1, 1.0); // Between 10% and 100%
+
+            // Increase susceptibility if they have a chronic condition
+            if (hasChronicCondition)
+            {
+                finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% increase, capped at 100%
+            }
+
+            // Create and return the medical profile
+            return new MedicalProfile
+            {
+                Agent = this,
+                Immunity = finalImmunity,
+                HasChronicCondition = hasChronicCondition,
+                InfectionSusceptibility = finalSusceptibility
+            };
+
         }
     }
 
