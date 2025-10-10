@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text.Json;
 using MySimulationAPI.Models;
 using MySimulationAPI.Data;
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace MySimulationAPI.Services
@@ -28,52 +29,100 @@ namespace MySimulationAPI.Services
                 paths);
         }
 
-        public async Task<MapAreaPreset> CreatePresetAsync(string name, double latitude, double longitude, double radiusKm, List<OSMBuildingPreset> buildings, List<OSMPathPreset> paths)
+        public async Task<MapAreaPreset> CreatePresetAsync(
+    string name, double latitude, double longitude, double radiusKm,
+    List<OSMBuildingPreset> buildings, List<OSMPathPreset> paths)
         {
+            // Disable tracking completely for performance
+            _db.ChangeTracker.AutoDetectChangesEnabled = false;
+
+            // insert the parent preset
             var preset = new MapAreaPreset
             {
                 Name = name,
                 Latitude = latitude,
                 Longitude = longitude,
-                Radius = radiusKm,
-                Buildings = new List<OSMBuildingPreset>(),
-                Paths = new List<OSMPathPreset>()
+                Radius = radiusKm
             };
-            foreach (var building in buildings)
+
+            await _db.BulkInsertAsync(new List<MapAreaPreset> { preset }, new BulkConfig
             {
-                preset.Buildings.Add(new OSMBuildingPreset
+                SetOutputIdentity = true
+            });
+
+            // Bulk insert buildings
+            List<OSMBuildingPreset> buildingEntities = new();
+            if (buildings?.Any() == true)
+            {
+                buildingEntities = buildings.Select(b => new OSMBuildingPreset
                 {
-                    Name = building.Name ?? "Unknown",
-                    OSMId = building.OSMId,
-                    Latitude = building.Latitude,
-                    Longitude = building.Longitude,
-                    Type = building.Type
+                    MapAreaPresetId = preset.Id,
+                    Name = b.Name ?? "Unknown",
+                    OSMId = b.OSMId,
+                    Latitude = b.Latitude,
+                    Longitude = b.Longitude,
+                    Type = b.Type
+                }).ToList();
+
+                await _db.BulkInsertAsync(buildingEntities, new BulkConfig
+                {
+                    BatchSize = 5000
                 });
             }
 
-            foreach (var path in paths)
+            // Bulk insert paths (and capture generated IDs)
+            List<OSMPathPreset> pathEntities = new();
+            if (paths?.Any() == true)
             {
-                var pathPreset = new OSMPathPreset
+                pathEntities = paths.Select(p => new OSMPathPreset
                 {
-                    Type = path.Type,
-                    IsOneWay = path.IsOneWay,
-                    Nodes = new List<OSMPathNodePreset>()
-                };
+                    MapAreaPresetId = preset.Id,
+                    Type = p.Type,
+                    IsOneWay = p.IsOneWay,
+                    OSMId = p.OSMId
+                }).ToList();
 
-                foreach (var node in path.Nodes)
+                await _db.BulkInsertAsync(pathEntities, new BulkConfig
                 {
-                    pathPreset.Nodes.Add(new OSMPathNodePreset
-                    {
-                        Latitude = node.Latitude,
-                        Longitude = node.Longitude
-                    });
-                }
-
-                preset.Paths.Add(pathPreset);
+                    SetOutputIdentity = true,
+                    BatchSize = 5000
+                });
             }
 
-            _db.MapAreaPresets.Add(preset);
-            await _db.SaveChangesAsync();
+            // Bulk insert path nodes (linked by path IDs)
+            if (pathEntities.Any())
+            {
+                var nodeEntities = new List<OSMPathNodePreset>();
+
+                foreach (var (pathEntity, originalPath) in pathEntities.Zip(paths))
+                {
+                    if (originalPath.Nodes is null || !originalPath.Nodes.Any())
+                        continue;
+
+                    nodeEntities.AddRange(originalPath.Nodes.Select(n => new OSMPathNodePreset
+                    {
+                        OSMPathPresetId = pathEntity.Id,
+                        Latitude = n.Latitude,
+                        Longitude = n.Longitude
+                    }));
+                }
+
+                if (nodeEntities.Count > 0)
+                {
+                    await _db.BulkInsertAsync(nodeEntities, new BulkConfig
+                    {
+                        BatchSize = 10000
+                    });
+                }
+            }
+
+            // Re-enable trackings
+            _db.ChangeTracker.AutoDetectChangesEnabled = true;
+
+            // Return a detached preset with populated collections (for caller convenience)
+            preset.Buildings = buildingEntities;
+            preset.Paths = pathEntities;
+
             return preset;
         }
 
