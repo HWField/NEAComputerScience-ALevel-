@@ -20,7 +20,7 @@ namespace MySimulationAPI.Services
         public int ToId { get; init; }
         public double DistanceMeters { get; init; }
         public double SpeedModifier { get; init; } = 1.0; // lower -> slower
-        public int PathId { get; init; } // optional
+        public int PathId { get; init; }
     }
 
     // Simple spatial grid index for nearest-node queries
@@ -93,7 +93,7 @@ namespace MySimulationAPI.Services
 
         private static double HaversineSquaredMeters(double lat1, double lon1, double lat2, double lon2)
         {
-            // We return squared distance (meters^2)
+            // Return squared distance (meters^2)
             var d = HaversineMeters(lat1, lon1, lat2, lon2);
             return d * d;
         }
@@ -185,7 +185,7 @@ namespace MySimulationAPI.Services
                     if (current == endNodeId)
                     {
                         var path = ReconstructPathArray(cameFrom, current);
-                        _routeCache[key] = path; // cache it
+                        _routeCache[key] = path;
                         return path;
                     }
 

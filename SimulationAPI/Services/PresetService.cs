@@ -20,7 +20,6 @@ namespace MySimulationAPI.Services
 
         public async Task<MapAreaPreset> FetchAndCreatePresetAsync(string name, double latitude, double longitude, double radiusKm)
         {
-            // Fetch both buildings and paths in one call
             var (buildings, paths) = await _osmService.FetchMapDataAsync(latitude, longitude, radiusKm);
 
             // Create preset from fetched data

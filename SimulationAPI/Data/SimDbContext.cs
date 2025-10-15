@@ -34,7 +34,7 @@ namespace MySimulationAPI.Data
 
             // Configure inheritance for Agent
             modelBuilder.Entity<Agent>()
-                .HasDiscriminator<string>("AgentType") // discriminator column
+                .HasDiscriminator<string>("AgentType")
                 .HasValue<StudentAgent>("Student")
                 .HasValue<OfficeWorkerAgent>("OfficeWorker")
                 .HasValue<MedicalWorkerAgent>("MedicalWorker")

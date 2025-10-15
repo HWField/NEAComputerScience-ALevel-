@@ -67,7 +67,6 @@ namespace MySimulationAPI.Controllers
             return Ok(new { message = "Profile updated successfully" });
         }
 
-        // DELETE /api/profile
         [HttpDelete]
         public IActionResult DeleteProfile()
         {
@@ -85,7 +84,6 @@ namespace MySimulationAPI.Controllers
             return Ok(new { message = "Account deleted successfully" });
         }
 
-        // GET /api/profile/simulations
         [HttpGet("simulations")]
         public IActionResult GetMySimulations()
         {

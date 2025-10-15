@@ -182,10 +182,6 @@ out geom;
             return (buildingsTask.Result, pathsTask.Result);
         }
     }
-
-    // ---------------------------
-    // DTOs for deserialization
-    // ---------------------------
     public class OverpassResponse
     {
         [JsonPropertyName("elements")]

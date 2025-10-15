@@ -10,23 +10,14 @@ namespace MySimulationAPI.Models
         public int Id { get; set; }
         public int SimulationId { get; set; }
         public Simulation? Simulation { get; set; }
-
         public string Name { get; set; }
-
         public int? HouseId { get; set; }
         public ResidentialBuilding? House { get; set; }
-
-
         public int? WorkplaceId { get; set; }
         public Building? Workplace { get; set; }
         public List<RoutineEvent> RoutineEvents { get; set; } = new();
-
         public string Status { get; set; } = "Healthy";
-
-
-        // One-to-one relationship with MedicalProfile
-        [InverseProperty("Agent")]
-        public virtual MedicalProfile MedicalProfile { get; set; } = null!;
+        public MedicalProfile MedicalProfile { get; set; } = null!;
 
         // Current absolute position
         public double CurrentLat { get; set; }
@@ -47,7 +38,7 @@ namespace MySimulationAPI.Models
         {
             var (dayIndex, timeOfDay) = SimulationTimeHelper.GetSimulationTime(currentTick, Simulation.TickLengthMinutes);
 
-            // Check if we need to start a new event
+            // Check if need to start a new event
             if (CurrentEvent == null || timeOfDay >= CurrentEvent.StartTime.Add(CurrentEvent.Duration))
             {
                 // Find all events for the current day

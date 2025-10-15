@@ -59,7 +59,6 @@ namespace MySimulationAPI.Services
 
                 if (remaining >= remainingOnSegment)
                 {
-                    // Complete this segment
                     remaining -= remainingOnSegment;
                     state.CurrentSegmentIndex++;
                     state.OffsetMetersOnSegment = 0.0;

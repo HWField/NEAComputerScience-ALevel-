@@ -165,7 +165,7 @@ namespace MySimulationAPI.Services
             // Dictionary to track and prevent duplicate workplace IDs
             var assignedWorkplaces = new Dictionary<Agent, int>();
 
-            // Build KD-trees by building type (not by workplace property type)
+            // Build KD-trees by building type
             var buildingTypeToKdTree = new Dictionary<Type, KDTree<Building>>();
 
             var residentialBuildings = buildings.OfType<ResidentialBuilding>().ToList();
@@ -282,7 +282,7 @@ namespace MySimulationAPI.Services
         Hospitality,    // RetailBuilding with HasFood=true - OSM: amenity=restaurant, cafe, bar, pub, fast_food
         Recreation,     // OSM: leisure=sports_centre, fitness_centre, swimming_pool, park, amenity=cinema, theatre, nightclub, casino
 
-        // // Additional types from OSM
+        // // Additional types from OSM (might implement later)
         // Industrial,     // OSM: building=industrial, warehouse
         // Government,     // OSM: amenity=townhall, government offices
         // Religious,      // OSM: amenity=place_of_worship

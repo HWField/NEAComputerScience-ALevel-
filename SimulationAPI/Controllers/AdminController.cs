@@ -30,12 +30,6 @@ namespace MySimulationAPI.Controllers
                     return Ok(new { message = "No simulations to delete", deletedCount = 0 });
                 }
 
-                // Due to cascade delete configuration, this will automatically delete:
-                // - All agents (and their medical profiles, routine events)
-                // - All diseases
-                // - All mitigations
-                // - All simulation snapshots
-                // - All map areas (and their buildings, paths)
                 await _context.Simulations.ExecuteDeleteAsync();
 
                 await _context.SaveChangesAsync();
@@ -71,9 +65,7 @@ namespace MySimulationAPI.Controllers
                     return Ok(new { message = "No presets to delete", deletedCount = 0 });
                 }
 
-                // Due to cascade delete configuration, this will automatically delete:
-                // - All OSMBuildingPresets
-                // - All OSMPathPresets (and their OSMPathNodePresets)
+
                 await _context.MapAreaPresets.ExecuteDeleteAsync();
 
                 await _context.SaveChangesAsync();

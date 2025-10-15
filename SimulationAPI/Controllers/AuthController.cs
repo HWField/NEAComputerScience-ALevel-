@@ -99,7 +99,7 @@ namespace MySimulationAPI.Controllers
             });
         }
 
-        // LOGOUT DEVICE (optional)
+        // LOGOUT DEVICE
         [HttpPost("logout")]
         public IActionResult Logout([FromBody] RefreshDto dto)
         {
@@ -114,7 +114,7 @@ namespace MySimulationAPI.Controllers
             return Ok(new { message = "Logged out successfully" });
         }
 
-        // LOGOUT ALL DEVICES (optional)
+        // LOGOUT ALL DEVICES
         [HttpPost("logout-all")]
         public IActionResult LogoutAll([FromBody] LogoutAllDto dto)
         {
