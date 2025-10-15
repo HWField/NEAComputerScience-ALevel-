@@ -8,16 +8,14 @@ namespace MySimulationAPI.Models
         public double Longitude { get; set; }
         public int Capacity { get; set; }
         public int RemainingCapacity { get; set; }
-
         // All buildings belong to a MapArea
-
         public int MapAreaId { get; set; }
         public MapArea? MapArea { get; set; }
     }
 
     public class ResidentialBuilding : Building
     {
-        public ICollection<Agent> Residents { get; set; } = new List<Agent>();
+
 
     }
 

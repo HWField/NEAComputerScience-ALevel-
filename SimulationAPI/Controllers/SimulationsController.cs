@@ -61,6 +61,7 @@ namespace MySimulationAPI.Controllers
                     {
                         return BadRequest("Name, Latitude, Longitude, and RadiusKm are required for creating a new preset");
                     }
+                    Console.WriteLine("Creating new preset from OSM data2");
 
                     MapAreaPreset preset = await _presetService.FetchAndCreatePresetAsync(
                         dto.PresetName,
@@ -76,10 +77,7 @@ namespace MySimulationAPI.Controllers
                 return Ok(new
                 {
                     Message = "Simulation created successfully",
-                    // Preset = new
-                    // {
-                    //     createdSimulation
-                    // }
+
                 });
             }
             catch (Exception ex)

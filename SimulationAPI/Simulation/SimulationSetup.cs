@@ -31,10 +31,36 @@ namespace MySimulationAPI.SimulationEngine
                 .FirstOrDefaultAsync(p => p.Id == presetId)
                 ?? throw new Exception("Preset not found");
 
-            // Insert new MapArea
+            // Load OSM buildings from preset
+            var buildingPresets = await _db.OSMBuildingPresets
+                .AsNoTracking()
+                .Where(b => b.MapAreaPresetId == presetId)
+                .Select(b => new { b.Name, b.Latitude, b.Longitude, b.Type, b.Capacity })
+                .ToListAsync();
+
+            // Create simulation
+            var sim = new Simulation
+            {
+                UserId = userId,
+                Name = simulationName,
+            };
+            await _db.BulkInsertAsync(new List<Simulation> { sim }, new BulkConfig { SetOutputIdentity = true });
+
+            var disease = new Disease
+            {
+                Name = "Default Disease",
+                SimulationId = sim.Id,
+                InfectionRate = 0.1,
+                RecoveryRate = 0.05,
+                MortalityRate = 0.01,
+            };
+            _db.Diseases.Add(disease);
+            await _db.SaveChangesAsync();
+
             var mapArea = new MapArea
             {
                 Name = $"{simulationName} - {preset.Name}-{Guid.NewGuid()}",
+                SimulationId = sim.Id,
                 CenterLat = preset.Latitude,
                 CenterLon = preset.Longitude,
                 RadiusKm = preset.Radius,
@@ -43,12 +69,8 @@ namespace MySimulationAPI.SimulationEngine
             _db.MapAreas.Add(mapArea);
             await _db.SaveChangesAsync();
 
-            // Load OSM buildings from preset
-            var buildingPresets = await _db.OSMBuildingPresets
-                .AsNoTracking()
-                .Where(b => b.MapAreaPresetId == presetId)
-                .Select(b => new { b.Name, b.Latitude, b.Longitude, b.Type, b.Capacity })
-                .ToListAsync();
+            // Set the navigation property for the simulation
+            sim.MapArea = mapArea;
 
             // Transform to simulation buildings (parallelized)
             // cant easily bulk insert with TPH inheritance, so split into separate lists and insert each type separately
@@ -191,25 +213,6 @@ namespace MySimulationAPI.SimulationEngine
 
             await _db.BulkInsertAsync(newPaths, opts => opts.IncludeGraph = true);
             _db.ChangeTracker.Clear();
-
-            // Create simulation + Disase (can be made more cusomisable with presets etc later)
-            var sim = new Simulation
-            {
-                UserId = userId,
-                Name = simulationName,
-                MapAreaId = mapArea.Id,
-                Diseases = new List<Disease>
-                {
-                    new Disease
-                    {
-                        Name = "Default Disease",
-                        InfectionRate = 0.1,
-                        RecoveryRate = 0.05,
-                        MortalityRate = 0.01
-                    }
-                }
-            };
-            await _db.BulkInsertAsync(new List<Simulation> { sim }, new BulkConfig { SetOutputIdentity = true });
 
             // Generate Agents
             var agents = new List<Agent>(agentCount);

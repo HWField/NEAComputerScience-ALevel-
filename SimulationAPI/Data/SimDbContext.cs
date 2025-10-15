@@ -53,7 +53,66 @@ namespace MySimulationAPI.Data
             modelBuilder.Entity<Agent>()
                 .HasOne(a => a.MedicalProfile)
                 .WithOne(m => m.Agent)
-                .HasForeignKey<MedicalProfile>(m => m.AgentId);
+                .HasForeignKey<MedicalProfile>(m => m.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configure Agent -> Home relationship
+            modelBuilder.Entity<Agent>()
+                .HasOne(a => a.House)
+                .WithMany()
+                .HasForeignKey(a => a.HouseId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Configure Agent -> Workplace relationship
+            modelBuilder.Entity<Agent>()
+                .HasOne(a => a.Workplace)
+                .WithMany()
+                .HasForeignKey(a => a.WorkplaceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Configure Simulation -> MapArea one-to-one relationship
+            modelBuilder.Entity<Simulation>()
+                .HasOne(s => s.MapArea)
+                .WithOne(m => m.Simulation)
+                .HasForeignKey<MapArea>(m => m.SimulationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Simulation>()
+                .HasMany(s => s.Agents)
+                .WithOne(a => a.Simulation)
+                .HasForeignKey(a => a.SimulationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Simulation>()
+         .HasOne(s => s.Disease)
+         .WithOne(d => d.Simulation)
+         .HasForeignKey<Disease>(d => d.SimulationId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Simulation>()
+                .HasMany(s => s.Mitigations)
+                .WithOne()
+                .HasForeignKey("SimulationId")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // modelBuilder.Entity<Simulation>()
+            //     .HasMany(s => s.SimulationSnapshots)
+            //     .WithOne()
+            //     .HasForeignKey("SimulationId")
+            //     .OnDelete(DeleteBehavior.Cascade);
+
+            // Configure MapArea cascade deletes
+            modelBuilder.Entity<MapArea>()
+        .HasMany(m => m.Buildings)
+        .WithOne(b => b.MapArea)
+        .HasForeignKey(b => b.MapAreaId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<MapArea>()
+                .HasMany(m => m.Paths)
+                .WithOne(p => p.MapArea)
+                .HasForeignKey(p => p.MapAreaId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Building>()
                 .HasDiscriminator<string>("BuildingType")
@@ -67,7 +126,27 @@ namespace MySimulationAPI.Data
                 .HasDiscriminator<string>("MitigationType")
                 .HasValue<MaskWearing>("MaskWearing")
                 .HasValue<SocialDistancing>("SocialDistancing");
+
+            //Configure Preset cascade deletes
+            modelBuilder.Entity<MapAreaPreset>()
+                .HasMany(m => m.Buildings)
+                .WithOne(b => b.MapAreaPreset)
+                .HasForeignKey(b => b.MapAreaPresetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<MapAreaPreset>()
+                .HasMany(m => m.Paths)
+                .WithOne(p => p.MapAreaPreset)
+                .HasForeignKey(p => p.MapAreaPresetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<OSMPathPreset>()
+                .HasMany(p => p.Nodes)
+                .WithOne(n => n.OSMPathPreset)
+                .HasForeignKey(n => n.OSMPathPresetId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
+
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {
             if (!options.IsConfigured)

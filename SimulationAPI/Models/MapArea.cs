@@ -14,6 +14,10 @@ namespace MySimulationAPI.Models
         public double CenterLon { get; set; }
         public double RadiusKm { get; set; }
 
+        // One-to-one relationship with Simulation
+        public int SimulationId { get; set; }
+        public Simulation Simulation { get; set; } = null!;
+
         public List<Building> Buildings { get; set; } = new();
         public List<Path> Paths { get; set; } = new();
     }
