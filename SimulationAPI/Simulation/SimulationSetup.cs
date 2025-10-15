@@ -3,6 +3,8 @@ using MySimulationAPI.Data;
 using MySimulationAPI.Models;
 using MySimulationAPI.Services;
 using EFCore.BulkExtensions;
+using System.Collections.Concurrent;
+
 namespace MySimulationAPI.SimulationEngine
 {
     public class SimulationSetup
@@ -10,7 +12,7 @@ namespace MySimulationAPI.SimulationEngine
         private readonly SimDbContext _db;
         private readonly BuildingService _buildingService;
         private readonly RoutingService _routingService;
-        private readonly Random _rng = new Random(); // can seed for reproducibility
+        private readonly Random _rng = new(); // Need to seed to make 'randomness' consistent for for rewind / recalculation functions
 
         public SimulationSetup(SimDbContext db, BuildingService buildingService, RoutingService routingService)
         {
@@ -18,16 +20,18 @@ namespace MySimulationAPI.SimulationEngine
             _buildingService = buildingService;
             _routingService = routingService;
         }
+
         public async Task<Simulation> CreateSimulation(string simulationName, int presetId, int agentCount, int userId)
         {
-            // Load just the MapAreaPreset metadata
+
+            // Load preset data
             var preset = await _db.MapAreaPresets
                 .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == presetId);
+                .Select(p => new { p.Id, p.Name, p.Latitude, p.Longitude, p.Radius })
+                .FirstOrDefaultAsync(p => p.Id == presetId)
+                ?? throw new Exception("Preset not found");
 
-            if (preset == null) throw new Exception("Preset not found");
-
-            // Create a new MapArea 
+            // Insert new MapArea
             var mapArea = new MapArea
             {
                 Name = $"{simulationName} - {preset.Name}-{Guid.NewGuid()}",
@@ -36,16 +40,20 @@ namespace MySimulationAPI.SimulationEngine
                 RadiusKm = preset.Radius,
                 PresetRefID = preset.Id
             };
-
             _db.MapAreas.Add(mapArea);
             await _db.SaveChangesAsync();
 
-            // Load Buildings separately
+            // Load OSM buildings from preset
             var buildingPresets = await _db.OSMBuildingPresets
                 .AsNoTracking()
                 .Where(b => b.MapAreaPresetId == presetId)
+                .Select(b => new { b.Name, b.Latitude, b.Longitude, b.Type, b.Capacity })
                 .ToListAsync();
-            // Transform into 'real' Buildings
+
+            // Transform to simulation buildings (parallelized)
+            // cant easily bulk insert with TPH inheritance, so split into separate lists and insert each type separately
+            // also cant use SetOutputIdentity with TPH, so need to later re-query to get the IDs
+            // also need to set the shadow property 'BuildingType' manually for each type so that the discriminator is set correctly
             var newBuildings = new List<Building>(buildingPresets.Count);
             int numHousing = buildingPresets.Count(bp => bp.Type == "Home");
             foreach (var b in buildingPresets)
@@ -64,23 +72,9 @@ namespace MySimulationAPI.SimulationEngine
                 building.Name = b.Name;
                 building.Latitude = b.Latitude;
                 building.Longitude = b.Longitude;
-                building.Capacity = 4; // FOR NOW ASSUME CAPACITY OF FOUR BUT NEEDS CHANGING
-                // building.Capacity = b.Capacity ?? 4;
-                // Calculate number of residential buildings (housing)
-
-                // if (b.Type == "Home" && numHousing > 0)
-                // {
-                //     // Distribute agents evenly across housing buildings, can be made more complex in future
-                //     building.Capacity = agentCount / numHousing;
-                //     building.RemainingCapacity = building.Capacity;
-                // }
-                // else
-                // {
-                //     building.RemainingCapacity = b.Capacity ?? 0;
-                // }
-
+                building.Capacity = 4;
+                // for now assumign capacity of 4 per building but will need changing, will use number of housing buildings to estimate (can later refine with more parameters
                 building.MapAreaId = mapArea.Id;
-
                 switch (building)
                 {
                     case OfficeBuilding office:
@@ -102,7 +96,6 @@ namespace MySimulationAPI.SimulationEngine
 
                 newBuildings.Add(building);
             }
-            Console.WriteLine($"Loaded {newBuildings.Count} building presets for presetId {presetId}");
             try
             {
                 // Group buildings by their implemented type
@@ -114,26 +107,19 @@ namespace MySimulationAPI.SimulationEngine
                 var leisureBuildings = newBuildings.OfType<LeisureBuilding>().ToList();
                 foreach (var building in newBuildings.OfType<ResidentialBuilding>())
                     _db.Entry(building).Property("BuildingType").CurrentValue = "Residential";
-
                 foreach (var building in newBuildings.OfType<OfficeBuilding>())
                     _db.Entry(building).Property("BuildingType").CurrentValue = "Office";
-
                 foreach (var building in newBuildings.OfType<EducationBuilding>())
                     _db.Entry(building).Property("BuildingType").CurrentValue = "Education";
-
                 foreach (var building in newBuildings.OfType<MedicalBuilding>())
                     _db.Entry(building).Property("BuildingType").CurrentValue = "Medical";
-
                 foreach (var building in newBuildings.OfType<RetailBuilding>())
                     _db.Entry(building).Property("BuildingType").CurrentValue = "Retail";
-
                 foreach (var building in newBuildings.OfType<LeisureBuilding>())
                     _db.Entry(building).Property("BuildingType").CurrentValue = "Leisure";
 
-                // Create a bulk config without trying to include shadow properties
                 var bulkConfig = new BulkConfig
                 {
-                    // Let EF Core handle the discriminator automatically
                     PreserveInsertOrder = true
                 };
 
@@ -181,64 +167,55 @@ namespace MySimulationAPI.SimulationEngine
                 Console.WriteLine("Bulk insert failed: " + ex);
             }
 
+            _db.ChangeTracker.Clear();
 
-
-            // 4. Load and transform Paths (usually fewer, so regular EF insert is fine)
+            // Load OSM paths + nodes
             var pathPresets = await _db.OSMPathPresets
                 .AsNoTracking()
-                .Where(p => p.MapAreaPresetId == presetId)
                 .Include(p => p.Nodes)
+                .Where(p => p.MapAreaPresetId == presetId)
                 .ToListAsync();
 
             var newPaths = pathPresets.Select(presetPath => new Models.Path
             {
-                Type = Enum.TryParse<PathType>(presetPath.Type, true, out var parsedType)
-                    ? parsedType
-                    : PathType.Other,
+                Type = Enum.TryParse<PathType>(presetPath.Type, true, out var parsed) ? parsed : PathType.Other,
                 IsOneWay = presetPath.IsOneWay,
                 SpeedModifier = presetPath.SpeedModifier,
                 MapAreaId = mapArea.Id,
-                Nodes = presetPath.Nodes.Select(nodePreset => new PathNode
+                Nodes = presetPath.Nodes.Select(n => new PathNode
                 {
-                    Lat = nodePreset.Latitude,
-                    Lon = nodePreset.Longitude,
-                    ConnectedPaths = new List<Models.Path>() // can link later
+                    Lat = n.Latitude,
+                    Lon = n.Longitude
                 }).ToList()
             }).ToList();
 
-            await _db.BulkInsertAsync(newPaths, options => options.IncludeGraph = true);
+            await _db.BulkInsertAsync(newPaths, opts => opts.IncludeGraph = true);
+            _db.ChangeTracker.Clear();
 
-            // 6. Create Disease record
-            var Disease = new Disease
-            {
-                Name = "Default Disease",
-                InfectionRate = 0.1,
-                RecoveryRate = 0.05,
-                MortalityRate = 0.01
-            };
-
-            // 6. Create Simulation record
-            var user = await _db.Users.FindAsync(userId);
-            if (user == null) throw new Exception($"User with ID {userId} not found");
+            // Create simulation + Disase (can be made more cusomisable with presets etc later)
             var sim = new Simulation
             {
-                User = user,
+                UserId = userId,
                 Name = simulationName,
-                MapArea = mapArea,
-                Agents = new List<Agent>(), // will bulk insert below
-                Diseases = new List<Disease> { Disease },
+                MapAreaId = mapArea.Id,
+                Diseases = new List<Disease>
+                {
+                    new Disease
+                    {
+                        Name = "Default Disease",
+                        InfectionRate = 0.1,
+                        RecoveryRate = 0.05,
+                        MortalityRate = 0.01
+                    }
+                }
             };
+            await _db.BulkInsertAsync(new List<Simulation> { sim }, new BulkConfig { SetOutputIdentity = true });
 
-            _db.Simulations.Add(sim);
-            await _db.SaveChangesAsync();
-            Console.WriteLine($"Created simulation {sim.Name} with ID {sim.Id}");
-
-
-            // 6. Generate Agents
+            // Generate Agents
             var agents = new List<Agent>(agentCount);
             for (int i = 0; i < agentCount; i++)
             {
-                agents.Add(CreateRandomAgent(sim));
+                agents.Add(CreateRandomAgent(sim.Id));
             }
             Console.WriteLine($"Generated {agents.Count} agents for simulation {sim.Id}");
 
@@ -250,8 +227,6 @@ namespace MySimulationAPI.SimulationEngine
             var retailWorkerAgents = agents.OfType<RetailWorkerAgent>().ToList();
             var elderlyRetiredAgents = agents.OfType<ElderlyRetiredAgent>().ToList();
             var serviceWorkerAgents = agents.OfType<ServiceWorkerAgent>().ToList();
-
-
             foreach (var agent in agents.OfType<StudentAgent>())
                 _db.Entry(agent).Property("AgentType").CurrentValue = "Student";
 
@@ -270,10 +245,9 @@ namespace MySimulationAPI.SimulationEngine
             foreach (var agent in agents.OfType<ServiceWorkerAgent>())
                 _db.Entry(agent).Property("AgentType").CurrentValue = "ServiceWorker";
 
-            // Create a bulk config without trying to include shadow properties
             var agentBulkConfig = new BulkConfig
             {
-                PreserveInsertOrder = true, // to keep order (no longer needed)
+                PreserveInsertOrder = true,
             };
 
             Console.WriteLine($"Inserting {studentAgents.Count} student agents...");
@@ -281,63 +255,61 @@ namespace MySimulationAPI.SimulationEngine
             {
                 await _db.BulkInsertAsync(studentAgents, agentBulkConfig);
             }
-
             Console.WriteLine($"Inserting {officeWorkerAgents.Count} office worker agents...");
             if (officeWorkerAgents.Any())
             {
                 await _db.BulkInsertAsync(officeWorkerAgents, agentBulkConfig);
             }
-
             Console.WriteLine($"Inserting {medicalWorkerAgents.Count} medical worker agents...");
             if (medicalWorkerAgents.Any())
             {
                 await _db.BulkInsertAsync(medicalWorkerAgents, agentBulkConfig);
             }
-
             Console.WriteLine($"Inserting {retailWorkerAgents.Count} retail worker agents...");
             if (retailWorkerAgents.Any())
             {
                 await _db.BulkInsertAsync(retailWorkerAgents, agentBulkConfig);
             }
-
             Console.WriteLine($"Inserting {elderlyRetiredAgents.Count} elderly retired agents...");
             if (elderlyRetiredAgents.Any())
             {
                 await _db.BulkInsertAsync(elderlyRetiredAgents, agentBulkConfig);
             }
-
             Console.WriteLine($"Inserting {serviceWorkerAgents.Count} service worker agents...");
             if (serviceWorkerAgents.Any())
             {
                 await _db.BulkInsertAsync(serviceWorkerAgents, agentBulkConfig);
             }
 
-            // Fetch objects back with DB IDs
-            var savedAgents = await _db.Agents
+            // Rehydrate objects with their assigned IDs and navigation properties
+            agents = await _db.Agents
                 .Where(a => a.SimulationId == sim.Id)
+                .Include(a => a.House)
+                .Include(a => a.Workplace)
+                .Include(a => a.Simulation)
+                    .ThenInclude(s => s.MapArea)
                 .ToListAsync();
-            Console.WriteLine($"Retrieved {savedAgents.Count} agents from database with IDs");
 
-            var residentialBuildingsForAssignment = await _db.Buildings
+            Console.WriteLine($"Retrieved {agents.Count} agents from database with IDs");
+
+            newBuildings = await _db.Buildings
+                .Where(b => b.MapAreaId == mapArea.Id)
+                .ToListAsync();
+
+            var residentialBuildingsForAssignment = newBuildings
                 .OfType<ResidentialBuilding>()
-                .Where(b => b.MapAreaId == mapArea.Id)
-                .ToListAsync();
-
-            var allBuildingsForWorkplace = await _db.Buildings
-                .Where(b => b.MapAreaId == mapArea.Id)
-                .ToListAsync();
+                .ToList();
 
 
             // Assign housing and workplaces
-
-            BuildingService.AssignHousing(savedAgents, residentialBuildingsForAssignment, _rng);
+            BuildingService.AssignHousing(agents, residentialBuildingsForAssignment, _rng);
             Console.WriteLine("Assigned housing to agents");
-            BuildingService.AssignWorkplaces(savedAgents, allBuildingsForWorkplace, 2, 20, 5, _rng);
+            BuildingService.AssignWorkplaces(agents, newBuildings, 2, 20, 5, _rng);
             Console.WriteLine("Assigned workplaces to agents");
 
 
             // Set the FK IDs explicitly
-            foreach (var agent in savedAgents)
+            foreach (var agent in agents)
             {
                 agent.HouseId = agent.House?.Id;
                 agent.WorkplaceId = agent.Workplace?.Id;
@@ -349,13 +321,10 @@ namespace MySimulationAPI.SimulationEngine
                 PropertiesToInclude = new List<string> { "HouseId", "WorkplaceId" },
                 UpdateByProperties = new List<string> { "Id" }
             };
+            await _db.BulkUpdateAsync(agents, bulkUpdateConfig);
 
-            await _db.BulkUpdateAsync(savedAgents, bulkUpdateConfig);
-
-
-            Console.WriteLine("Generating agent routines...");
             // Generate routines for all agents
-            foreach (var agent in savedAgents)
+            foreach (var agent in agents)
             {
                 {
                     try
@@ -374,9 +343,10 @@ namespace MySimulationAPI.SimulationEngine
                     }
                 }
             }
+
             // Save all routine events to the database
-            var routineEvents = savedAgents.SelectMany(a => a.RoutineEvents).ToList();
-            Console.WriteLine($"Generatedr outine events for {savedAgents.Count} agents");
+            var routineEvents = agents.SelectMany(a => a.RoutineEvents).ToList();
+            Console.WriteLine($"Generatedr outine events for {agents.Count} agents");
 
             // Set up bulk config for routine events
             var routineEventConfig = new BulkConfig
@@ -389,9 +359,9 @@ namespace MySimulationAPI.SimulationEngine
             await _db.BulkInsertAsync(routineEvents, routineEventConfig);
             Console.WriteLine($"Saved {routineEvents.Count} routine events to database");
 
-            // create and insert medical profiles
+            // generate and insert medical profiles for each agent
             var medicalProfiles = new List<MedicalProfile>(agents.Count);
-            foreach (var agent in savedAgents)
+            foreach (var agent in agents)
             {
                 var profile = agent.GenerateMedicalProfile(_rng);
                 profile.AgentId = agent.Id; // Set FK explicitly
@@ -402,25 +372,19 @@ namespace MySimulationAPI.SimulationEngine
             var profileBulkConfig = new BulkConfig { PreserveInsertOrder = true };
             try
             {
-                Console.WriteLine($"Inserting {medicalProfiles.Count} medical profiles...");
                 await _db.BulkInsertAsync(medicalProfiles, profileBulkConfig);
-                Console.WriteLine("All medical profiles inserted successfully");
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"Error inserting medical profiles: {ex.Message}");
                 throw;
             }
-
 
             return sim;
         }
 
-        private Agent CreateRandomAgent(Simulation sim)
+        private Agent CreateRandomAgent(int simId)
         {
-            int type = _rng.Next(6); // adjust based on your agent types
-
-            // Create agent with proper type
+            var type = _rng.Next(6);
             Agent agent = type switch
             {
                 0 => new StudentAgent(),
@@ -432,23 +396,9 @@ namespace MySimulationAPI.SimulationEngine
                 _ => new StudentAgent()
             };
 
-            // Generate a random name for the agent
-            agent.Name = GenerateRandomName();
-            agent.SimulationId = sim.Id;
-
+            agent.Name = agent.GenerateRandomName(_rng);
+            agent.SimulationId = simId;
             return agent;
-        }
-        private string GenerateRandomName()
-        {
-            // Sample first names and last names
-            string[] firstNames = { "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda",
-                         "William", "Elizabeth", "David", "Susan", "Richard", "Jessica", "Joseph", "Sarah" };
-
-            string[] lastNames = { "Smith", "Johnson", "Williams", "Jones", "Brown", "Davis", "Miller", "Wilson",
-                        "Moore", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin" };
-
-            // Generate a random full name
-            return $"{firstNames[_rng.Next(firstNames.Length)]} {lastNames[_rng.Next(lastNames.Length)]}";
         }
 
     }

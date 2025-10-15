@@ -9,7 +9,7 @@ namespace MySimulationAPI.Models
     {
         public int Id { get; set; }
         public int SimulationId { get; set; }
-        public Simulation Simulation { get; set; }
+        public Simulation? Simulation { get; set; }
 
         public string Name { get; set; }
 
@@ -71,6 +71,12 @@ namespace MySimulationAPI.Models
         public abstract List<RoutineEvent> GenerateRoutine(RoutingService routingService, BuildingService buildingService);
         public abstract MedicalProfile GenerateMedicalProfile(Random rng);
 
+        public string GenerateRandomName(Random _rng)
+        {
+            string[] first = { "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda" };
+            string[] last = { "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis" };
+            return $"{first[_rng.Next(first.Length)]} {last[_rng.Next(last.Length)]}";
+        }
         // Get current target location for movement system
         public (double lat, double lon)? GetCurrentTarget()
         {
@@ -93,7 +99,6 @@ namespace MySimulationAPI.Models
             {
                 var schoolStart = new TimeOnly(8, 30).AddMinutes(_rnd.Next(-10, 11));
                 var schoolDuration = TimeSpan.FromHours(7);
-
                 var (cachedPath, travelDuration) = routingService.ComputeRoute(
                     mapId, House.Latitude, House.Longitude, Workplace.Latitude, Workplace.Longitude);
 
