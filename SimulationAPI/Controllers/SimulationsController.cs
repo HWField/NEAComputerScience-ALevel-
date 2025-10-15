@@ -34,8 +34,9 @@ namespace MySimulationAPI.Controllers
         // Helper to get logged-in user
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-        [HttpPost("create")]
-        public async Task<IActionResult> CreateSimulation([FromBody] CreateSimulationDto dto)
+        // routes to create simulation with single request
+        [HttpPost("DemoCreate")]
+        public async Task<IActionResult> CreateSimulation([FromBody] DemoCreateSimulationDto dto)
         {
             try
             {
@@ -48,7 +49,7 @@ namespace MySimulationAPI.Controllers
                     if (!exists)
                         return NotFound("Preset not found");
 
-                    createdSimulation = await _simulationSetup.CreateSimulation(dto.SimulationName, dto.PresetId.Value, dto.AgentCount, GetUserId());
+                    createdSimulation = await _simulationSetup.DemoCreateSimulation(dto.SimulationName, dto.PresetId.Value, dto.AgentCount, GetUserId());
                 }
                 else
                 {
@@ -71,7 +72,7 @@ namespace MySimulationAPI.Controllers
 
                     Console.WriteLine($"Created preset {preset.Id} - {preset.Name}");
 
-                    createdSimulation = await _simulationSetup.CreateSimulation(dto.SimulationName, preset.Id, dto.AgentCount, GetUserId());
+                    createdSimulation = await _simulationSetup.DemoCreateSimulation(dto.SimulationName, preset.Id, dto.AgentCount, GetUserId());
                 }
 
                 return Ok(new
@@ -86,52 +87,72 @@ namespace MySimulationAPI.Controllers
             }
         }
 
+        // routes to generate simulation in multiple steps (used by frontend wizard)
+        [HttpPost("create/step1")]
+        public async Task<IActionResult> InitialiseSimulation([FromBody] InitialiseSimulationDto dto)
+        {
+            try
+            {
+                var simulationID = await _simulationSetup.InitialiseSimulation(dto.SimulationName, GetUserId());
+                return Ok(new { SimulationId = simulationID, Message = "Simulation created successfully" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to create simulation: {ex.Message}");
+            }
+        }
 
+        [HttpPost("create/step2")]
+        public async Task<IActionResult> SetupMapArea([FromBody] SetupMapAreaDto dto)
+        {
+            try
+            {
+                var (mapArea, estimate) = await _simulationSetup.SetupMapArea(
+                    dto.SimulationId, dto.PresetId, dto.PresetName,
+                    dto.Latitude, dto.Longitude, dto.RadiusKm, GetUserId());
 
+                return Ok(new
+                {
+                    MapAreaId = mapArea.Id,
+                    PopulationEstimate = estimate,
+                    Message = "Map area set up successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to setup map area: {ex.Message}");
+            }
+        }
 
+        [HttpPost("create/step3")]
+        public async Task<IActionResult> SetupPopulation([FromBody] SetupPopulationDto dto)
+        {
+            try
+            {
+                await _simulationSetup.SetupPopulation(dto.SimulationId, dto.AgentCount, GetUserId());
+                return Ok(new { Message = "Population generated successfully" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to setup population: {ex.Message}");
+            }
+        }
 
-        // [HttpPost("{id}/start")]
-        // public IActionResult StartSimulation(int id)
-        // {
-        //     var sim = _db.Simulations
-        //         .Include(s => s.Agents)
-        //         .Include(s => s.Locations)
-        //         .FirstOrDefault(s => s.Id == id);
+        [HttpPost("create/step4")]
+        public async Task<IActionResult> SetupDisease([FromBody] SetupDiseaseDto dto)
+        {
+            try
+            {
+                await _simulationSetup.SetupDisease(
+                    dto.SimulationId, dto.Name, dto.InfectionRate,
+                    dto.RecoveryRate, dto.MortalityRate, GetUserId());
 
-        //     if (sim == null) return NotFound();
-
-        //     var engine = new SimulationEngine.SimulationEngine(sim);
-        //     _runner.EnqueueSimulation(engine);
-
-        //     return Ok(new { Status = "Queued/Running" });
-        // }
-
-
-        // DELETE /api/simulations/{id}
-        // [HttpDelete("{id}")]
-        // public async Task<IActionResult> DeleteSimulation(int id)
-        // {
-        //     var userId = GetUserId();
-
-        //     // Load simulation with related entities, async as mght take a while for large simulations and so shouldnt block thread
-        //     var sim = await _db.Simulations
-        //         .Include(s => s.Agents)
-        //         .Include(s => s.Locations)
-        //         .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
-
-        //     if (sim == null)
-        //         return NotFound("Simulation not found or you do not have permission");
-
-        //     // Remove related entities first (if cascade delete not configured)
-        //     _db.Agents.RemoveRange(sim.Agents);
-        //     _db.Locations.RemoveRange(sim.Locations);
-
-        //     // Remove the simulation
-        //     _db.Simulations.Remove(sim);
-        //     await _db.SaveChangesAsync();
-
-        //     return Ok(new { message = $"Simulation '{sim.Name}' deleted successfully" });
-        // }
-
+                return Ok(new { Message = "Disease configured successfully" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to setup disease: {ex.Message}");
+            }
+        }
     }
 }
