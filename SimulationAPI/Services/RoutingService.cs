@@ -62,7 +62,7 @@ namespace MySimulationAPI.Services
             return (cx, cy);
         }
 
-        // radiusMeters -> convert to degrees roughly: 1 deg lat ≈ 111,000 m. We'll expand a few cells.
+        // radiusMeters -> convert to degrees roughly: 1 deg lat = 111,000 m. We'll expand a few cells.
         public int FindNearestNodeId(double lat, double lon, double radiusMeters = 1000)
         {
             var (cx, cy) = ToCell(lon, lat);

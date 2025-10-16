@@ -3,7 +3,7 @@ using System;
 namespace MySimulationAPI.Utils
 {
     /// <summary>
-    /// Helper class for converting real-world time ↔ simulation ticks.
+    /// Helper class for converting real-world time -> simulation ticks.
     /// Tick length is variable per simulation (e.g., 1 tick = 5 min).
     /// </summary>
     public static class SimulationTimeHelper
