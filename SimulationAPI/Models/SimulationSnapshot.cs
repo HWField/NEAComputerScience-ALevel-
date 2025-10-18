@@ -1,13 +1,39 @@
-using System.Collections.Generic;
-
 namespace MySimulationAPI.Models
 {
     public class SimulationSnapshot
     {
         public int Id { get; set; }
-        public int Tick { get; set; }
-        public int HealthyCount { get; set; }
-        public int InfectedCount { get; set; }
-        public int RecoveredCount { get; set; }
+        public int SimulationId { get; set; }
+        public Simulation Simulation { get; set; } = null!;
+        public long Tick { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public List<AgentSnapshot> Agents { get; set; } = new();
+        public List<BuildingSnapshot> Buildings { get; set; } = new();
+    }
+
+    public class AgentSnapshot
+    {
+        public int Id { get; set; }
+        public int AgentId { get; set; }
+        public Agent Agent { get; set; } = null!;
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public string HealthState { get; set; } = "Healthy";
+        public double InfectionProgress { get; set; } = 0.0;
+        public bool IsQuarantined { get; set; } = false;
+        public int? CurrentBuildingId { get; set; }
+        public Building? CurrentBuilding { get; set; }
+        public int SimulationSnapshotId { get; set; }
+        public SimulationSnapshot Snapshot { get; set; } = null!;
+    }
+
+    public class BuildingSnapshot
+    {
+        public int Id { get; set; }
+        public int BuildingId { get; set; }
+        public Building Building { get; set; } = null!;
+        public int CurrentOccupancy { get; set; }
+        public int SimulationSnapshotId { get; set; }
+        public SimulationSnapshot Snapshot { get; set; } = null!;
     }
 }

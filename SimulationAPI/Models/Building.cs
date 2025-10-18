@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace MySimulationAPI.Models
 {
     public abstract class Building
@@ -10,6 +12,10 @@ namespace MySimulationAPI.Models
         public int RemainingCapacity { get; set; }
         public int MapAreaId { get; set; }
         public MapArea? MapArea { get; set; }
+
+        [NotMapped]
+        public int CurrentOccupancy;
+
     }
 
     public class ResidentialBuilding : Building

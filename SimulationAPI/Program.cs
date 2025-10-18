@@ -5,20 +5,18 @@ using MySimulationAPI.Services;
 using MySimulationAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
-using MySimulationAPI.SimulationEngine;
+using MySimulationAPI.SimulationConfiguration;
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services
+// Centralised service registrations
+builder.Services.AddScoped<SimulationManager>();
 builder.Services.AddDbContext<SimDbContext>();
 builder.Services.AddControllers();
 builder.Services.AddScoped<OsmService>();
-builder.Services.AddScoped<RoutingService>();
-builder.Services.AddScoped<BuildingService>();
 builder.Services.AddScoped<PresetService>();
-builder.Services.AddSingleton<SimulationRunner>();
 builder.Services.AddScoped<SimulationSetup>();
 
-// Read JWT settings
+// JWT Authentication setup
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];

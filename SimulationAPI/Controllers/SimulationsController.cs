@@ -6,7 +6,7 @@ using MySimulationAPI.Models;
 using MySimulationAPI.Services;
 using MySimulationAPI.DTOs;
 using System.Security.Claims;
-using MySimulationAPI.SimulationEngine;
+using MySimulationAPI.SimulationConfiguration;
 
 namespace MySimulationAPI.Controllers
 {
@@ -17,75 +17,22 @@ namespace MySimulationAPI.Controllers
     {
         private readonly SimDbContext _db;
         private readonly OsmService _osmService;
-        private readonly SimulationRunner _runner;
         private readonly PresetService _presetService;
-
         private readonly SimulationSetup _simulationSetup;
+        private readonly SimulationManager _simulationManager;
 
-        public SimulationsController(SimDbContext db, OsmService osmService, SimulationRunner SimulationRunner, PresetService presetService, SimulationSetup simulationSetup)
+        public SimulationsController(SimDbContext db, OsmService osmService, PresetService presetService, SimulationSetup simulationSetup, SimulationManager simulationManager)
         {
             _db = db;
             _osmService = osmService;
-            _runner = SimulationRunner;
             _presetService = presetService;
             _simulationSetup = simulationSetup;
+            _simulationManager = simulationManager;
         }
 
         // Helper to get logged-in user
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-        // routes to create simulation with single request
-        [HttpPost("DemoCreate")]
-        public async Task<IActionResult> CreateSimulation([FromBody] DemoCreateSimulationDto dto)
-        {
-            try
-            {
-                Simulation createdSimulation;
-
-                if (dto.PresetId.HasValue)
-                {
-                    var exists = await _db.MapAreaPresets
-                     .AnyAsync(p => p.Id == dto.PresetId.Value);
-                    if (!exists)
-                        return NotFound("Preset not found");
-
-                    createdSimulation = await _simulationSetup.DemoCreateSimulation(dto.SimulationName, dto.PresetId.Value, dto.AgentCount, GetUserId());
-                }
-                else
-                {
-                    Console.WriteLine("Creating new preset from OSM data");
-                    // Create new preset from OSM data
-                    if (string.IsNullOrEmpty(dto.PresetName) ||
-                        !dto.Latitude.HasValue ||
-                        !dto.Longitude.HasValue ||
-                        !dto.RadiusKm.HasValue)
-                    {
-                        return BadRequest("Name, Latitude, Longitude, and RadiusKm are required for creating a new preset");
-                    }
-                    Console.WriteLine("Creating new preset from OSM data2");
-
-                    MapAreaPreset preset = await _presetService.FetchAndCreatePresetAsync(
-                        dto.PresetName,
-                        dto.Latitude.Value,
-                        dto.Longitude.Value,
-                        dto.RadiusKm.Value);
-
-                    Console.WriteLine($"Created preset {preset.Id} - {preset.Name}");
-
-                    createdSimulation = await _simulationSetup.DemoCreateSimulation(dto.SimulationName, preset.Id, dto.AgentCount, GetUserId());
-                }
-
-                return Ok(new
-                {
-                    Message = "Simulation created successfully",
-
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Failed to create simulation: {ex.Message}");
-            }
-        }
 
         // routes to generate simulation in multiple steps (used by frontend wizard)
         [HttpPost("create/step1")]
@@ -153,6 +100,30 @@ namespace MySimulationAPI.Controllers
             {
                 return BadRequest($"Failed to setup disease: {ex.Message}");
             }
+        }
+
+
+        [HttpPost("{id}/start")]
+        public async Task<IActionResult> Start(int id)
+        {
+            var sim = await _db.Simulations
+                .Include(s => s.MapArea)
+                .Include(s => s.Agents)
+                .Include(s => s.Disease)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (sim == null) return NotFound();
+
+            var context = _simulationManager.GetOrCreate(sim.Id);
+            context.Engine.Start();
+            return Ok($"Simulation {id} started");
+        }
+
+        [HttpPost("{id}/stop")]
+        public IActionResult Stop(int id)
+        {
+            _simulationManager.Remove(id);
+            return Ok($"Simulation {id} stopped and removed from memory");
         }
     }
 }

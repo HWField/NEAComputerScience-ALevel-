@@ -95,11 +95,11 @@ namespace MySimulationAPI.Data
                 .HasForeignKey("SimulationId")
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // modelBuilder.Entity<Simulation>()
-            //     .HasMany(s => s.SimulationSnapshots)
-            //     .WithOne()
-            //     .HasForeignKey("SimulationId")
-            //     .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Simulation>()
+                .HasMany(s => s.SimulationSnapshots)
+                .WithOne()
+                .HasForeignKey("SimulationId")
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Configure MapArea cascade deletes
             modelBuilder.Entity<MapArea>()
@@ -144,6 +144,19 @@ namespace MySimulationAPI.Data
                 .HasMany(p => p.Nodes)
                 .WithOne(n => n.OSMPathPreset)
                 .HasForeignKey(n => n.OSMPathPresetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // configure SimulationSnapshot relationships
+            modelBuilder.Entity<SimulationSnapshot>()
+            .HasMany(s => s.Agents)
+            .WithOne(a => a.Snapshot)
+            .HasForeignKey(a => a.SimulationSnapshotId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SimulationSnapshot>()
+                .HasMany(s => s.Buildings)
+                .WithOne(b => b.Snapshot)
+                .HasForeignKey(b => b.SimulationSnapshotId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
 

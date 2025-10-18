@@ -2,33 +2,66 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MySimulationAPI.Models;
+using MySimulationAPI.SimulationConfiguration;
 
 namespace MySimulationAPI.Services
 {
     public class BuildingService
     {
+        private readonly SimulationContext _context;
         private readonly RoutingService _routingService;
 
-        public BuildingService(RoutingService routingService)
+        // Cached buildings and KD-trees
+        private readonly List<Building> _buildings;
+        private readonly Dictionary<Type, KDTree<Building>> _kdTrees;
+
+        public BuildingService(SimulationContext context)
         {
-            _routingService = routingService;
+            _context = context;
+            _routingService = context.RoutingService;
+            _buildings = context.Simulation.MapArea.Buildings.ToList();
+
+            // Pre-build KD-trees by building type for fast spatial lookup
+            _kdTrees = BuildKdTrees(_buildings);
         }
 
-        public Building? GetBuildingFromTypeAndTravelTime(BuildingType buildingType, double Latitude, double Longitude, int maxTravelTimeMinutes)
+        private static Dictionary<Type, KDTree<Building>> BuildKdTrees(List<Building> buildings)
         {
-            throw new NotImplementedException("Not Implemented yet");
+            var dict = new Dictionary<Type, KDTree<Building>>();
+
+            void AddTree<T>(IEnumerable<T> typedBuildings) where T : Building
+            {
+                var list = typedBuildings.ToList();
+                if (list.Any())
+                    dict[typeof(T)] = new KDTree<Building>(list.Select(b => (b.Latitude, b.Longitude, (Building)b)));
+            }
+
+            AddTree(buildings.OfType<ResidentialBuilding>());
+            AddTree(buildings.OfType<OfficeBuilding>());
+            AddTree(buildings.OfType<EducationBuilding>());
+            AddTree(buildings.OfType<MedicalBuilding>());
+            AddTree(buildings.OfType<RetailBuilding>());
+            AddTree(buildings.OfType<LeisureBuilding>());
+
+            return dict;
+        }
+        public Building? FindNearestBuildingByType<T>(double lat, double lon, int k = 5, double maxRadiusMeters = 5000)
+           where T : Building
+        {
+            if (!_kdTrees.TryGetValue(typeof(T), out var tree))
+                return null;
+
+            var results = tree.KNearest(lat, lon, k);
+            return results.FirstOrDefault();
         }
 
-        public List<Building>? FindBuildingsByType(BuildingType buildingType, double centerLat, double centerLon, double radiusMeters)
+        public T? GetRandomBuilding<T>(Random rng) where T : Building
         {
-            throw new NotImplementedException("Not Implemented yet");
+            var list = _buildings.OfType<T>().ToList();
+            if (list.Count == 0) return null;
+            return list[rng.Next(list.Count)];
         }
 
-        public Building? FindNearestBuildingByType(BuildingType buildingType, double lat, double lon, double maxRadiusMeters = 5000)
-        {
-            // Find nearest building of type
-            throw new NotImplementedException("Not Implemented yet");
-        }
 
 
 
@@ -118,8 +151,11 @@ namespace MySimulationAPI.Services
         // Assignment
         // ---------------------------------------------------------
 
-        public static void AssignHousing(List<Agent> agents, List<ResidentialBuilding> houses, Random rng)
+        public void AssignHousing()
         {
+            var agents = _context.Agents;
+            var houses = _buildings.OfType<ResidentialBuilding>().ToList();
+            var rng = _context.Rng;
             Console.WriteLine($"Assigning housing to {agents.Count} agents across {houses.Count} houses");
             foreach (var h in houses) h.RemainingCapacity = h.Capacity;
 
@@ -151,14 +187,17 @@ namespace MySimulationAPI.Services
             }
         }
 
-        public static void AssignWorkplaces(
-    List<Agent> agents,
-    List<Building> buildings,
-    double beta,
-    int shortlistSize,
-    int spilloverIncrement,
-    Random rng)
+        // change values random for now but needs updating
+        public void AssignWorkplaces(
+    double beta = 2.0,
+    int shortlistSize = 10,
+    int spilloverIncrement = 10
+    )
         {
+            var agents = _context.Agents;
+            var buildings = _context.Buildings.ToList();
+            var rng = _context.Rng;
+
             // Reset building capacities
             foreach (var b in buildings) b.RemainingCapacity = b.Capacity;
 
@@ -166,7 +205,7 @@ namespace MySimulationAPI.Services
             var assignedWorkplaces = new Dictionary<Agent, int>();
 
             // Build KD-trees by building type
-            var buildingTypeToKdTree = new Dictionary<Type, KDTree<Building>>();
+            var buildingTypeToKdTree = _kdTrees;
 
             var residentialBuildings = buildings.OfType<ResidentialBuilding>().ToList();
             var officeBuildings = buildings.OfType<OfficeBuilding>().ToList();

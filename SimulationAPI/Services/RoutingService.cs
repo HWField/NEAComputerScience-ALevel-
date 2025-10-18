@@ -1,13 +1,15 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using System.Diagnostics;
+using System.Collections.Concurrent;
+using MySimulationAPI.Models;
+using MySimulationAPI.SimulationConfiguration;
 
 namespace MySimulationAPI.Services
 {
-    // Minimal node + edge DTOs used by the router
+    // -----------------------------
+    // Basic Node + Edge Structures
+    // -----------------------------
     public class Node
     {
         public int Id { get; init; }
@@ -19,20 +21,23 @@ namespace MySimulationAPI.Services
     {
         public int ToId { get; init; }
         public double DistanceMeters { get; init; }
-        public double SpeedModifier { get; init; } = 1.0; // lower -> slower
+        public double SpeedModifier { get; init; } = 1.0;
         public int PathId { get; init; }
     }
 
-    // Simple spatial grid index for nearest-node queries
+    // -----------------------------
+    // Spatial Index for Nearest Node
+    // -----------------------------
     public class NodeGridIndex
     {
-        private readonly double _minLon, _minLat, _cellSize; // cellSize in degrees (approx) or meters converted
+        private readonly double _minLon, _minLat, _cellSize;
         private readonly int _cols, _rows;
-        private readonly List<int>[][] _cells; // stores node ids
+        private readonly List<int>[][] _cells;
         private readonly IReadOnlyDictionary<int, Node> _nodes;
 
-        // Build using nodes and chosen cell size in degrees (approx). For production, convert meters->degrees.
-        public NodeGridIndex(IReadOnlyDictionary<int, Node> nodes, double minLon, double minLat, double cellSizeDegrees, int cols, int rows)
+        public NodeGridIndex(IReadOnlyDictionary<int, Node> nodes,
+                             double minLon, double minLat,
+                             double cellSizeDegrees, int cols, int rows)
         {
             _nodes = nodes;
             _minLon = minLon;
@@ -47,11 +52,10 @@ namespace MySimulationAPI.Services
 
             foreach (var kv in nodes)
             {
-                var id = kv.Key;
                 var n = kv.Value;
                 var (cx, cy) = ToCell(n.Lon, n.Lat);
                 if (cx >= 0 && cx < _cols && cy >= 0 && cy < _rows)
-                    _cells[cx][cy].Add(id);
+                    _cells[cx][cy].Add(kv.Key);
             }
         }
 
@@ -62,7 +66,6 @@ namespace MySimulationAPI.Services
             return (cx, cy);
         }
 
-        // radiusMeters -> convert to degrees roughly: 1 deg lat = 111,000 m. We'll expand a few cells.
         public int FindNearestNodeId(double lat, double lon, double radiusMeters = 1000)
         {
             var (cx, cy) = ToCell(lon, lat);
@@ -93,14 +96,13 @@ namespace MySimulationAPI.Services
 
         private static double HaversineSquaredMeters(double lat1, double lon1, double lat2, double lon2)
         {
-            // Return squared distance (meters^2)
             var d = HaversineMeters(lat1, lon1, lat2, lon2);
             return d * d;
         }
 
         private static double HaversineMeters(double lat1, double lon1, double lat2, double lon2)
         {
-            var R = 6371000.0;
+            const double R = 6371000.0;
             var dLat = ToRad(lat2 - lat1);
             var dLon = ToRad(lon2 - lon1);
             var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
@@ -109,127 +111,183 @@ namespace MySimulationAPI.Services
             var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
             return R * c;
         }
+
         private static double ToRad(double deg) => deg * Math.PI / 180.0;
     }
 
+    // -----------------------------
+    // Routing Service
+    // -----------------------------
     public class RoutingService
     {
-        // Adjacency list per map area id
-        private readonly ConcurrentDictionary<int, Dictionary<int, List<Edge>>> _graphs = new();
-        private readonly ConcurrentDictionary<int, IReadOnlyDictionary<int, Node>> _nodesByMap = new();
-        private readonly ConcurrentDictionary<int, NodeGridIndex> _gridIndexes = new();
+        private readonly Simulation _simulation;
+        private readonly Dictionary<int, Node> _nodes;
+        private readonly Dictionary<int, List<Edge>> _graph;
+        private readonly NodeGridIndex _grid;
+        private readonly ConcurrentDictionary<(int, int), List<int>> _routeCache = new();
 
-        // route cache keyed by mapId,startId,endId
-        private readonly ConcurrentDictionary<string, List<int>> _routeCache = new();
-
-        // Build graph from MapArea (call once when simulation created/loaded)
-        // mapId: some map identifier, nodes: list of nodes, edges: list of edges (constructed from Path/PathNode)
-        public void BuildGraph(int mapId, IEnumerable<Node> nodes, IEnumerable<(int from, int to, double distanceMeters, double speedModifier, int pathId)> edges,
-                               double minLon, double minLat, double cellSizeDegrees = 0.002, int cols = 200, int rows = 200)
+        public RoutingService(Simulation simulation)
         {
-            var nodeDict = nodes.ToDictionary(n => n.Id);
-            _nodesByMap[mapId] = nodeDict;
+            _simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));
 
-            var adj = new Dictionary<int, List<Edge>>(nodeDict.Count);
-            foreach (var n in nodeDict.Keys) adj[n] = new List<Edge>();
+            var map = simulation.MapArea ?? throw new InvalidOperationException("Simulation has no map area.");
+            if (map.Paths == null || map.Paths.Count == 0)
+                throw new InvalidOperationException("Map area has no path data.");
 
-            foreach (var e in edges)
-            {
-                if (!adj.TryGetValue(e.from, out var list)) continue;
-                list.Add(new Edge { ToId = e.to, DistanceMeters = e.distanceMeters, SpeedModifier = e.speedModifier, PathId = e.pathId });
-            }
-
-            _graphs[mapId] = adj;
-
-            // build grid index for nearest node lookup
-            var grid = new NodeGridIndex(nodeDict, minLon, minLat, cellSizeDegrees, cols, rows);
-            _gridIndexes[mapId] = grid;
+            // Build graph
+            _nodes = BuildNodeDictionary(map.Paths);
+            _graph = BuildGraph(map.Paths, _nodes);
+            _grid = BuildGrid(_nodes);
         }
 
-        // A* shortest path between node ids
-        public List<int>? FindPathAStar(int mapId, int startNodeId, int endNodeId)
+        // -----------------------------
+        // Graph Construction
+        // -----------------------------
+        private static Dictionary<int, Node> BuildNodeDictionary(ICollection<Models.Path> paths)
         {
-            var key = $"{mapId}:{startNodeId}:{endNodeId}";
-            if (_routeCache.TryGetValue(key, out var cached))
-                return new List<int>(cached);
-
-            if (!_graphs.TryGetValue(mapId, out var graph)) return null;
-            var nodes = _nodesByMap[mapId];
-
-            int nodeCount = nodes.Count;
-
-            // Use ArrayPool to avoid heavy allocations
-            var gScore = System.Buffers.ArrayPool<double>.Shared.Rent(nodeCount);
-            var fScore = System.Buffers.ArrayPool<double>.Shared.Rent(nodeCount);
-            var cameFrom = System.Buffers.ArrayPool<int>.Shared.Rent(nodeCount);
-
-            try
+            var dict = new Dictionary<int, Node>();
+            foreach (var path in paths)
             {
-                // init arrays
-                for (int i = 0; i < nodeCount; i++)
+                foreach (var n in path.Nodes)
                 {
-                    gScore[i] = double.PositiveInfinity;
-                    fScore[i] = double.PositiveInfinity;
-                    cameFrom[i] = -1;
-                }
-
-                gScore[startNodeId] = 0;
-                fScore[startNodeId] = HeuristicMeters(nodes[startNodeId], nodes[endNodeId]);
-
-                var pq = new PriorityQueue<int, double>();
-                pq.Enqueue(startNodeId, fScore[startNodeId]);
-
-                while (pq.Count > 0)
-                {
-                    var current = pq.Dequeue();
-                    if (current == endNodeId)
+                    if (!dict.ContainsKey(n.Id))
                     {
-                        var path = ReconstructPathArray(cameFrom, current);
-                        _routeCache[key] = path;
-                        return path;
+                        dict[n.Id] = new Node { Id = n.Id, Lat = n.Lat, Lon = n.Lon };
                     }
+                }
+            }
+            return dict;
+        }
 
-                    if (!graph.TryGetValue(current, out var neighbors)) continue;
+        private static Dictionary<int, List<Edge>> BuildGraph(ICollection<Models.Path> paths, Dictionary<int, Node> nodes)
+        {
+            var graph = new Dictionary<int, List<Edge>>();
+            foreach (var node in nodes.Values)
+                graph[node.Id] = new List<Edge>();
 
-                    foreach (var edge in neighbors)
+            foreach (var path in paths)
+            {
+                var nodeList = path.Nodes.OrderBy(n => n.Id).ToList();
+                for (int i = 0; i < nodeList.Count - 1; i++)
+                {
+                    var n1 = nodeList[i];
+                    var n2 = nodeList[i + 1];
+                    var distance = HaversineMeters(n1.Lat, n1.Lon, n2.Lat, n2.Lon);
+
+                    graph[n1.Id].Add(new Edge
                     {
-                        var tentativeG = gScore[current] + edge.DistanceMeters / edge.SpeedModifier;
-                        if (tentativeG < gScore[edge.ToId])
+                        ToId = n2.Id,
+                        DistanceMeters = distance,
+                        SpeedModifier = path.SpeedModifier,
+                        PathId = path.Id
+                    });
+
+                    if (!path.IsOneWay)
+                    {
+                        graph[n2.Id].Add(new Edge
                         {
-                            cameFrom[edge.ToId] = current;
-                            gScore[edge.ToId] = tentativeG;
-                            fScore[edge.ToId] = tentativeG + HeuristicMeters(nodes[edge.ToId], nodes[endNodeId]);
-                            pq.Enqueue(edge.ToId, fScore[edge.ToId]);
-                        }
+                            ToId = n1.Id,
+                            DistanceMeters = distance,
+                            SpeedModifier = path.SpeedModifier,
+                            PathId = path.Id
+                        });
                     }
                 }
-
-                return null;
             }
-            finally
-            {
-                // Always return pooled arrays
-                System.Buffers.ArrayPool<double>.Shared.Return(gScore);
-                System.Buffers.ArrayPool<double>.Shared.Return(fScore);
-                System.Buffers.ArrayPool<int>.Shared.Return(cameFrom);
-            }
+            return graph;
         }
 
-        private static List<int> ReconstructPathArray(int[] cameFrom, int current)
+        private static NodeGridIndex BuildGrid(Dictionary<int, Node> nodes)
         {
-            var path = new List<int> { current };
-            while (cameFrom[current] != -1)
-            {
-                current = cameFrom[current];
-                path.Add(current);
-            }
-            path.Reverse();
-            return path;
+            double minLat = nodes.Values.Min(n => n.Lat);
+            double minLon = nodes.Values.Min(n => n.Lon);
+            double maxLat = nodes.Values.Max(n => n.Lat);
+            double maxLon = nodes.Values.Max(n => n.Lon);
+
+            double cellSizeDeg = 0.002; // ≈200m cells
+            int cols = Math.Max(1, (int)((maxLon - minLon) / cellSizeDeg) + 1);
+            int rows = Math.Max(1, (int)((maxLat - minLat) / cellSizeDeg) + 1);
+
+            return new NodeGridIndex(nodes, minLon, minLat, cellSizeDeg, cols, rows);
         }
 
-        private static double HeuristicMeters(Node a, Node b)
+        // -----------------------------
+        // Public Route Computation
+        // -----------------------------
+        public (List<(double Lat, double Lon)>? path, TimeSpan travelTime) ComputeRoute(
+            double startLat, double startLon,
+            double endLat, double endLon,
+            double avgSpeedMph = 3.0)
         {
-            return HaversineMeters(a.Lat, a.Lon, b.Lat, b.Lon);
+            int startId = _grid.FindNearestNodeId(startLat, startLon);
+            int endId = _grid.FindNearestNodeId(endLat, endLon);
+
+            if (startId == -1 || endId == -1)
+                return (null, TimeSpan.Zero);
+
+            var pathNodeIds = FindPathAStar(startId, endId);
+            if (pathNodeIds == null) return (null, TimeSpan.Zero);
+
+            var pathCoords = pathNodeIds.Select(id => (_nodes[id].Lat, _nodes[id].Lon)).ToList();
+
+            double totalDistance = 0;
+            for (int i = 0; i < pathCoords.Count - 1; i++)
+            {
+                totalDistance += HaversineMeters(
+                    pathCoords[i].Lat, pathCoords[i].Lon,
+                    pathCoords[i + 1].Lat, pathCoords[i + 1].Lon);
+            }
+
+            var speedMps = avgSpeedMph * 0.44704;
+            var travelTime = TimeSpan.FromSeconds(totalDistance / speedMps);
+
+            return (pathCoords, travelTime);
+        }
+
+        // -----------------------------
+        // A* Search Implementation
+        // -----------------------------
+        private List<int>? FindPathAStar(int startId, int endId)
+        {
+            var key = (startId, endId);
+            if (_routeCache.TryGetValue(key, out var cached))
+                return cached;
+
+            if (!_graph.TryGetValue(startId, out _)) return null;
+
+            var open = new PriorityQueue<int, double>();
+            var gScore = new Dictionary<int, double> { [startId] = 0 };
+            var fScore = new Dictionary<int, double> { [startId] = HeuristicMeters(_nodes[startId], _nodes[endId]) };
+            var cameFrom = new Dictionary<int, int>();
+
+            open.Enqueue(startId, fScore[startId]);
+
+            while (open.Count > 0)
+            {
+                var current = open.Dequeue();
+                if (current == endId)
+                {
+                    var path = ReconstructPath(cameFrom, current);
+                    _routeCache[key] = path;
+                    return path;
+                }
+
+                if (!_graph.TryGetValue(current, out var neighbors)) continue;
+
+                foreach (var edge in neighbors)
+                {
+                    var tentativeG = gScore[current] + edge.DistanceMeters / edge.SpeedModifier;
+                    if (!gScore.TryGetValue(edge.ToId, out var existingG) || tentativeG < existingG)
+                    {
+                        cameFrom[edge.ToId] = current;
+                        gScore[edge.ToId] = tentativeG;
+                        fScore[edge.ToId] = tentativeG + HeuristicMeters(_nodes[edge.ToId], _nodes[endId]);
+                        open.Enqueue(edge.ToId, fScore[edge.ToId]);
+                    }
+                }
+            }
+
+            return null;
         }
 
         private static List<int> ReconstructPath(Dictionary<int, int> cameFrom, int current)
@@ -244,64 +302,15 @@ namespace MySimulationAPI.Services
             return path;
         }
 
-        // Given a start and end lat/lon, find nearest nodes then path
-        public List<int>? GetRouteForPositions(int mapId, double startLat, double startLon, double endLat, double endLon)
-        {
-            if (!_gridIndexes.TryGetValue(mapId, out var grid)) return null;
-            var nodes = _nodesByMap[mapId];
-
-            var startNodeId = grid.FindNearestNodeId(startLat, startLon, radiusMeters: 500);
-            var endNodeId = grid.FindNearestNodeId(endLat, endLon, radiusMeters: 500);
-
-            if (startNodeId == -1 || endNodeId == -1) return null;
-            return FindPathAStar(mapId, startNodeId, endNodeId);
-        }
-
-        // Convert node path to lat/lon coordinates for movement system
-        public List<(double Lat, double Lon)>? ConvertPathToCoordinates(int mapId, List<int> nodePath)
-        {
-            if (!_nodesByMap.TryGetValue(mapId, out var nodes)) return null;
-
-            return nodePath.Select(nodeId =>
-            {
-                var node = nodes[nodeId];
-                return (node.Lat, node.Lon);
-            }).ToList();
-        }
-
-        // Main route computation method for agents
-        public (List<(double Lat, double Lon)>? path, TimeSpan travelTime) ComputeRoute(
-            int mapId, double startLat, double startLon, double endLat, double endLon,
-            double avgSpeedMph = 3.0) // walking speed
-        {
-            var nodePath = GetRouteForPositions(mapId, startLat, startLon, endLat, endLon);
-            if (nodePath == null) return (null, TimeSpan.Zero);
-
-            var coordPath = ConvertPathToCoordinates(mapId, nodePath);
-            if (coordPath == null) return (null, TimeSpan.Zero);
-
-            // Calculate total distance and travel time
-            double totalDistanceMeters = 0;
-            for (int i = 0; i < coordPath.Count - 1; i++)
-            {
-                var (lat1, lon1) = coordPath[i];
-                var (lat2, lon2) = coordPath[i + 1];
-                totalDistanceMeters += HaversineMeters(lat1, lon1, lat2, lon2);
-            }
-
-            var avgSpeedMps = avgSpeedMph * 0.44704; // mph to m/s
-            var travelTimeSeconds = totalDistanceMeters / avgSpeedMps;
-            var travelTime = TimeSpan.FromSeconds(travelTimeSeconds);
-
-            return (coordPath, travelTime);
-        }
-
-        // utilities
-        private static double Lerp(double a, double b, double t) => a + (b - a) * t;
+        // -----------------------------
+        // Helpers
+        // -----------------------------
+        private static double HeuristicMeters(Node a, Node b) =>
+            HaversineMeters(a.Lat, a.Lon, b.Lat, b.Lon);
 
         private static double HaversineMeters(double lat1, double lon1, double lat2, double lon2)
         {
-            var R = 6371000.0;
+            const double R = 6371000.0;
             var dLat = ToRad(lat2 - lat1);
             var dLon = ToRad(lon2 - lon1);
             var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
@@ -310,6 +319,7 @@ namespace MySimulationAPI.Services
             var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
             return R * c;
         }
+
         private static double ToRad(double deg) => deg * Math.PI / 180.0;
     }
 }
