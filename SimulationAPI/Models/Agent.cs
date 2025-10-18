@@ -38,6 +38,8 @@ namespace MySimulationAPI.Models
 
         [NotMapped]
         public int CurrentBuildingId { get; set; }
+
+        [NotMapped]
         public Building CurrentBuilding { get; set; }
 
 

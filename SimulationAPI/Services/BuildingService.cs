@@ -19,7 +19,7 @@ namespace MySimulationAPI.Services
         {
             _context = context;
             _routingService = context.RoutingService;
-            _buildings = context.Simulation.MapArea.Buildings.ToList();
+            _buildings = context.Buildings.ToList();
 
             // Pre-build KD-trees by building type for fast spatial lookup
             _kdTrees = BuildKdTrees(_buildings);

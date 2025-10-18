@@ -1,47 +1,83 @@
-using MySimulationAPI.Models;
+using System;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace MySimulationAPI.SimulationEngine
+namespace MySimulationAPI.SimulationConfiguration
 {
     public class SimulationEngine
     {
-        public Simulation Simulation { get; private set; }
-        public bool IsRunning { get; private set; } = false;
-        private int _tick = 0;
+        private readonly SimulationContext _context;
+        private CancellationTokenSource? _cts;
 
-        public SimulationEngine(Simulation simulation)
+        public SimulationEngine(SimulationContext context)
         {
-            Simulation = simulation;
+            _context = context;
         }
 
         public void Start()
         {
-            IsRunning = true;
+            if (_cts != null && !_cts.IsCancellationRequested)
+                return; // already running
+
+            _cts = new CancellationTokenSource();
+            Task.Run(() => RunAsync(_cts.Token));
         }
 
-        public void Stop()
+        public void Stop() => _cts?.Cancel();
+
+        private async Task RunAsync(CancellationToken token)
         {
-            IsRunning = false;
-        }
+            Console.WriteLine($"[SimulationEngine] Starting simulation {_context.Simulation.Id}...");
+            var sw = new Stopwatch();
 
-        // Advance one tick
-        public void Tick()
-        {
-            if (!IsRunning) return;
-
-            _tick++;
-
-            foreach (var agent in Simulation.Agents)
+            while (!token.IsCancellationRequested)
             {
-                MoveAgent(agent);
+                sw.Restart();
+                Tick(); // run simulation logic
+                sw.Stop();
+
+                // Save periodic snapshots every 500 ticks (will need to be adjusted based on tick length)
+                if (_context.Simulation.CurrentTick % 500 == 0)
+                    await _context.Snapshots.SaveSnapshotAsync();
+
+                // -------------------------
+                // Calculate target delay
+                // -------------------------
+                double tickLengthMinutes = _context.Simulation.TickLengthMinutes;
+                double playbackSpeed = _context.SimulationSpeed <= 0 ? 1.0 : _context.SimulationSpeed;
+
+                // Convert tick length into real-world seconds (roughly)
+                // Example: 5-minute tick @ 1x = 5 seconds real time
+                double targetDelaySeconds = tickLengthMinutes / playbackSpeed;
+
+                // Adjust for actual compute time to maintain consistent pacing
+                double computeSeconds = sw.Elapsed.TotalSeconds;
+                double remainingSeconds = Math.Max(0, targetDelaySeconds - computeSeconds);
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(remainingSeconds), token);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
             }
 
-            // ComputeInteractions
+            Console.WriteLine($"[SimulationEngine] Simulation stopped.");
         }
 
-        private void MoveAgent(Agent agent)
+        private void Tick()
         {
+            // Advance all agents according to their routines
+            _context.AgentService.UpdateAgentsForTick();
 
+            // Disease progression and infection spread
+            _context.InfectionService.UpdateInfectionTick();
+
+            // Advance simulation time
+            _context.Simulation.CurrentTick++;
         }
-
     }
 }

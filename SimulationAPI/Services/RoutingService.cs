@@ -120,23 +120,23 @@ namespace MySimulationAPI.Services
     // -----------------------------
     public class RoutingService
     {
-        private readonly Simulation _simulation;
+        private readonly SimulationContext _context;
         private readonly Dictionary<int, Node> _nodes;
         private readonly Dictionary<int, List<Edge>> _graph;
         private readonly NodeGridIndex _grid;
         private readonly ConcurrentDictionary<(int, int), List<int>> _routeCache = new();
 
-        public RoutingService(Simulation simulation)
+        public RoutingService(SimulationContext context)
         {
-            _simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));
+            _context = context ?? throw new ArgumentNullException(nameof(context));
 
-            var map = simulation.MapArea ?? throw new InvalidOperationException("Simulation has no map area.");
-            if (map.Paths == null || map.Paths.Count == 0)
+            var paths = _context.Paths ?? throw new InvalidOperationException("Simulation has no map area.");
+            if (paths == null || paths.Count == 0)
                 throw new InvalidOperationException("Map area has no path data.");
 
             // Build graph
-            _nodes = BuildNodeDictionary(map.Paths);
-            _graph = BuildGraph(map.Paths, _nodes);
+            _nodes = BuildNodeDictionary(paths);
+            _graph = BuildGraph(paths, _nodes);
             _grid = BuildGrid(_nodes);
         }
 

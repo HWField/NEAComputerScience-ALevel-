@@ -11,6 +11,10 @@ namespace MySimulationAPI.SimulationConfiguration
         public Simulation Simulation { get; }
         public SimDbContext Db { get; }
         public Random Rng { get; set; }
+
+        // Runtime properties
+        public double SimulationSpeed { get; set; } = 1.0; // multiplier, 1.0 = 1 tick per real second (greater than 1 is faster)
+        public bool IsPaused { get; set; } = false;
         public long CurrentTick { get; set; } = 0; // runtime tick, updated via snapshot
 
 
@@ -33,7 +37,8 @@ namespace MySimulationAPI.SimulationConfiguration
             Simulation = simulation;
             Db = db;
             Rng = new Random(simulation.Id); // deterministic seed
-
+            SimulationSpeed = 1.0;
+            IsPaused = false;
             // Load relevant objects in one go
             Buildings = db.Buildings
                 .Where(b => b.MapAreaId == simulation.MapArea.Id)
@@ -52,8 +57,10 @@ namespace MySimulationAPI.SimulationConfiguration
                 .AsNoTracking()
                 .ToList();
 
+
+
             // Instantiate services using in-memory data
-            RoutingService = new RoutingService(simulation);
+            RoutingService = new RoutingService(this);
             BuildingService = new BuildingService(this);
             Snapshots = new SnapshotManager(this);
             AgentService = new AgentService(this);

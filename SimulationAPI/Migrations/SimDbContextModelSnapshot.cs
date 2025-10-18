@@ -35,12 +35,6 @@ namespace SimulationAPI.Migrations
                         .HasMaxLength(21)
                         .HasColumnType("character varying(21)");
 
-                    b.Property<double>("CurrentLat")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("CurrentLon")
-                        .HasColumnType("double precision");
-
                     b.Property<int?>("HouseId")
                         .HasColumnType("integer");
 
@@ -50,10 +44,6 @@ namespace SimulationAPI.Migrations
 
                     b.Property<int>("SimulationId")
                         .HasColumnType("integer");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<int?>("WorkplaceId")
                         .HasColumnType("integer");
@@ -71,6 +61,50 @@ namespace SimulationAPI.Migrations
                     b.HasDiscriminator<string>("AgentType").HasValue("Agent");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.AgentSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CurrentBuildingId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("HealthState")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("InfectionProgress")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("IsQuarantined")
+                        .HasColumnType("boolean");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("SimulationSnapshotId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("CurrentBuildingId");
+
+                    b.HasIndex("SimulationSnapshotId");
+
+                    b.ToTable("AgentSnapshot");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Building", b =>
@@ -114,6 +148,32 @@ namespace SimulationAPI.Migrations
                     b.HasDiscriminator<string>("BuildingType").HasValue("Building");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.BuildingSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BuildingId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CurrentOccupancy")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SimulationSnapshotId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId");
+
+                    b.HasIndex("SimulationSnapshotId");
+
+                    b.ToTable("BuildingSnapshot");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Disease", b =>
@@ -375,6 +435,9 @@ namespace SimulationAPI.Migrations
                     b.Property<int>("MapAreaId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("PathNodeId")
+                        .HasColumnType("integer");
+
                     b.Property<double>("SpeedModifier")
                         .HasColumnType("double precision");
 
@@ -384,6 +447,8 @@ namespace SimulationAPI.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("MapAreaId");
+
+                    b.HasIndex("PathNodeId");
 
                     b.ToTable("Paths");
                 });
@@ -402,7 +467,12 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("Lon")
                         .HasColumnType("double precision");
 
+                    b.Property<int>("PathId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("PathId");
 
                     b.ToTable("PathNode");
                 });
@@ -482,9 +552,6 @@ namespace SimulationAPI.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<long>("CurrentTick")
-                        .HasColumnType("bigint");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -514,19 +581,23 @@ namespace SimulationAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("HealthyCount")
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SimulationId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("InfectedCount")
+                    b.Property<int>("SimulationId1")
                         .HasColumnType("integer");
 
-                    b.Property<int>("RecoveredCount")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Tick")
-                        .HasColumnType("integer");
+                    b.Property<long>("Tick")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SimulationId");
+
+                    b.HasIndex("SimulationId1");
 
                     b.ToTable("SimulationSnapshots");
                 });
@@ -554,21 +625,6 @@ namespace SimulationAPI.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("PathPathNode", b =>
-                {
-                    b.Property<int>("ConnectedPathsId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NodesId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("ConnectedPathsId", "NodesId");
-
-                    b.HasIndex("NodesId");
-
-                    b.ToTable("PathPathNode");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.ElderlyRetiredAgent", b =>
@@ -712,6 +768,31 @@ namespace SimulationAPI.Migrations
                     b.Navigation("Workplace");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.AgentSnapshot", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Agent", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MySimulationAPI.Models.Building", "CurrentBuilding")
+                        .WithMany()
+                        .HasForeignKey("CurrentBuildingId");
+
+                    b.HasOne("MySimulationAPI.Models.SimulationSnapshot", "Snapshot")
+                        .WithMany("Agents")
+                        .HasForeignKey("SimulationSnapshotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("CurrentBuilding");
+
+                    b.Navigation("Snapshot");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.Building", b =>
                 {
                     b.HasOne("MySimulationAPI.Models.MapArea", "MapArea")
@@ -721,6 +802,25 @@ namespace SimulationAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("MapArea");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.BuildingSnapshot", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Building", "Building")
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MySimulationAPI.Models.SimulationSnapshot", "Snapshot")
+                        .WithMany("Buildings")
+                        .HasForeignKey("SimulationSnapshotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Building");
+
+                    b.Navigation("Snapshot");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Disease", b =>
@@ -805,7 +905,22 @@ namespace SimulationAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MySimulationAPI.Models.PathNode", null)
+                        .WithMany("ConnectedPaths")
+                        .HasForeignKey("PathNodeId");
+
                     b.Navigation("MapArea");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.PathNode", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Path", "Path")
+                        .WithMany("Nodes")
+                        .HasForeignKey("PathId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Path");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.RefreshToken", b =>
@@ -849,19 +964,21 @@ namespace SimulationAPI.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("PathPathNode", b =>
+            modelBuilder.Entity("MySimulationAPI.Models.SimulationSnapshot", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Path", null)
-                        .WithMany()
-                        .HasForeignKey("ConnectedPathsId")
+                    b.HasOne("MySimulationAPI.Models.Simulation", null)
+                        .WithMany("SimulationSnapshots")
+                        .HasForeignKey("SimulationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MySimulationAPI.Models.PathNode", null)
+                    b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
                         .WithMany()
-                        .HasForeignKey("NodesId")
+                        .HasForeignKey("SimulationId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Simulation");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Agent", b =>
@@ -891,6 +1008,16 @@ namespace SimulationAPI.Migrations
                     b.Navigation("Nodes");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.Path", b =>
+                {
+                    b.Navigation("Nodes");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.PathNode", b =>
+                {
+                    b.Navigation("ConnectedPaths");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
                 {
                     b.Navigation("Agents");
@@ -902,6 +1029,15 @@ namespace SimulationAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Mitigations");
+
+                    b.Navigation("SimulationSnapshots");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.SimulationSnapshot", b =>
+                {
+                    b.Navigation("Agents");
+
+                    b.Navigation("Buildings");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.User", b =>

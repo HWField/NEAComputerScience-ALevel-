@@ -217,7 +217,7 @@ namespace MySimulationAPI.SimulationConfiguration
             var pathPresets = await _db.OSMPathPresets
                 .AsNoTracking()
                 .Include(p => p.Nodes)
-                .Where(p => p.MapAreaPresetId == presetId)
+                .Where(p => p.MapAreaPresetId == actualPresetId)
                 .ToListAsync();
 
             var newPaths = pathPresets.Select(presetPath => new Models.Path
@@ -330,7 +330,7 @@ namespace MySimulationAPI.SimulationConfiguration
             // Assign housing & workplaces deterministically
             context.BuildingService.AssignHousing();
             context.BuildingService.AssignWorkplaces();
-
+            agents = context.Agents; // reload agents with assigned buildings and Ids
             // Set the FK IDs explicitly
             foreach (var agent in agents)
             {

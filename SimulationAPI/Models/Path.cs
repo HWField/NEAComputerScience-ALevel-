@@ -28,6 +28,8 @@ namespace MySimulationAPI.Models
         public double Lat { get; set; }
         public double Lon { get; set; }
 
+        public int PathId { get; set; }
+        public Models.Path Path { get; set; } = null!;
         // For graph traversal: paths that connect here
         public List<Path> ConnectedPaths { get; set; } = new();
     }

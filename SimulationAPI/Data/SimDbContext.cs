@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using MySimulationAPI.Models;
 
 namespace MySimulationAPI.Data
@@ -112,6 +113,12 @@ namespace MySimulationAPI.Data
                 .HasMany(m => m.Paths)
                 .WithOne(p => p.MapArea)
                 .HasForeignKey(p => p.MapAreaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Models.Path>()
+                .HasMany(p => p.Nodes)
+                .WithOne(n => n.Path)
+                .HasForeignKey(n => n.PathId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Building>()
