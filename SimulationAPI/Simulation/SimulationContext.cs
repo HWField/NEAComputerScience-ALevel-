@@ -39,6 +39,17 @@ namespace MySimulationAPI.SimulationConfiguration
             Rng = new Random(simulation.Id); // deterministic seed
             SimulationSpeed = 1.0;
             IsPaused = false;
+
+
+            // Determine current tick from highest tick snapshot
+            var maxSnapshotTick = db.SimulationSnapshots
+            .Where(s => s.SimulationId == simulation.Id)
+            .OrderByDescending(s => s.Tick)
+            .Select(s => (long?)s.Tick)
+            .FirstOrDefault();
+            CurrentTick = maxSnapshotTick ?? 0;
+
+
             // Load relevant objects in one go
             Buildings = db.Buildings
                 .Where(b => b.MapAreaId == simulation.MapArea.Id)
@@ -57,8 +68,6 @@ namespace MySimulationAPI.SimulationConfiguration
                 .AsNoTracking()
                 .ToList();
 
-
-
             // Instantiate services using in-memory data
             RoutingService = new RoutingService(this);
             BuildingService = new BuildingService(this);
@@ -66,6 +75,9 @@ namespace MySimulationAPI.SimulationConfiguration
             AgentService = new AgentService(this);
             Engine = new SimulationEngine(this);
             InfectionService = new InfectionService(this);
+
+            // Load the current snapshot to set runtime state (if no snapshot, this is tick 0 with initial state)
+            Snapshots.TryLoadSnapshotAsync(CurrentTick).Wait();
         }
         public void ReloadEntities()
         {

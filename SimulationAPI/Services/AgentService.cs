@@ -330,7 +330,7 @@ namespace MySimulationAPI.Services
 
         public void UpdateAgentsForTick()
         {
-            var tick = _context.Simulation.CurrentTick;
+            var tick = _context.CurrentTick;
             int tickMinutes = _context.Simulation.TickLengthMinutes;
 
             // Get current simulated time
