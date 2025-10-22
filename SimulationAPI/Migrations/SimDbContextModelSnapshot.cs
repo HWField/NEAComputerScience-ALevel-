@@ -208,6 +208,37 @@ namespace SimulationAPI.Migrations
                     b.ToTable("Diseases");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.DiseasePreset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("InfectionRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("MortalityRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("RecoveryRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("DiseasePresets");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.MapArea", b =>
                 {
                     b.Property<int>("Id")
@@ -264,7 +295,12 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("Radius")
                         .HasColumnType("double precision");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("MapAreaPresets");
                 });
@@ -520,6 +556,12 @@ namespace SimulationAPI.Migrations
                     b.Property<int>("BuildingId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("CachedPath")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("CachedTravelDuration")
+                        .HasColumnType("integer");
+
                     b.Property<int>("DayIndex")
                         .HasColumnType("integer");
 
@@ -538,7 +580,7 @@ namespace SimulationAPI.Migrations
 
                     b.HasIndex("BuildingId");
 
-                    b.ToTable("RoutineEvent");
+                    b.ToTable("RoutineEvents");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Simulation", b =>
@@ -560,7 +602,7 @@ namespace SimulationAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("TickLengthMinutes")
+                    b.Property<int>("TickLength")
                         .HasColumnType("integer");
 
                     b.Property<int>("UserId")
@@ -834,6 +876,15 @@ namespace SimulationAPI.Migrations
                     b.Navigation("Simulation");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.DiseasePreset", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.MapArea", b =>
                 {
                     b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
@@ -843,6 +894,15 @@ namespace SimulationAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Simulation");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.MapAreaPreset", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.MedicalProfile", b =>

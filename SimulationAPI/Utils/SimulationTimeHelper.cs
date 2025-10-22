@@ -8,79 +8,52 @@ namespace MySimulationAPI.Utils
     /// </summary>
     public static class SimulationTimeHelper
     {
-        // -----------------------
-        // Conversions to ticks
-        // -----------------------
-
-        public static int ConvertHoursToTicks(double hours, int tickLengthMinutes)
-        {
-            return (int)Math.Round(hours * 60 / tickLengthMinutes);
-        }
-
-        public static int ConvertMinutesToTicks(double minutes, int tickLengthMinutes)
-        {
-            return (int)Math.Round(minutes / tickLengthMinutes);
-        }
-
-        public static int ConvertTimeToTick(TimeOnly time, int tickLengthMinutes)
+        /// <summary>
+        /// Converts a TimeOnly into a tick count (e.g. 08:00 = tick 480 if tickLength=1min).
+        /// </summary>
+        public static int ConvertTimeToTicks(TimeOnly time, int tickLength)
         {
             int totalMinutes = time.Hour * 60 + time.Minute;
-            return ConvertMinutesToTicks(totalMinutes, tickLengthMinutes);
+            return totalMinutes / (tickLength * 60);
         }
 
-        public static int ConvertTimeSpanToTicks(TimeSpan span, int tickLengthMinutes)
+        /// <summary>
+        /// Converts a TimeSpan duration into ticks.
+        /// </summary>
+        public static int ConvertTimeSpanToTicks(TimeSpan span, int tickLength)
         {
-            return (int)Math.Round(span.TotalMinutes / tickLengthMinutes);
+            return (int)Math.Round(span.TotalMinutes / (tickLength * 60));
         }
 
-        // -----------------------
-        // Conversions from ticks
-        // -----------------------
-
-        public static double ConvertTicksToMinutes(int ticks, int tickLengthMinutes)
+        /// <summary>
+        /// Converts ticks back to TimeOnly.
+        /// </summary>
+        public static TimeOnly ConvertTicksToTime(int ticks, int tickLength)
         {
-            return ticks * tickLengthMinutes;
-        }
-
-        public static double ConvertTicksToHours(int ticks, int tickLengthMinutes)
-        {
-            return ticks * tickLengthMinutes / 60.0;
-        }
-
-        public static TimeOnly ConvertTickToTime(int tick, int tickLengthMinutes)
-        {
-            int totalMinutes = tick * tickLengthMinutes;
+            int totalMinutes = ticks * (tickLength * 60);
             int hours = (totalMinutes / 60) % 24;
             int minutes = totalMinutes % 60;
             return new TimeOnly(hours, minutes);
         }
 
-        // -----------------------
-        // Simulation timeline helpers
-        // -----------------------
-
         /// <summary>
-        /// Returns the day index (0=Monday) and time-of-day for the current tick.
+        /// Returns the (day index, tick-of-day) from a global tick.
         /// </summary>
-        public static (int DayIndex, TimeOnly TimeOfDay) GetSimulationTime(long currentTick, int tickLengthMinutes)
+        public static (int DayIndex, int TickOfDay) GetSimulationTime(long currentTick, int tickLength)
         {
-            long totalMinutes = currentTick * tickLengthMinutes;
-            int daysElapsed = (int)(totalMinutes / 1440); // 1440 minutes = 24h
-            int minutesOfDay = (int)(totalMinutes % 1440);
-
-            var timeOfDay = TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(minutesOfDay));
-            int dayIndex = daysElapsed % 7; // weekly cycle
-
-            return (dayIndex, timeOfDay);
+            int ticksPerDay = 24 / tickLength;
+            int dayIndex = (int)(currentTick / ticksPerDay) % 7;
+            int tickOfDay = (int)(currentTick % ticksPerDay);
+            return (dayIndex, tickOfDay);
         }
 
-        /// <summary>
-        /// Get the simulation's current weekday (assumes Monday as day 0).
-        /// </summary>
-        public static DayOfWeek GetWeekDay(long currentTick, int tickLengthMinutes)
+        public static int ConvertTimeToTick(TimeOnly time, int tickLengthSeconds)
         {
-            var (dayIndex, _) = GetSimulationTime(currentTick, tickLengthMinutes);
-            return (DayOfWeek)(((int)DayOfWeek.Monday + dayIndex) % 7);
+            // Total seconds since midnight
+            int totalSeconds = time.Hour * 3600 + time.Minute * 60 + time.Second;
+
+            // Number of ticks that have passed since midnight
+            return totalSeconds / tickLengthSeconds;
         }
     }
 }
