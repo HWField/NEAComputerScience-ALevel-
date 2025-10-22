@@ -50,3 +50,5 @@ appsettings.Local.json
 
 # Notes
 *.txt
+
+*.env

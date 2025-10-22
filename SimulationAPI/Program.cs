@@ -6,6 +6,7 @@ using MySimulationAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using MySimulationAPI.SimulationConfiguration;
+using DotNetEnv;
 var builder = WebApplication.CreateBuilder(args);
 
 // Centralised service registrations
@@ -86,8 +87,15 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+Env.Load();
+
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var presetService = scope.ServiceProvider.GetRequiredService<PresetService>();
+    await presetService.SeedDefaultsAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {

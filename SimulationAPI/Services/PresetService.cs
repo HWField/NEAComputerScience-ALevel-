@@ -18,17 +18,17 @@ namespace MySimulationAPI.Services
             _osmService = osmService;
         }
 
-        public async Task<MapAreaPreset> FetchAndCreatePresetAsync(string name, double latitude, double longitude, double radiusKm)
+        public async Task<MapAreaPreset> FetchAndCreateMapPresetAsync(string name, double latitude, double longitude, double radiusKm)
         {
             var (buildings, paths) = await _osmService.FetchMapDataAsync(latitude, longitude, radiusKm);
 
             // Create preset from fetched data
-            return await CreatePresetAsync(name, latitude, longitude, radiusKm,
+            return await CreateMapPresetAsync(name, latitude, longitude, radiusKm,
                 buildings,
                 paths);
         }
 
-        public async Task<MapAreaPreset> CreatePresetAsync(
+        public async Task<MapAreaPreset> CreateMapPresetAsync(
     string name, double latitude, double longitude, double radiusKm,
     List<OSMBuildingPreset> buildings, List<OSMPathPreset> paths)
         {
@@ -125,5 +125,49 @@ namespace MySimulationAPI.Services
             return preset;
         }
 
+        public async Task SeedDefaultsAsync()
+        {
+            // === Seed Admin User ===
+            if (!await _db.Users.AnyAsync(u => u.Username == "admin"))
+            {
+                var adminUser = new User
+                {
+                    Username = "admin",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(Environment.GetEnvironmentVariable("ADMIN_PASSWORD")),
+                    Role = "Admin"
+                };
+                _db.Users.Add(adminUser);
+            }
+
+            // === Seed Global Disease Presets ===
+            if (!await _db.DiseasePresets.AnyAsync(d => d.Name == "Covid-19"))
+            {
+                _db.DiseasePresets.Add(new DiseasePreset
+                {
+                    Name = "Covid-19",
+                    InfectionRate = 0.3,
+                    RecoveryRate = 0.1,
+                    MortalityRate = 0.015,
+                });
+            }
+
+            if (!await _db.DiseasePresets.AnyAsync(d => d.Name == "Influenza"))
+            {
+                _db.DiseasePresets.Add(new DiseasePreset
+                {
+                    Name = "Influenza",
+                    InfectionRate = 0.15,
+                    RecoveryRate = 0.12,
+                    MortalityRate = 0.005,
+                });
+            }
+
+            // === Seed Global MapArea Presets ===
+            if (!await _db.MapAreaPresets.AnyAsync(m => m.Name == "CambridgeCity"))
+            {
+                await FetchAndCreateMapPresetAsync("CambridgeCity", 52.1951, 0.1313, 1);
+            }
+            await _db.SaveChangesAsync();
+        }
     }
 }
