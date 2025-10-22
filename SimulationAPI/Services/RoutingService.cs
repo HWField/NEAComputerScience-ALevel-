@@ -214,32 +214,41 @@ namespace MySimulationAPI.Services
         // -----------------------------
         // Public Route Computation
         // -----------------------------
-        public (List<(double Lat, double Lon)>? path, TimeSpan travelTime) ComputeRoute(
-            double startLat, double startLon,
-            double endLat, double endLon,
-            double avgSpeedMph = 3.0)
+        public ((double Lat, double Lon)[]? path, int travelTime) ComputeRoute(
+    double startLat, double startLon,
+    double endLat, double endLon,
+    double avgSpeedMph = 3.0)
         {
             int startId = _grid.FindNearestNodeId(startLat, startLon);
             int endId = _grid.FindNearestNodeId(endLat, endLon);
 
             if (startId == -1 || endId == -1)
-                return (null, TimeSpan.Zero);
+                return (null, 0);
 
             var pathNodeIds = FindPathAStar(startId, endId);
-            if (pathNodeIds == null) return (null, TimeSpan.Zero);
+            if (pathNodeIds == null || pathNodeIds.Count < 2)
+                return (null, 0);
 
-            var pathCoords = pathNodeIds.Select(id => (_nodes[id].Lat, _nodes[id].Lon)).ToList();
+            // Convert node IDs to coordinate array
+            var pathCoords = new (double Lat, double Lon)[pathNodeIds.Count];
+            for (int i = 0; i < pathNodeIds.Count; i++)
+            {
+                var node = _nodes[pathNodeIds[i]];
+                pathCoords[i] = (node.Lat, node.Lon);
+            }
 
+            // Compute total route distance
             double totalDistance = 0;
-            for (int i = 0; i < pathCoords.Count - 1; i++)
+            for (int i = 0; i < pathCoords.Length - 1; i++)
             {
                 totalDistance += HaversineMeters(
                     pathCoords[i].Lat, pathCoords[i].Lon,
                     pathCoords[i + 1].Lat, pathCoords[i + 1].Lon);
             }
 
+            // Convert to travel time (seconds)
             var speedMps = avgSpeedMph * 0.44704;
-            var travelTime = TimeSpan.FromSeconds(totalDistance / speedMps);
+            var travelTime = (int)Math.Round(totalDistance / speedMps);
 
             return (pathCoords, travelTime);
         }

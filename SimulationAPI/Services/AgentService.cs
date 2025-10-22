@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MySimulationAPI.Models;
 using MySimulationAPI.SimulationConfiguration;
+using SimulationRuntime;
 
 namespace MySimulationAPI.Services
 {
@@ -32,7 +33,7 @@ namespace MySimulationAPI.Services
             // ------------------------------
             // Local helper: add a routine event
             // ------------------------------
-            void AddRoutineEvent(DayOfWeek day, TimeOnly start, TimeSpan duration, RoutineEventType type, Building target)
+            void AddRoutineEvent(int day, TimeOnly start, TimeSpan duration, RoutineEventType type, Building target)
             {
                 var (path, travelTime) = routingService.ComputeRoute(
        curLat, curLon,
@@ -75,11 +76,11 @@ namespace MySimulationAPI.Services
                     if (agent.Workplace == null) continue;
 
                     var schoolStart = new TimeOnly(8, 30).AddMinutes(rng.Next(-15, 16));
-                    AddRoutineEvent((DayOfWeek)day, schoolStart, TimeSpan.FromHours(7), RoutineEventType.School, agent.Workplace);
+                    AddRoutineEvent(day, schoolStart, TimeSpan.FromHours(7), RoutineEventType.School, agent.Workplace);
 
                     // Return home
                     var homeStart = schoolStart.AddHours(7).AddMinutes(rng.Next(0, 31));
-                    AddRoutineEvent((DayOfWeek)day, homeStart, TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    AddRoutineEvent(day, homeStart, TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
                 }
 
                 // Weekends
@@ -90,10 +91,10 @@ namespace MySimulationAPI.Services
                         var leisureStart = new TimeOnly(10, 0).AddMinutes(rng.Next(-60, 61));
                         var leisureDur = TimeSpan.FromHours(rng.Next(2, 5));
                         var target = PickLeisureOrHome();
-                        AddRoutineEvent((DayOfWeek)day, leisureStart, leisureDur, RoutineEventType.Leisure, target);
+                        AddRoutineEvent(day, leisureStart, leisureDur, RoutineEventType.Leisure, target);
                     }
 
-                    AddRoutineEvent((DayOfWeek)day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    AddRoutineEvent(day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -109,19 +110,19 @@ namespace MySimulationAPI.Services
                     if (agent.Workplace == null) continue;
 
                     var workStart = new TimeOnly(8, 0).AddMinutes(rng.Next(-30, 61));
-                    AddRoutineEvent((DayOfWeek)day, workStart, TimeSpan.FromHours(rng.Next(8, 10)), RoutineEventType.Work, agent.Workplace);
+                    AddRoutineEvent(day, workStart, TimeSpan.FromHours(rng.Next(8, 10)), RoutineEventType.Work, agent.Workplace);
 
                     // Lunch break (30%)
                     if (rng.NextDouble() < 0.3)
                     {
                         var lunchStart = workStart.AddHours(4);
                         var restaurant = buildingService.GetRandomBuilding<RetailBuilding>(rng) ?? agent.Workplace;
-                        AddRoutineEvent((DayOfWeek)day, lunchStart, TimeSpan.FromHours(1), RoutineEventType.Other, restaurant);
+                        AddRoutineEvent(day, lunchStart, TimeSpan.FromHours(1), RoutineEventType.Other, restaurant);
                     }
 
                     // Return home
                     var endTime = workStart.AddHours(rng.Next(8, 10));
-                    AddRoutineEvent((DayOfWeek)day, endTime, TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    AddRoutineEvent(day, endTime, TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
                 }
 
                 // Weekends
@@ -144,10 +145,10 @@ namespace MySimulationAPI.Services
                             type = RoutineEventType.Leisure;
                         }
 
-                        AddRoutineEvent((DayOfWeek)day, start, TimeSpan.FromHours(rng.Next(2, 5)), type, dest);
+                        AddRoutineEvent(day, start, TimeSpan.FromHours(rng.Next(2, 5)), type, dest);
                     }
 
-                    AddRoutineEvent((DayOfWeek)day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    AddRoutineEvent(day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -165,11 +166,11 @@ namespace MySimulationAPI.Services
                     double roll = rng.NextDouble();
 
                     if (roll < 0.5)
-                        AddRoutineEvent((DayOfWeek)day, new TimeOnly(7, 0), TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
+                        AddRoutineEvent(day, new TimeOnly(7, 0), TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
                     else if (roll < 0.8)
-                        AddRoutineEvent((DayOfWeek)day, new TimeOnly(19, 0), TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
+                        AddRoutineEvent(day, new TimeOnly(19, 0), TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
                     else
-                        AddRoutineEvent((DayOfWeek)day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -188,10 +189,10 @@ namespace MySimulationAPI.Services
                     {
                         var startHour = rng.Next(6, 12);
                         var dur = TimeSpan.FromHours(rng.Next(6, 9));
-                        AddRoutineEvent((DayOfWeek)day, new TimeOnly(startHour, 0), dur, RoutineEventType.Work, agent.Workplace);
+                        AddRoutineEvent(day, new TimeOnly(startHour, 0), dur, RoutineEventType.Work, agent.Workplace);
                     }
 
-                    AddRoutineEvent((DayOfWeek)day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    AddRoutineEvent(day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -209,10 +210,10 @@ namespace MySimulationAPI.Services
                     if (rng.NextDouble() < 0.8)
                     {
                         var startHour = rng.Next(10, 16); // later shifts
-                        AddRoutineEvent((DayOfWeek)day, new TimeOnly(startHour, 0), TimeSpan.FromHours(8), RoutineEventType.Work, agent.Workplace);
+                        AddRoutineEvent(day, new TimeOnly(startHour, 0), TimeSpan.FromHours(8), RoutineEventType.Work, agent.Workplace);
                     }
 
-                    AddRoutineEvent((DayOfWeek)day, new TimeOnly(23, 0), TimeSpan.FromHours(8), RoutineEventType.Home, agent.House);
+                    AddRoutineEvent(day, new TimeOnly(23, 0), TimeSpan.FromHours(8), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -229,15 +230,15 @@ namespace MySimulationAPI.Services
                     {
                         var start = new TimeOnly(9, 0).AddMinutes(rng.Next(-30, 61));
                         var shop = (Building)buildingService.GetRandomBuilding<RetailBuilding>(rng) ?? agent.House;
-                        AddRoutineEvent((DayOfWeek)day, start, TimeSpan.FromHours(1.5), RoutineEventType.Shopping, shop);
+                        AddRoutineEvent(day, start, TimeSpan.FromHours(1.5), RoutineEventType.Shopping, shop);
                     }
                     else if (rng.NextDouble() < 0.3)
                     {
                         var leisure = PickLeisureOrHome();
-                        AddRoutineEvent((DayOfWeek)day, new TimeOnly(14, 0), TimeSpan.FromHours(2), RoutineEventType.Leisure, leisure);
+                        AddRoutineEvent(day, new TimeOnly(14, 0), TimeSpan.FromHours(2), RoutineEventType.Leisure, leisure);
                     }
 
-                    AddRoutineEvent((DayOfWeek)day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    AddRoutineEvent(day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -330,79 +331,105 @@ namespace MySimulationAPI.Services
 
         public void UpdateAgentsForTick()
         {
-            var tick = _context.CurrentTick;
-            int tickMinutes = _context.Simulation.TickLengthMinutes;
+            // core timing
+            var (dayIndex, tickOfDay) = Utils.SimulationTimeHelper.GetSimulationTime(_context.CurrentTick, _context.TickLength);
+            // local references to arrays for speed
+            var agents = _context.AgentStates;
+            var routines = _context.RoutineStates;
+            var buildings = _context.BuildingStates;
 
-            // Get current simulated time
-            var (dayIndex, timeOfDay) = Utils.SimulationTimeHelper.GetSimulationTime(tick, tickMinutes);
-            var currentDay = (DayOfWeek)(((int)DayOfWeek.Monday + dayIndex) % 7);
+            // quick map BuildingId -> index in building array (to avoid LINQ .FirstOrDefault inside loop which has O(n) cost)
+            var buildingIndexById = new Dictionary<int, int>(buildings.Length);
+            for (int bi = 0; bi < buildings.Length; bi++)
+                buildingIndexById[buildings[bi].Id] = bi;
 
-            foreach (var agent in _context.Agents)
+            // occupancy counters
+            short[] occupantCounts = new short[buildings.Length];
+
+            // pre-filter routines to only those for today's day and build a lookup by AgentId for fast retrieval
+            var routinesToday = routines.Where(r => r.Day == dayIndex).ToArray();
+            var routinesLookup = routinesToday.ToLookup(r => r.AgentId);
+
+            // main loop over agents
+            for (int i = 0; i < agents.Length; i++)
             {
-                var routineToday = agent.RoutineEvents
-                    .Where(r => r.DayIndex == currentDay)
-                    .OrderBy(r => r.StartTime)
-                    .ToList();
+                ref var agent = ref agents[i];
 
-                if (routineToday.Count == 0) continue;
-
-                RoutineEvent? currentEvent = null;
-
-                foreach (var e in routineToday)
+                // get todays routines for this agent  
+                var agentRoutines = routinesLookup[agent.Id];
+                if (!agentRoutines.Any())
                 {
-                    var depart = e.GetDepartureTime();
-                    var end = e.StartTime.Add(e.Duration);
+                    continue;
+                }
 
-                    bool active = timeOfDay >= depart && timeOfDay < end;
-                    if (active)
+                // find the first active event for current tickOfDay
+                RoutineEventState? activeEvent = null;
+                foreach (var ev in agentRoutines)
+                {
+                    int startTick = ev.StartTick;
+                    int endTick = ev.StartTick + ev.DurationTicks;
+                    int departTick = startTick - (int)ev.CachedTravelDuration;
+
+                    if (tickOfDay >= departTick && tickOfDay < endTick)
                     {
-                        currentEvent = e;
+                        activeEvent = ev;
                         break;
                     }
                 }
 
-                if (currentEvent == null)
+                if (!activeEvent.HasValue)
                 {
-                    agent.CurrentBuilding = agent.House;
-                    agent.CurrentLat = agent.House.Latitude;
-                    agent.CurrentLon = agent.House.Longitude;
                     continue;
                 }
+                var evt = activeEvent.Value;
+                int travelStart = evt.StartTick - (int)evt.CachedTravelDuration;
+                int travelEnd = evt.StartTick;
 
-                // --- Travel interpolation ---
-                var departTime = currentEvent.GetDepartureTime();
-                var travelEnd = currentEvent.StartTime;
-                var totalTravelSeconds = currentEvent.CachedTravelDuration.TotalSeconds;
-
-                if (timeOfDay >= departTime && timeOfDay < travelEnd && currentEvent.CachedPath != null)
+                if (tickOfDay >= travelStart && tickOfDay < travelEnd && evt.Path != null && evt.Path.Length > 1 && evt.CachedTravelDuration > 0)
                 {
-                    double travelProgress = (timeOfDay.ToTimeSpan() - departTime.ToTimeSpan()).TotalSeconds / totalTravelSeconds;
-                    travelProgress = Math.Clamp(travelProgress, 0, 1);
+                    // progress [0..1] through travel in ticks
+                    float progress = (float)(tickOfDay - travelStart) / evt.CachedTravelDuration;
+                    progress = Math.Clamp(progress, 0f, 1f);
 
-                    int segmentCount = currentEvent.CachedPath.Count - 1;
-                    if (segmentCount > 0)
-                    {
-                        double segmentPos = travelProgress * segmentCount;
-                        int i = (int)Math.Floor(segmentPos);
-                        double frac = segmentPos - i;
+                    int segCount = evt.Path.Length - 1;
+                    float segPos = progress * segCount;
+                    int segIndex = (int)MathF.Floor(segPos);
+                    float frac = segPos - segIndex;
 
-                        if (i < segmentCount)
-                        {
-                            var (lat1, lon1) = currentEvent.CachedPath[i];
-                            var (lat2, lon2) = currentEvent.CachedPath[i + 1];
-                            agent.CurrentLat = lat1 + (lat2 - lat1) * frac;
-                            agent.CurrentLon = lon1 + (lon2 - lon1) * frac;
-                        }
-                    }
+                    if (segIndex < 0) segIndex = 0;
+                    if (segIndex >= segCount) segIndex = segCount - 1;
 
-                    agent.CurrentBuilding = null;
+                    var p1 = evt.Path[segIndex];
+                    var p2 = evt.Path[segIndex + 1];
+
+                    agent.Lat = p1.Lat + (p2.Lat - p1.Lat) * frac;
+                    agent.Lon = p1.Lon + (p2.Lon - p1.Lon) * frac;
+                    agent.CurrentBuildingId = 0; // in transit
                 }
                 else
                 {
-                    agent.CurrentBuilding = currentEvent.Building;
-                    agent.CurrentLat = currentEvent.Building.Latitude;
-                    agent.CurrentLon = currentEvent.Building.Longitude;
+                    // agent is at the event building location
+                    agent.CurrentBuildingId = evt.BuildingId;
+
+                    // update agent position to building coordinates (fast lookup by index)
+                    if (evt.BuildingId != 0 && buildingIndexById.TryGetValue(evt.BuildingId, out var bidx))
+                    {
+                        agent.Lat = buildings[bidx].X;
+                        agent.Lon = buildings[bidx].Y;
+
+                        // count occupancy
+                        occupantCounts[bidx]++;
+                    }
+                    else
+                    {
+                    }
                 }
+            }
+
+            // write back occupant counts
+            for (int bi = 0; bi < buildings.Length; bi++)
+            {
+                buildings[bi].Occupants = occupantCounts[bi];
             }
         }
     }

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using MySimulationAPI.Models;
 using MySimulationAPI.SimulationConfiguration;
+using SimulationRuntime;
 
 namespace MySimulationAPI.Services
 {
@@ -12,9 +12,8 @@ namespace MySimulationAPI.Services
         private readonly Random _rng;
         private readonly Disease _disease;
 
-        // Infection radius in meters
-        private const double INFECTION_RADIUS_METERS = 5.0;
-        private const double INDOOR_MULTIPLIER = 3.0;
+        private const float INFECTION_RADIUS_METERS = 5.0f;
+        private const float INDOOR_MULTIPLIER = 3.0f;
 
         public InfectionService(SimulationContext context)
         {
@@ -25,163 +24,163 @@ namespace MySimulationAPI.Services
 
         public void UpdateInfectionTick()
         {
-            var agents = _context.Agents;
-
-            if (!agents.Any())
+            Span<AgentState> agents = _context.AgentStates.AsSpan();
+            if (agents.Length == 0)
                 return;
 
-            // Build a spatial index
-            double minLat = agents.Min(a => a.CurrentLat);
-            double maxLat = agents.Max(a => a.CurrentLat);
-            double minLon = agents.Min(a => a.CurrentLon);
-            double maxLon = agents.Max(a => a.CurrentLon);
+            // --- world bounds for quadtree ---
+            float minLat = float.MaxValue, maxLat = float.MinValue;
+            float minLon = float.MaxValue, maxLon = float.MinValue;
 
-            var quadtree = new Quadtree(minLon, maxLon, minLat, maxLat);
-            foreach (var agent in agents)
-                quadtree.Insert(agent);
-
-            // Infection spread
-            foreach (var agent in agents)
+            for (int i = 0; i < agents.Length; i++)
             {
-                if (agent.Status != "Infected") continue;
+                ref var a = ref agents[i];
+                if (a.Lat < minLat) minLat = a.Lat;
+                if (a.Lat > maxLat) maxLat = a.Lat;
+                if (a.Lon < minLon) minLon = a.Lon;
+                if (a.Lon > maxLon) maxLon = a.Lon;
+            }
 
-                var nearby = new List<Agent>();
-                quadtree.Query(agent.CurrentLat, agent.CurrentLon, MetersToLatLonRadius(agent.CurrentLat, INFECTION_RADIUS_METERS), nearby);
+            // --- Build quadtree from agents ---
+            var quadtree = new QuadtreeStruct(minLon, maxLon, minLat, maxLat);
+            for (int i = 0; i < agents.Length; i++)
+                quadtree.Insert(ref agents[i]);
 
-                foreach (var other in nearby)
+            // --- Process infection spread ---
+            for (int i = 0; i < agents.Length; i++)
+            {
+                ref var src = ref agents[i];
+                if ((AgentHealthState)src.HealthState != AgentHealthState.Infected)
+                    continue;
+
+                var nearby = new List<int>(32);
+                quadtree.Query(src.Lat, src.Lon, MetersToLatLonRadius(src.Lat, INFECTION_RADIUS_METERS), nearby);
+
+                for (int j = 0; j < nearby.Count; j++)
                 {
-                    if (agent.Id == other.Id) continue;
-                    if (other.Status != "Healthy") continue;
+                    int otherIdx = nearby[j];
+                    if (otherIdx == i) continue;
 
-                    TryInfect(agent, other);
+                    ref var dst = ref agents[otherIdx];
+                    if ((AgentHealthState)dst.HealthState != AgentHealthState.Healthy)
+                        continue;
+
+                    TryInfect(ref src, ref dst);
                 }
             }
 
-            // Progress disease (recovery / mortality)
-            UpdateHealthProgression(agents);
+            // --- Progress infection state ---
+            for (int i = 0; i < agents.Length; i++)
+                ProgressDisease(ref agents[i]);
         }
 
-        private void TryInfect(Agent source, Agent target)
+        private void TryInfect(ref AgentState src, ref AgentState dst)
         {
-            // Calculate infection chance
-            double baseChance = _disease.InfectionRate * target.MedicalProfile.InfectionSusceptibility;
+            float baseChance = (float)_disease.InfectionRate * dst.Susceptibility;
 
-            // Boost indoors chances (limited ventilation etc)
-            if (source.Workplace != null && source.Workplace == target.Workplace)
+            // If both in same building (indoors multiplier)
+            if (src.CurrentBuildingId != 0 &&
+                src.CurrentBuildingId == dst.CurrentBuildingId)
                 baseChance *= INDOOR_MULTIPLIER;
 
-            // Chronic conditions make infection more likely
-            if (target.MedicalProfile.HasChronicCondition)
-                baseChance *= 1.5;
+            if (dst.HasChronicCondition)
+                baseChance *= 1.5f;
 
-            // Clamp to 1.0
-            baseChance = Math.Min(baseChance, 1.0);
+            if (baseChance > 1f) baseChance = 1f;
 
-            // Determine infection event
             if (_rng.NextDouble() < baseChance)
             {
-                target.Status = "Infected";
-                target.InfectionProgress = 0.0;
+                dst.HealthState = (byte)AgentHealthState.Infected;
+                dst.InfectionProgress = 0f;
             }
         }
 
-        private void UpdateHealthProgression(List<Agent> agents)
+        private void ProgressDisease(ref AgentState a)
         {
-            foreach (var agent in agents)
+            switch ((AgentHealthState)a.HealthState)
             {
-                switch (agent.Status)
-                {
-                    case "Infected":
-                        agent.InfectionProgress += _disease.RecoveryRate;
+                case AgentHealthState.Infected:
+                    a.InfectionProgress += (float)_disease.RecoveryRate;
 
-                        // Death check first
-                        if (_rng.NextDouble() < _disease.MortalityRate * agent.MedicalProfile.InfectionSusceptibility)
-                        {
-                            agent.Status = "Dead";
-                            continue;
-                        }
+                    // Mortality check
+                    if (_rng.NextDouble() < _disease.MortalityRate * a.Susceptibility)
+                    {
+                        a.HealthState = (byte)AgentHealthState.Dead;
+                        return;
+                    }
 
-                        // Recovery check
-                        if (agent.InfectionProgress >= 1.0)
-                        {
-                            agent.Status = "Recovered";
-                            agent.MedicalProfile.Immunity = Math.Min(1.0, agent.MedicalProfile.Immunity + 0.2);
-                        }
-                        break;
+                    // Recovery check
+                    if (a.InfectionProgress >= 1f)
+                    {
+                        a.HealthState = (byte)AgentHealthState.Recovered;
+                        a.Immunity = MathF.Min(1f, a.Immunity + 0.2f);
+                    }
+                    break;
 
-                    case "Recovered":
-                        // Gradual immunity decay
-                        agent.MedicalProfile.Immunity = Math.Max(0.1, agent.MedicalProfile.Immunity - 0.001);
-                        break;
-                }
+                case AgentHealthState.Recovered:
+                    // Slow immunity decay
+                    a.Immunity = MathF.Max(0.1f, a.Immunity - 0.001f);
+                    break;
             }
         }
-        private static double MetersToLatLonRadius(double latitude, double meters)
+
+        private static float MetersToLatLonRadius(float latitude, float meters)
         {
-            // Rough conversion: 1 degree lat ≈ 111km, 1 degree lon ≈ 111km * cos(lat)
-            return meters / 111_000.0;
+            // Approx conversion (1 degree lat = ~111 km)
+            return (float)(meters / 111_000.0);
         }
     }
 
-    // ---------------------------------------------------------
-    // Supporting Spatial Structure
-    // ---------------------------------------------------------
-    public class Quadtree
+    // ----------------------------------------------
+    // Struct-optimized Quadtree (index-based)
+    // ----------------------------------------------
+    public class QuadtreeStruct
     {
-        private const int MAX_AGENTS = 10;
-        private readonly double MinX, MaxX, MinY, MaxY;
-        private readonly List<Agent> Agents = new();
-        private Quadtree[]? Children = null;
+        private const int MAX_AGENTS = 32;
+        private readonly float MinX, MaxX, MinY, MaxY;
+        private readonly List<int> _indices = new(MAX_AGENTS);
+        private QuadtreeStruct[]? _children;
+        private AgentState[]? _source;
 
-        public Quadtree(double minX, double maxX, double minY, double maxY)
+        public QuadtreeStruct(float minX, float maxX, float minY, float maxY)
         {
-            MinX = minX;
-            MaxX = maxX;
-            MinY = minY;
-            MaxY = maxY;
+            MinX = minX; MaxX = maxX; MinY = minY; MaxY = maxY;
         }
 
-        public void Insert(Agent agent)
+        public void Insert(ref AgentState agent)
         {
-            if (Children != null)
+            if (_children != null)
             {
                 int quad = GetQuadrant(agent);
-                Children[quad].Insert(agent);
+                _children[quad].Insert(ref agent);
                 return;
             }
 
-            Agents.Add(agent);
+            _indices.Add(agent.Id);
 
-            if (Agents.Count > MAX_AGENTS)
+            if (_indices.Count > MAX_AGENTS)
                 Subdivide();
         }
 
         private void Subdivide()
         {
-            double midX = (MinX + MaxX) / 2;
-            double midY = (MinY + MaxY) / 2;
+            float midX = (MinX + MaxX) / 2;
+            float midY = (MinY + MaxY) / 2;
 
-            Children = new Quadtree[4];
-            Children[0] = new Quadtree(MinX, midX, MinY, midY);
-            Children[1] = new Quadtree(midX, MaxX, MinY, midY);
-            Children[2] = new Quadtree(MinX, midX, midY, MaxY);
-            Children[3] = new Quadtree(midX, MaxX, midY, MaxY);
-
-            foreach (var a in Agents)
-            {
-                int quad = GetQuadrant(a);
-                Children[quad].Insert(a);
-            }
-            Agents.Clear();
+            _children = new QuadtreeStruct[4];
+            _children[0] = new QuadtreeStruct(MinX, midX, MinY, midY);
+            _children[1] = new QuadtreeStruct(midX, MaxX, MinY, midY);
+            _children[2] = new QuadtreeStruct(MinX, midX, midY, MaxY);
+            _children[3] = new QuadtreeStruct(midX, MaxX, midY, MaxY);
         }
 
-        private int GetQuadrant(Agent agent)
+        private int GetQuadrant(AgentState a)
         {
-            double midX = (MinX + MaxX) / 2;
-            double midY = (MinY + MaxY) / 2;
+            float midX = (MinX + MaxX) / 2;
+            float midY = (MinY + MaxY) / 2;
 
-            bool left = agent.CurrentLon < midX;
-            bool bottom = agent.CurrentLat < midY;
+            bool left = a.Lon < midX;
+            bool bottom = a.Lat < midY;
 
             if (left && bottom) return 0;
             if (!left && bottom) return 1;
@@ -189,34 +188,36 @@ namespace MySimulationAPI.Services
             return 3;
         }
 
-        public void Query(double lat, double lon, double radius, List<Agent> result)
+        public void Query(float lat, float lon, float radius, List<int> results)
         {
-            if (!IntersectsCircle(lat, lon, radius)) return;
+            if (!IntersectsCircle(lat, lon, radius))
+                return;
 
-            if (Children != null)
+            if (_children != null)
             {
-                foreach (var child in Children)
-                    child.Query(lat, lon, radius, result);
+                foreach (var child in _children)
+                    child.Query(lat, lon, radius, results);
             }
             else
             {
-                double radiusSq = radius * radius;
-                foreach (var agent in Agents)
+                float radiusSq = radius * radius;
+                foreach (int idx in _indices)
                 {
-                    double dx = agent.CurrentLat - lat;
-                    double dy = agent.CurrentLon - lon;
+                    ref var a = ref _source![idx];
+                    float dx = a.Lat - lat;
+                    float dy = a.Lon - lon;
                     if ((dx * dx + dy * dy) <= radiusSq)
-                        result.Add(agent);
+                        results.Add(idx);
                 }
             }
         }
 
-        private bool IntersectsCircle(double lat, double lon, double radius)
+        private bool IntersectsCircle(float lat, float lon, float radius)
         {
-            double closestX = Math.Max(MinX, Math.Min(lon, MaxX));
-            double closestY = Math.Max(MinY, Math.Min(lat, MaxY));
-            double dx = closestX - lon;
-            double dy = closestY - lat;
+            float closestX = Math.Clamp(lon, MinX, MaxX);
+            float closestY = Math.Clamp(lat, MinY, MaxY);
+            float dx = closestX - lon;
+            float dy = closestY - lat;
             return (dx * dx + dy * dy) <= radius * radius;
         }
     }

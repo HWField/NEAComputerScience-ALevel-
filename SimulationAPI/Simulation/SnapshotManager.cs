@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
 using MySimulationAPI.Models;
+using SimulationRuntime;
 
 namespace MySimulationAPI.SimulationConfiguration
 {
@@ -30,22 +31,61 @@ namespace MySimulationAPI.SimulationConfiguration
                 CreatedAt = DateTime.UtcNow,
             };
 
-            snapshot.Agents = _context.Agents.Select(a => new AgentSnapshot
-            {
-                AgentId = a.Id,
-                Latitude = a.CurrentLat,
-                Longitude = a.CurrentLon,
-                HealthState = a.MedicalProfile.ToString()
-            }).ToList();
+            // --- AGENTS ---
+            var agents = _context.AgentStates;
+            var agentSnaps = new List<AgentSnapshot>(agents.Length);
 
-            snapshot.Buildings = _context.Buildings.Select(b => new BuildingSnapshot
+            for (int i = 0; i < agents.Length; i++)
             {
-                BuildingId = b.Id,
-                CurrentOccupancy = b.CurrentOccupancy
-            }).ToList();
+                ref var a = ref agents[i];
 
+                agentSnaps.Add(new AgentSnapshot
+                {
+                    AgentId = a.Id,
+                    Latitude = a.Lat,
+                    Longitude = a.Lon,
+                    InfectionProgress = a.InfectionProgress,
+                    IsQuarantined = a.IsQuarantined,
+                    CurrentBuildingId = a.CurrentBuildingId > 0 ? a.CurrentBuildingId : null,
+                    HealthState = ConvertHealthStateToString((AgentHealthState)a.HealthState)
+                });
+            }
+            snapshot.Agents = agentSnaps;
+
+            // --- BUILDINGS ---
+            var buildings = _context.BuildingStates;
+            var buildingSnaps = new List<BuildingSnapshot>(buildings.Length);
+
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                ref var b = ref buildings[i];
+
+                buildingSnaps.Add(new BuildingSnapshot
+                {
+                    BuildingId = b.Id,
+                    CurrentOccupancy = b.Occupants
+                });
+            }
+            snapshot.Buildings = buildingSnaps;
+
+            // --- SAVE TO DATABASE ---
             await _db.SimulationSnapshots.AddAsync(snapshot);
             await _db.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Converts AgentHealthState enum to a human-readable string for DB.
+        /// </summary>
+        private static string ConvertHealthStateToString(AgentHealthState state)
+        {
+            return state switch
+            {
+                AgentHealthState.Healthy => "Healthy",
+                AgentHealthState.Infected => "Infected",
+                AgentHealthState.Recovered => "Recovered",
+                AgentHealthState.Dead => "Dead",
+                _ => "Healthy"
+            };
         }
 
         // ------------------------------------------------------------
@@ -72,42 +112,68 @@ namespace MySimulationAPI.SimulationConfiguration
         // ------------------------------------------------------------
         private void RestoreSnapshot(SimulationSnapshot snapshot)
         {
+            // --- Set simulation tick ---
             _context.CurrentTick = snapshot.Tick;
 
-            // Restore agents
-            foreach (var agent in _context.Agents)
+            // --- Build fast lookup dictionaries for snapshot data ---
+            var agentSnaps = snapshot.Agents;
+            var buildingSnaps = snapshot.Buildings;
+
+            var agentSnapLookup = new Dictionary<int, AgentSnapshot>(agentSnaps.Count);
+            foreach (var s in agentSnaps)
+                agentSnapLookup[s.AgentId] = s;
+
+            var buildingSnapLookup = new Dictionary<int, BuildingSnapshot>(buildingSnaps.Count);
+            foreach (var s in buildingSnaps)
+                buildingSnapLookup[s.BuildingId] = s;
+
+            // --- Restore AgentStates ---
+            var agents = _context.AgentStates;
+            for (int i = 0; i < agents.Length; i++)
             {
-                var snap = snapshot.Agents.FirstOrDefault(s => s.AgentId == agent.Id);
-                if (snap == null) continue;
+                ref var a = ref agents[i];
 
-                agent.CurrentLat = snap.Latitude;
-                agent.CurrentLon = snap.Longitude;
-                agent.HealthState = snap.HealthState;
-                agent.InfectionProgress = snap.InfectionProgress;
-                agent.IsQuarantined = snap.IsQuarantined;
+                if (!agentSnapLookup.TryGetValue(a.Id, out var snap))
+                    continue;
 
-                //restore building reference
-                if (snap.CurrentBuildingId.HasValue)
+                a.Lat = (float)snap.Latitude;
+                a.Lon = (float)snap.Longitude;
+                a.InfectionProgress = (float)snap.InfectionProgress;
+                a.IsQuarantined = snap.IsQuarantined;
+                a.CurrentBuildingId = snap.CurrentBuildingId ?? 0;
+
+                // Parse health string → byte enum
+                a.HealthState = (byte)ParseHealthState(snap.HealthState);
+            }
+
+            // --- Restore BuildingStates ---
+            var buildings = _context.BuildingStates;
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                ref var b = ref buildings[i];
+                if (buildingSnapLookup.TryGetValue(b.Id, out var snap))
                 {
-                    agent.CurrentBuilding = _context.Buildings
-                        .FirstOrDefault(b => b.Id == snap.CurrentBuildingId.Value);
-                }
-                else
-                {
-                    agent.CurrentBuilding = null;
+                    b.Occupants = (short)snap.CurrentOccupancy;
                 }
             }
 
-            // Restore building occupancy
-            foreach (var building in _context.Buildings)
-            {
-                var snap = snapshot.Buildings.FirstOrDefault(s => s.BuildingId == building.Id);
-                if (snap == null) continue;
-                building.CurrentOccupancy = snap.CurrentOccupancy;
-            }
-
-            // Restore RNG state
+            // --- Reset RNG to deterministic state for this tick ---
             _context.Rng = new Random(_context.Simulation.Id + (int)snapshot.Tick);
+        }
+
+        /// <summary>
+        /// Converts string-based DB health state to AgentHealthState enum
+        /// </summary>
+        private static AgentHealthState ParseHealthState(string state)
+        {
+            return state.ToLowerInvariant() switch
+            {
+                "healthy" => AgentHealthState.Healthy,
+                "infected" => AgentHealthState.Infected,
+                "recovered" => AgentHealthState.Recovered,
+                "dead" => AgentHealthState.Dead,
+                _ => AgentHealthState.Healthy
+            };
         }
 
 

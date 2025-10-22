@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using MySimulationAPI.Models;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System.Text.Json;
 
 namespace MySimulationAPI.Data
 {
@@ -15,9 +17,12 @@ namespace MySimulationAPI.Data
         // Simulation related models
         public DbSet<Simulation> Simulations { get; set; } = null!;
         public DbSet<Agent> Agents { get; set; } = null!;
+
+        public DbSet<RoutineEvent> RoutineEvents { get; set; } = null!;
         public DbSet<Building> Buildings { get; set; } = null!;
         public DbSet<Models.Path> Paths { get; set; } = null!;
         public DbSet<Disease> Diseases { get; set; } = null!;
+        public DbSet<DiseasePreset> DiseasePresets { get; set; } = null!;
         public DbSet<MedicalProfile> MedicalProfiles { get; set; } = null!;
         public DbSet<Mitigation> Mitigations { get; set; } = null!;
         public DbSet<SimulationSnapshot> SimulationSnapshots { get; set; } = null!;
@@ -49,6 +54,18 @@ namespace MySimulationAPI.Data
                 .WithOne(e => e.Agent)
                 .HasForeignKey(e => e.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Need to configure the conversion for CachedPath property as it stores a complex type (non primative)
+            modelBuilder.Entity<RoutineEvent>()
+                .Property(e => e.CachedPath)
+                .HasConversion(
+                    // Serialize the tuple array to JSON
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    // Deserialize JSON back to tuple array
+                    v => JsonSerializer.Deserialize<(double Lat, double Lon)[]>(v, (JsonSerializerOptions?)null)
+                        ?? Array.Empty<(double, double)>()
+                )
+                .HasColumnType("jsonb");
 
             // Configure one-to-one relationship between Agent and MedicalProfile
             modelBuilder.Entity<Agent>()

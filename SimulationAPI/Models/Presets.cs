@@ -3,12 +3,13 @@ namespace MySimulationAPI.Models
     public class MapAreaPreset
     {
         public int Id { get; set; }
+        // If a userId is null, this preset is global
+        public int? UserId { get; set; }
+        public User? User { get; set; }
         public string Name { get; set; } = null!;
         public double Latitude { get; set; }
         public double Longitude { get; set; }
         public double Radius { get; set; }
-
-
         public ICollection<OSMBuildingPreset> Buildings { get; set; } = new List<OSMBuildingPreset>();
         public ICollection<OSMPathPreset> Paths { get; set; } = new List<OSMPathPreset>();
     }
@@ -46,8 +47,20 @@ namespace MySimulationAPI.Models
         public int Id { get; set; }
         public double Latitude { get; set; }
         public double Longitude { get; set; }
-
         public int OSMPathPresetId { get; set; }
         public OSMPathPreset OSMPathPreset { get; set; } = null!;
     }
+
+    public class DiseasePreset
+    {
+        public int Id { get; set; }
+        // If a userId is null, this preset is global
+        public int? UserId { get; set; }
+        public User? User { get; set; }
+        public string Name { get; set; } = null!;
+        public double InfectionRate { get; set; }
+        public double RecoveryRate { get; set; }
+        public double MortalityRate { get; set; }
+    }
+
 }

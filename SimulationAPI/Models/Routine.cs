@@ -8,37 +8,14 @@ namespace MySimulationAPI.Models
         public int Id { get; set; }
         public int AgentId { get; set; }
         public Agent Agent { get; set; } = null!;
-        public DayOfWeek DayIndex { get; set; }
+        public int DayIndex { get; set; } // 0 = Monday, 6 = Sunday
         public TimeOnly StartTime { get; set; }
-
-        /// <summary>
-        /// Duration of the activity in ticks (excluding travel).
-        /// </summary>
         public TimeSpan Duration { get; set; }
-
-        /// <summary>
-        /// Target building for the activity.
-        /// </summary>
         public int BuildingId { get; set; }
         public Building Building { get; set; } = null!;
-
         public RoutineEventType EventType { get; set; }
-
-        // ---- Simulation-only ----
-        [NotMapped]
-        public List<(double Lat, double Lon)>? CachedPath { get; set; }
-
-        [NotMapped]
-        public TimeSpan CachedTravelDuration { get; set; }
-
-        /// <summary>
-        /// Returns the tick when the agent should actually depart from previous location,
-        /// factoring in travel time.
-        /// </summary>
-        public TimeOnly GetDepartureTime()
-        {
-            return StartTime.Add(-CachedTravelDuration); // add the negative of travel time which effectively sutracts the time
-        }
+        public (double Lat, double Lon)[]? CachedPath { get; set; }
+        public int CachedTravelDuration { get; set; } //stored in seconds
     }
     public enum RoutineEventType
     {

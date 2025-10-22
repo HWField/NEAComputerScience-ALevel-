@@ -2,8 +2,9 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using MySimulationAPI.SimulationConfiguration;
 
-namespace MySimulationAPI.SimulationConfiguration
+namespace MySimulationAPI.SimulationRuntime
 {
     public class SimulationEngine
     {
@@ -33,28 +34,27 @@ namespace MySimulationAPI.SimulationConfiguration
 
             while (!token.IsCancellationRequested)
             {
+                Console.WriteLine($"[SimulationEngine] Beginning tick {_context.CurrentTick}...");
                 sw.Restart();
                 Tick(); // run simulation logic
+                Console.WriteLine($"[SimulationEngine] Finished tick {_context.CurrentTick}.");
                 sw.Stop();
+                Console.WriteLine($"[SimulationEngine] Tick {_context.CurrentTick} took {sw.Elapsed.TotalSeconds:F2} seconds.");
 
-                // Save periodic snapshots every 500 ticks (will need to be adjusted based on tick length)
-                if (_context.Simulation.CurrentTick % 500 == 0)
+                // Save periodic snapshots every 500 ticks (will later need to be adjusted based on tick length to trade off flexability vs storage use)
+                if (_context.CurrentTick % 500 == 0)
                     await _context.Snapshots.SaveSnapshotAsync();
 
                 // -------------------------
                 // Calculate target delay
                 // -------------------------
-                double tickLengthMinutes = _context.Simulation.TickLengthMinutes;
-                double playbackSpeed = _context.SimulationSpeed <= 0 ? 1.0 : _context.SimulationSpeed;
 
                 // Convert tick length into real-world seconds (roughly)
                 // Example: 5-minute tick @ 1x = 5 seconds real time
-                double targetDelaySeconds = tickLengthMinutes / playbackSpeed;
-
+                double targetDelaySeconds = _context.TickLength / _context.SimulationSpeed;
                 // Adjust for actual compute time to maintain consistent pacing
                 double computeSeconds = sw.Elapsed.TotalSeconds;
                 double remainingSeconds = Math.Max(0, targetDelaySeconds - computeSeconds);
-
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(remainingSeconds), token);
@@ -72,12 +72,13 @@ namespace MySimulationAPI.SimulationConfiguration
         {
             // Advance all agents according to their routines
             _context.AgentService.UpdateAgentsForTick();
-
+            Console.WriteLine($"[SimulationEngine] Agents updated for tick {_context.CurrentTick}.");
             // Disease progression and infection spread
             _context.InfectionService.UpdateInfectionTick();
-
+            Console.WriteLine($"[SimulationEngine] Infection updated for tick {_context.CurrentTick}.");
             // Advance simulation time
-            _context.Simulation.CurrentTick++;
+            _context.CurrentTick++;
+            Console.WriteLine($"[SimulationEngine] Tick {_context.CurrentTick} completed.");
         }
     }
 }

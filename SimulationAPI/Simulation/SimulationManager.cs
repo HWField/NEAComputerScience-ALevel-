@@ -34,7 +34,13 @@ namespace MySimulationAPI.SimulationConfiguration
         public void Remove(int simulationId)
         {
             if (_contexts.TryRemove(simulationId, out var ctx))
+            {
+                // Stop the simulation engine
                 ctx.Engine.Stop();
+
+                // Dispose the context to release memory and unmanaged resources
+                ctx.Dispose();
+            }
         }
     }
 }

@@ -14,7 +14,7 @@ namespace MySimulationAPI.Models
 
         [NotMapped]
         public long CurrentTick { get; set; } = 0;
-        public int TickLengthMinutes { get; set; } = 5; // default 5 min per tick
+        public int TickLength { get; set; } = 300; // Number of seconds each tick lasts (default 5 minutes)
         public MapArea MapArea { get; set; } = null!;
         public List<Agent> Agents { get; set; } = new();
         public Disease Disease { get; set; } = null!;

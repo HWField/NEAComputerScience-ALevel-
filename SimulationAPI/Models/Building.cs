@@ -12,16 +12,24 @@ namespace MySimulationAPI.Models
         public int RemainingCapacity { get; set; }
         public int MapAreaId { get; set; }
         public MapArea? MapArea { get; set; }
+    }
 
-        [NotMapped]
-        public int CurrentOccupancy;
+    public static class BuildingTypeRegistry
+    {
+        private static readonly Dictionary<Type, byte> _codes = new();
+        private static byte _nextCode = 1;
 
+        public static byte GetTypeCode(Type type)
+        {
+            if (_codes.TryGetValue(type, out var code)) return code;
+            code = _nextCode++;
+            _codes[type] = code;
+            return code;
+        }
     }
 
     public class ResidentialBuilding : Building
     {
-
-
     }
 
     public class OfficeBuilding : Building

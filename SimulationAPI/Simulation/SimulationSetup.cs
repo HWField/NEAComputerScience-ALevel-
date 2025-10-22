@@ -58,7 +58,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 if (string.IsNullOrEmpty(presetName) || !latitude.HasValue || !longitude.HasValue || !radiusKm.HasValue)
                     throw new Exception("Name, Latitude, Longitude, and RadiusKm are required for creating a new preset");
 
-                var preset = await _presetService.FetchAndCreatePresetAsync(
+                var preset = await _presetService.FetchAndCreateMapPresetAsync(
                     presetName, latitude.Value, longitude.Value, radiusKm.Value);
                 actualPresetId = preset.Id;
 
@@ -255,7 +255,6 @@ namespace MySimulationAPI.SimulationConfiguration
             // Create the SimulationContext
             var context = new SimulationContext(simulation, _db);
 
-
             // Generate agents
             var agents = new List<Agent>(agentCount);
             for (int i = 0; i < agentCount; i++)
@@ -405,7 +404,7 @@ namespace MySimulationAPI.SimulationConfiguration
 
 
         // Setup disease
-        public async Task SetupDisease(int simulationId, string name, double infectionRate, double recoveryRate, double mortalityRate, int userId)
+        public async Task SetupDisease(int simulationId, string name, double infectionRate, double recoveryRate, double mortalityRate, int userId, bool savePreset = false)
         {
             var simulation = await _db.Simulations
                 .FirstOrDefaultAsync(s => s.Id == simulationId && s.UserId == userId)
@@ -419,8 +418,21 @@ namespace MySimulationAPI.SimulationConfiguration
                 RecoveryRate = recoveryRate,
                 MortalityRate = mortalityRate,
             };
-
             _db.Diseases.Add(disease);
+
+            if (savePreset)
+            {
+                var preset = new DiseasePreset
+                {
+                    Name = $"{name} Preset",
+                    InfectionRate = infectionRate,
+                    RecoveryRate = recoveryRate,
+                    MortalityRate = mortalityRate,
+                    // The preset is scoped to the user by default
+                    UserId = userId
+                };
+                _db.DiseasePresets.Add(preset);
+            }
             await _db.SaveChangesAsync();
         }
         private Agent CreateRandomAgent(int simId)

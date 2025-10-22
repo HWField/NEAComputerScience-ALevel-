@@ -18,31 +18,20 @@ namespace MySimulationAPI.Models
         public List<RoutineEvent> RoutineEvents { get; set; } = new();
 
         public MedicalProfile MedicalProfile { get; set; } = null!;
-        //Transient simulation state (not stored in DB)
-        [NotMapped]
-        public string Status { get; set; } = "Healthy";
+    }
 
-        [NotMapped]
-        public double InfectionProgress { get; set; } = 0.0;
-        [NotMapped]
-        public string HealthState;
+    public static class AgentTypeRegistry
+    {
+        private static readonly Dictionary<Type, byte> _codes = new();
+        private static byte _nextCode = 1;
 
-        [NotMapped]
-        public bool IsQuarantined;
-
-        [NotMapped]
-        public double CurrentLat { get; set; }
-
-        [NotMapped]
-        public double CurrentLon { get; set; }
-
-        [NotMapped]
-        public int CurrentBuildingId { get; set; }
-
-        [NotMapped]
-        public Building CurrentBuilding { get; set; }
-
-
+        public static byte GetTypeCode(Type type)
+        {
+            if (_codes.TryGetValue(type, out var code)) return code;
+            code = _nextCode++;
+            _codes[type] = code;
+            return code;
+        }
     }
 
     public class StudentAgent : Agent
