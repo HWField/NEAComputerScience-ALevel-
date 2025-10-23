@@ -404,36 +404,61 @@ namespace MySimulationAPI.SimulationConfiguration
 
 
         // Setup disease
-        public async Task SetupDisease(int simulationId, string name, double infectionRate, double recoveryRate, double mortalityRate, int userId, bool savePreset = false)
+        public async Task SetupDisease(int simulationId, int? presetId, string? name, double? infectionRate, double? recoveryRate, double? mortalityRate, int? userId, bool savePreset = false)
         {
             var simulation = await _db.Simulations
                 .FirstOrDefaultAsync(s => s.Id == simulationId && s.UserId == userId)
                 ?? throw new Exception("Simulation not found or access denied");
 
-            var disease = new Disease
+            if (presetId.HasValue)
             {
-                Name = name,
-                SimulationId = simulation.Id,
-                InfectionRate = infectionRate,
-                RecoveryRate = recoveryRate,
-                MortalityRate = mortalityRate,
-            };
-            _db.Diseases.Add(disease);
+                var preset = await _db.DiseasePresets
+                    .FirstOrDefaultAsync(p => p.Id == presetId.Value)
+                    ?? throw new Exception("Preset not found");
 
-            if (savePreset)
-            {
-                var preset = new DiseasePreset
+                var disease = new Disease
                 {
-                    Name = $"{name} Preset",
-                    InfectionRate = infectionRate,
-                    RecoveryRate = recoveryRate,
-                    MortalityRate = mortalityRate,
-                    // The preset is scoped to the user by default
-                    UserId = userId
+                    Name = name,
+                    SimulationId = simulation.Id,
+                    InfectionRate = preset.InfectionRate,
+                    RecoveryRate = preset.RecoveryRate,
+                    MortalityRate = preset.MortalityRate,
                 };
-                _db.DiseasePresets.Add(preset);
+                _db.Diseases.Add(disease);
+
             }
-            await _db.SaveChangesAsync();
+            else
+            {
+                if (string.IsNullOrEmpty(name) || !infectionRate.HasValue || !recoveryRate.HasValue || !mortalityRate.HasValue)
+                    throw new Exception("Name, InfectionRate, RecoveryRate, and MortalityRate are required for creating a new disease preset");
+
+                var disease = new Disease
+                {
+                    Name = name,
+                    SimulationId = simulation.Id,
+                    InfectionRate = infectionRate.Value,
+                    RecoveryRate = recoveryRate.Value,
+                    MortalityRate = mortalityRate.Value,
+                };
+                _db.Diseases.Add(disease);
+
+                if (savePreset)
+                {
+                    var preset = new DiseasePreset
+                    {
+                        Name = name,
+                        InfectionRate = infectionRate.Value,
+                        RecoveryRate = recoveryRate.Value,
+                        MortalityRate = mortalityRate.Value,
+                        // The preset is scoped to the user by default
+                        UserId = userId
+                    };
+                    _db.DiseasePresets.Add(preset);
+                }
+                await _db.SaveChangesAsync();
+
+            }
+
         }
         private Agent CreateRandomAgent(int simId)
         {

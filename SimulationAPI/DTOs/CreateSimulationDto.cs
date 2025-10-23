@@ -39,9 +39,10 @@ namespace MySimulationAPI.DTOs
     public class SetupDiseaseDto
     {
         public int SimulationId { get; set; }
-        public string Name { get; set; } = "Default Disease";
-        public double InfectionRate { get; set; } = 0.1;
-        public double RecoveryRate { get; set; } = 0.05;
-        public double MortalityRate { get; set; } = 0.01;
+        public int? PresetId { get; set; }
+        public string? Name { get; set; } = "Default Disease";
+        public double? InfectionRate { get; set; } = 0.1;
+        public double? RecoveryRate { get; set; } = 0.05;
+        public double? MortalityRate { get; set; } = 0.01;
     }
 }

@@ -91,7 +91,7 @@ namespace MySimulationAPI.Controllers
             try
             {
                 await _simulationSetup.SetupDisease(
-                    dto.SimulationId, dto.Name, dto.InfectionRate,
+                    dto.SimulationId, dto.PresetId, dto.Name, dto.InfectionRate,
                     dto.RecoveryRate, dto.MortalityRate, GetUserId());
 
                 return Ok(new { Message = "Disease configured successfully" });
