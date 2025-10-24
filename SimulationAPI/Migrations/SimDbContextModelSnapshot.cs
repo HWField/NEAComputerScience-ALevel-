@@ -104,7 +104,7 @@ namespace SimulationAPI.Migrations
 
                     b.HasIndex("SimulationSnapshotId");
 
-                    b.ToTable("AgentSnapshot");
+                    b.ToTable("AgentSnapshots");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Building", b =>
@@ -173,7 +173,7 @@ namespace SimulationAPI.Migrations
 
                     b.HasIndex("SimulationSnapshotId");
 
-                    b.ToTable("BuildingSnapshot");
+                    b.ToTable("BuildingSnapshots");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Disease", b =>
@@ -629,17 +629,12 @@ namespace SimulationAPI.Migrations
                     b.Property<int>("SimulationId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("SimulationId1")
-                        .HasColumnType("integer");
-
                     b.Property<long>("Tick")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
                     b.HasIndex("SimulationId");
-
-                    b.HasIndex("SimulationId1");
 
                     b.ToTable("SimulationSnapshots");
                 });
@@ -1026,15 +1021,9 @@ namespace SimulationAPI.Migrations
 
             modelBuilder.Entity("MySimulationAPI.Models.SimulationSnapshot", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Simulation", null)
+                    b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
                         .WithMany("SimulationSnapshots")
                         .HasForeignKey("SimulationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
-                        .WithMany()
-                        .HasForeignKey("SimulationId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

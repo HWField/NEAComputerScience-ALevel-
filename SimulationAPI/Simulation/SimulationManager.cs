@@ -8,23 +8,26 @@ namespace MySimulationAPI.SimulationConfiguration
     public class SimulationManager
     {
         private readonly ConcurrentDictionary<int, SimulationContext> _contexts = new();
-        private readonly SimDbContext _db;
-        public SimulationManager(SimDbContext db)
+        private readonly IDbContextFactory<SimDbContext> _dbFactory;
+
+        public SimulationManager(IDbContextFactory<SimDbContext> dbFactory)
         {
-            _db = db;
+            _dbFactory = dbFactory;
         }
 
         public SimulationContext GetOrCreate(int simulationId)
         {
             return _contexts.GetOrAdd(simulationId, id =>
             {
-                var sim = _db.Simulations
+                using var db = _dbFactory.CreateDbContext();
+
+                var sim = db.Simulations
                     .Include(s => s.MapArea)
                     .Include(s => s.Agents)
                     .Include(s => s.Disease)
                     .First(s => s.Id == id);
 
-                return new SimulationContext(sim, _db);
+                return new SimulationContext(sim, _dbFactory);
             });
         }
 

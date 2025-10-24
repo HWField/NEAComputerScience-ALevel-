@@ -11,7 +11,7 @@ namespace MySimulationAPI.SimulationConfiguration
     public class SimulationContext : IDisposable
     {
         public Simulation Simulation { get; }
-        public SimDbContext Db { get; }
+        public IDbContextFactory<SimDbContext> DbFactory { get; }
         public Random Rng { get; set; }
 
         // Runtime properties
@@ -38,15 +38,15 @@ namespace MySimulationAPI.SimulationConfiguration
         public InfectionService InfectionService { get; }
         public SimulationEngine Engine { get; }
 
-        public SimulationContext(Simulation simulation, SimDbContext db)
+        public SimulationContext(Simulation simulation, IDbContextFactory<SimDbContext> dbFactory)
         {
             Simulation = simulation;
-            Db = db;
+            DbFactory = dbFactory;
             Rng = new Random(simulation.Id); // deterministic seed
             TickLength = Simulation.TickLength;
             SimulationSpeed = 1.0;
             IsPaused = false;
-
+            using var db = dbFactory.CreateDbContext();
             // Determine current tick (latest snapshot)
             CurrentTick = db.SimulationSnapshots
                 .Where(s => s.SimulationId == simulation.Id)
@@ -63,6 +63,7 @@ namespace MySimulationAPI.SimulationConfiguration
             Agents = db.Agents
                 .Where(a => a.SimulationId == simulation.Id)
                 .Include(a => a.RoutineEvents)
+                .Include(a => a.MedicalProfile)
                 .AsNoTracking()
                 .ToList();
 
@@ -82,6 +83,7 @@ namespace MySimulationAPI.SimulationConfiguration
         }
         public void ReloadEntities()
         {
+            using var Db = DbFactory.CreateDbContext();
             Buildings = Db.Buildings
                 .Where(b => b.MapAreaId == Simulation.MapArea.Id)
                 .AsNoTracking()
@@ -90,6 +92,7 @@ namespace MySimulationAPI.SimulationConfiguration
             Agents = Db.Agents
                 .Where(a => a.SimulationId == Simulation.Id)
                 .Include(a => a.RoutineEvents)
+                .Include(a => a.MedicalProfile)
                 .AsNoTracking()
                 .ToList();
 
@@ -102,6 +105,7 @@ namespace MySimulationAPI.SimulationConfiguration
 
         public async Task SaveAsync()
         {
+            using var Db = DbFactory.CreateDbContext();
             await Db.SaveChangesAsync();
         }
 

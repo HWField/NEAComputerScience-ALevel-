@@ -115,6 +115,7 @@ namespace MySimulationAPI.Controllers
             if (sim == null) return NotFound();
 
             var context = _simulationManager.GetOrCreate(sim.Id);
+            context.GenerateStates();
             context.Engine.Start();
             return Ok($"Simulation {id} started");
         }

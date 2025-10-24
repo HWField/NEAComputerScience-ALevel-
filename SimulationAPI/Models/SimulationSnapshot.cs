@@ -7,8 +7,8 @@ namespace MySimulationAPI.Models
         public Simulation Simulation { get; set; } = null!;
         public long Tick { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public List<AgentSnapshot> Agents { get; set; } = new();
-        public List<BuildingSnapshot> Buildings { get; set; } = new();
+        public ICollection<AgentSnapshot> Agents { get; set; } = new List<AgentSnapshot>();
+        public ICollection<BuildingSnapshot> Buildings { get; set; } = new List<BuildingSnapshot>();
     }
 
     public class AgentSnapshot

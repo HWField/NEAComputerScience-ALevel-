@@ -9,9 +9,12 @@ using MySimulationAPI.SimulationConfiguration;
 using DotNetEnv;
 var builder = WebApplication.CreateBuilder(args);
 
+// Database context configuration
+builder.Services.AddDbContextFactory<SimDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 // Centralised service registrations
-builder.Services.AddScoped<SimulationManager>();
-builder.Services.AddDbContext<SimDbContext>();
+builder.Services.AddSingleton<SimulationManager>();
 builder.Services.AddControllers();
 builder.Services.AddScoped<OsmService>();
 builder.Services.AddScoped<PresetService>();

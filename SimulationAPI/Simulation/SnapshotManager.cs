@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
 using MySimulationAPI.Models;
+using NetTopologySuite.Operation.Overlay.Snap;
 using SimulationRuntime;
 
 namespace MySimulationAPI.SimulationConfiguration
@@ -11,12 +13,9 @@ namespace MySimulationAPI.SimulationConfiguration
     public class SnapshotManager
     {
         private readonly SimulationContext _context;
-        private readonly SimDbContext _db;
-
         public SnapshotManager(SimulationContext context)
         {
             _context = context;
-            _db = context.Db;
         }
 
         // ------------------------------------------------------------
@@ -24,53 +23,42 @@ namespace MySimulationAPI.SimulationConfiguration
         // ------------------------------------------------------------
         public async Task SaveSnapshotAsync()
         {
+            using var _db = _context.DbFactory.CreateDbContext();
             var snapshot = new SimulationSnapshot
             {
                 SimulationId = _context.Simulation.Id,
                 Tick = _context.CurrentTick,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow
             };
 
+            await _db.SimulationSnapshots.AddAsync(snapshot);
+            await _db.SaveChangesAsync();
             // --- AGENTS ---
             var agents = _context.AgentStates;
-            var agentSnaps = new List<AgentSnapshot>(agents.Length);
-
-            for (int i = 0; i < agents.Length; i++)
+            var agentSnaps = agents.Select(a => new AgentSnapshot
             {
-                ref var a = ref agents[i];
-
-                agentSnaps.Add(new AgentSnapshot
-                {
-                    AgentId = a.Id,
-                    Latitude = a.Lat,
-                    Longitude = a.Lon,
-                    InfectionProgress = a.InfectionProgress,
-                    IsQuarantined = a.IsQuarantined,
-                    CurrentBuildingId = a.CurrentBuildingId > 0 ? a.CurrentBuildingId : null,
-                    HealthState = ConvertHealthStateToString((AgentHealthState)a.HealthState)
-                });
-            }
-            snapshot.Agents = agentSnaps;
+                SimulationSnapshotId = snapshot.Id,
+                AgentId = a.Id,
+                Latitude = a.Lat,
+                Longitude = a.Lon,
+                InfectionProgress = a.InfectionProgress,
+                IsQuarantined = a.IsQuarantined,
+                CurrentBuildingId = a.CurrentBuildingId > 0 ? a.CurrentBuildingId : null,
+                HealthState = ConvertHealthStateToString((AgentHealthState)a.HealthState)
+            }).ToList();
 
             // --- BUILDINGS ---
             var buildings = _context.BuildingStates;
-            var buildingSnaps = new List<BuildingSnapshot>(buildings.Length);
-
-            for (int i = 0; i < buildings.Length; i++)
+            var buildingSnaps = buildings.Select(b => new BuildingSnapshot
             {
-                ref var b = ref buildings[i];
-
-                buildingSnaps.Add(new BuildingSnapshot
-                {
-                    BuildingId = b.Id,
-                    CurrentOccupancy = b.Occupants
-                });
-            }
-            snapshot.Buildings = buildingSnaps;
+                SimulationSnapshotId = snapshot.Id,
+                BuildingId = b.Id,
+                CurrentOccupancy = b.Occupants
+            }).ToList();
 
             // --- SAVE TO DATABASE ---
-            await _db.SimulationSnapshots.AddAsync(snapshot);
-            await _db.SaveChangesAsync();
+            await _db.BulkInsertAsync(agentSnaps, new BulkConfig { BatchSize = 5000 });
+            await _db.BulkInsertAsync(buildingSnaps, new BulkConfig { BatchSize = 5000 });
         }
 
         /// <summary>
@@ -93,6 +81,7 @@ namespace MySimulationAPI.SimulationConfiguration
         // ------------------------------------------------------------
         public async Task<bool> TryLoadSnapshotAsync(long targetTick)
         {
+            using var _db = _context.DbFactory.CreateDbContext();
             var snapshot = await _db.SimulationSnapshots
                 .Include(s => s.Agents)
                 .Include(s => s.Buildings)

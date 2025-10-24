@@ -10,27 +10,28 @@ namespace MySimulationAPI.SimulationConfiguration
 {
     public class SimulationSetup
     {
-        private readonly SimDbContext _db;
+        private readonly IDbContextFactory<SimDbContext> _dbFactory;
         private readonly PresetService _presetService;
-        private readonly Random _rng = new(); // Need to seed to make 'randomness' consistent for for rewind / recalculation functions
+        private readonly Random _rng = new();
 
-        public SimulationSetup(SimDbContext db, PresetService presetService)
+        public SimulationSetup(IDbContextFactory<SimDbContext> dbFactory, PresetService presetService)
         {
-            _db = db;
+            _dbFactory = dbFactory;
             _presetService = presetService;
         }
 
         // Create initial simulation with just name (will later add input for parameters such as seed, tick rate etc)
         public async Task<int> InitialiseSimulation(string simulationName, int userId)
         {
+            using var db = _dbFactory.CreateDbContext();
             var sim = new Simulation
             {
                 UserId = userId,
                 Name = simulationName,
             };
 
-            _db.Simulations.Add(sim);
-            await _db.SaveChangesAsync();
+            db.Simulations.Add(sim);
+            await db.SaveChangesAsync();
 
             return sim.Id;
         }
@@ -38,6 +39,7 @@ namespace MySimulationAPI.SimulationConfiguration
         // Initialise map area and return population estimates based on housing capacity
         public async Task<(MapArea mapArea, int populationEstimate)> SetupMapArea(int simulationId, int? presetId, string? presetName, double? latitude, double? longitude, double? radiusKm, int userId)
         {
+            using var _db = _dbFactory.CreateDbContext();
             // Verify simulation exists and belongs to user
             var simulation = await _db.Simulations
                 .FirstOrDefaultAsync(s => s.Id == simulationId && s.UserId == userId)
@@ -246,6 +248,7 @@ namespace MySimulationAPI.SimulationConfiguration
         // Generate population
         public async Task SetupPopulation(int simulationId, int agentCount, int userId)
         {
+            using var _db = _dbFactory.CreateDbContext();
             // Fetch simulation from DB
             var simulation = await _db.Simulations
                 .Include(s => s.MapArea)
@@ -253,7 +256,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 ?? throw new Exception("Simulation not found or access denied");
 
             // Create the SimulationContext
-            var context = new SimulationContext(simulation, _db);
+            var context = new SimulationContext(simulation, _dbFactory);
 
             // Generate agents
             var agents = new List<Agent>(agentCount);
@@ -406,6 +409,7 @@ namespace MySimulationAPI.SimulationConfiguration
         // Setup disease
         public async Task SetupDisease(int simulationId, int? presetId, string? name, double? infectionRate, double? recoveryRate, double? mortalityRate, int? userId, bool savePreset = false)
         {
+            using var _db = _dbFactory.CreateDbContext();
             var simulation = await _db.Simulations
                 .FirstOrDefaultAsync(s => s.Id == simulationId && s.UserId == userId)
                 ?? throw new Exception("Simulation not found or access denied");

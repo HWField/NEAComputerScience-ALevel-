@@ -26,6 +26,8 @@ namespace MySimulationAPI.Data
         public DbSet<MedicalProfile> MedicalProfiles { get; set; } = null!;
         public DbSet<Mitigation> Mitigations { get; set; } = null!;
         public DbSet<SimulationSnapshot> SimulationSnapshots { get; set; } = null!;
+        public DbSet<AgentSnapshot> AgentSnapshots { get; set; } = null!;
+        public DbSet<BuildingSnapshot> BuildingSnapshots { get; set; } = null!;
         public DbSet<MapArea> MapAreas { get; set; } = null!;
 
         // Preset models
@@ -102,10 +104,10 @@ namespace MySimulationAPI.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Simulation>()
-         .HasOne(s => s.Disease)
-         .WithOne(d => d.Simulation)
-         .HasForeignKey<Disease>(d => d.SimulationId)
-         .OnDelete(DeleteBehavior.Cascade);
+                .HasOne(s => s.Disease)
+                .WithOne(d => d.Simulation)
+                .HasForeignKey<Disease>(d => d.SimulationId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Simulation>()
                 .HasMany(s => s.Mitigations)
@@ -115,7 +117,7 @@ namespace MySimulationAPI.Data
 
             modelBuilder.Entity<Simulation>()
                 .HasMany(s => s.SimulationSnapshots)
-                .WithOne()
+                .WithOne(snap => snap.Simulation)
                 .HasForeignKey("SimulationId")
                 .OnDelete(DeleteBehavior.Cascade);
 

@@ -41,7 +41,7 @@ namespace MySimulationAPI.Utils
         /// </summary>
         public static (int DayIndex, int TickOfDay) GetSimulationTime(long currentTick, int tickLength)
         {
-            int ticksPerDay = 24 / tickLength;
+            int ticksPerDay = (24 * 60 * 60) / tickLength;
             int dayIndex = (int)(currentTick / ticksPerDay) % 7;
             int tickOfDay = (int)(currentTick % ticksPerDay);
             return (dayIndex, tickOfDay);

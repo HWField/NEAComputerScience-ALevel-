@@ -10,7 +10,7 @@ namespace MySimulationAPI.SimulationRuntime
     {
         private readonly SimulationContext _context;
         private CancellationTokenSource? _cts;
-
+        private long snapshotIntervalTicks = 0;
         public SimulationEngine(SimulationContext context)
         {
             _context = context;
@@ -18,6 +18,8 @@ namespace MySimulationAPI.SimulationRuntime
 
         public void Start()
         {
+            // snapshots will save every 14 in sim days be default (can later scale depending on compute times etc)
+            snapshotIntervalTicks = (long)(TimeSpan.FromDays(14).TotalSeconds / _context.TickLength);
             if (_cts != null && !_cts.IsCancellationRequested)
                 return; // already running
 
@@ -41,27 +43,36 @@ namespace MySimulationAPI.SimulationRuntime
                 sw.Stop();
                 Console.WriteLine($"[SimulationEngine] Tick {_context.CurrentTick} took {sw.Elapsed.TotalSeconds:F2} seconds.");
 
-                // Save periodic snapshots every 500 ticks (will later need to be adjusted based on tick length to trade off flexability vs storage use)
-                if (_context.CurrentTick % 500 == 0)
+                if (_context.CurrentTick % snapshotIntervalTicks == 0)
+                {
+                    Console.WriteLine($"[SimulationEngine] Saving snapshot at tick {_context.CurrentTick}...");
                     await _context.Snapshots.SaveSnapshotAsync();
-
+                    Console.WriteLine($"[SimulationEngine] Snapshot saved.");
+                }
                 // -------------------------
                 // Calculate target delay
                 // -------------------------
 
-                // Convert tick length into real-world seconds (roughly)
-                // Example: 5-minute tick @ 1x = 5 seconds real time
-                double targetDelaySeconds = _context.TickLength / _context.SimulationSpeed;
-                // Adjust for actual compute time to maintain consistent pacing
+                double ticksPerDay = 86400.0 / _context.TickLength;
+                double ticksPerSecond = _context.SimulationSpeed * ticksPerDay;
+
+                double targetDelaySeconds = (_context.SimulationSpeed == 0)
+                    ? 0
+                    : 1.0 / ticksPerSecond;
+
                 double computeSeconds = sw.Elapsed.TotalSeconds;
                 double remainingSeconds = Math.Max(0, targetDelaySeconds - computeSeconds);
-                try
+
+                if (_context.SimulationSpeed != 0)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(remainingSeconds), token);
-                }
-                catch (TaskCanceledException)
-                {
-                    break;
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(remainingSeconds), token);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        break;
+                    }
                 }
             }
 

@@ -97,6 +97,12 @@ namespace MySimulationAPI.Controllers
                 var stats = new
                 {
                     Simulations = await _context.Simulations.CountAsync(),
+                    Snapshots = new
+                    {
+                        Snapshots = await _context.SimulationSnapshots.CountAsync(),
+                        AgentSnapshots = await _context.AgentSnapshots.CountAsync(),
+                        BuildingSnapshots = await _context.BuildingSnapshots.CountAsync()
+                    },
                     Agents = await _context.Agents.CountAsync(),
                     MapAreas = await _context.MapAreas.CountAsync(),
                     Buildings = await _context.Buildings.CountAsync(),
@@ -109,7 +115,8 @@ namespace MySimulationAPI.Controllers
                         MapAreaPresets = await _context.MapAreaPresets.CountAsync(),
                         OSMBuildingPresets = await _context.OSMBuildingPresets.CountAsync(),
                         OSMPathPresets = await _context.OSMPathPresets.CountAsync(),
-                        OSMPathNodePresets = await _context.OSMPathNodePresets.CountAsync()
+                        OSMPathNodePresets = await _context.OSMPathNodePresets.CountAsync(),
+                        DiseasePresets = await _context.DiseasePresets.CountAsync()
                     }
                 };
 
@@ -153,6 +160,43 @@ namespace MySimulationAPI.Controllers
                 return StatusCode(500, new
                 {
                     message = $"Error deleting simulation {id}",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        /// <summary>
+        /// Delete a set of simulationSnapshots by by simulation ID (essentially resetting simulation to fresh)
+        /// </summary>
+        [HttpDelete("SimulationSnapshots/{id}")]
+        public async Task<IActionResult> DeleteSimulationSnapshots(int id)
+        {
+            try
+            {
+
+                var simulationSnapshots = await _context.SimulationSnapshots
+                    .Where(s => s.SimulationId == id)
+                    .ToListAsync();
+
+                if (simulationSnapshots.Count == 0)
+                {
+                    return NotFound(new { message = $"No SimulationSnapshots found for Simulation ID {id}" });
+                }
+
+                _context.SimulationSnapshots.RemoveRange(simulationSnapshots);
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = $"Simulation {id} Snapshots and all related data deleted successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = $"Error deleting Snapshots with Simulation ID: {id}",
                     error = ex.Message
                 });
             }
