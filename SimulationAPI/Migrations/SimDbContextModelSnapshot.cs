@@ -615,6 +615,42 @@ namespace SimulationAPI.Migrations
                     b.ToTable("Simulations");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.SimulationMetric", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Dead")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Infected")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Quarantined")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Recovered")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SimulationId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Tick")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TotalAgents")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SimulationId");
+
+                    b.ToTable("SimulationMetrics");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.SimulationSnapshot", b =>
                 {
                     b.Property<int>("Id")
@@ -1019,6 +1055,17 @@ namespace SimulationAPI.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("MySimulationAPI.Models.SimulationMetric", b =>
+                {
+                    b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
+                        .WithMany("SimulationMetrics")
+                        .HasForeignKey("SimulationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Simulation");
+                });
+
             modelBuilder.Entity("MySimulationAPI.Models.SimulationSnapshot", b =>
                 {
                     b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
@@ -1078,6 +1125,8 @@ namespace SimulationAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Mitigations");
+
+                    b.Navigation("SimulationMetrics");
 
                     b.Navigation("SimulationSnapshots");
                 });

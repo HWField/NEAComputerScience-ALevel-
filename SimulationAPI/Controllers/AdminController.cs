@@ -103,6 +103,7 @@ namespace MySimulationAPI.Controllers
                         AgentSnapshots = await _context.AgentSnapshots.CountAsync(),
                         BuildingSnapshots = await _context.BuildingSnapshots.CountAsync()
                     },
+                    Metrics = await _context.SimulationMetrics.CountAsync(),
                     Agents = await _context.Agents.CountAsync(),
                     MapAreas = await _context.MapAreas.CountAsync(),
                     Buildings = await _context.Buildings.CountAsync(),

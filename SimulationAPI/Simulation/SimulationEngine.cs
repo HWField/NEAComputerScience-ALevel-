@@ -11,6 +11,7 @@ namespace MySimulationAPI.SimulationRuntime
         private readonly SimulationContext _context;
         private CancellationTokenSource? _cts;
         private long snapshotIntervalTicks = 0;
+        private long metricsIntervalTicks = 0;
         public SimulationEngine(SimulationContext context)
         {
             _context = context;
@@ -20,6 +21,8 @@ namespace MySimulationAPI.SimulationRuntime
         {
             // snapshots will save every 14 in sim days be default (can later scale depending on compute times etc)
             snapshotIntervalTicks = (long)(TimeSpan.FromDays(14).TotalSeconds / _context.TickLength);
+            // metrics recorded twice every sim day
+            metricsIntervalTicks = (long)((TimeSpan.FromDays(1).TotalSeconds / _context.TickLength) / 2);
             if (_cts != null && !_cts.IsCancellationRequested)
                 return; // already running
 
@@ -48,6 +51,13 @@ namespace MySimulationAPI.SimulationRuntime
                     Console.WriteLine($"[SimulationEngine] Saving snapshot at tick {_context.CurrentTick}...");
                     await _context.Snapshots.SaveSnapshotAsync();
                     Console.WriteLine($"[SimulationEngine] Snapshot saved.");
+                }
+                if (_context.CurrentTick % metricsIntervalTicks == 0)
+                {
+                    Console.WriteLine($"[SimulationEngine] Saving metrics at tick {_context.CurrentTick}...");
+                    await _context.MetricsManager.RecordAsync();
+                    Console.WriteLine($"[SimulationEngine] Metrics saved.");
+
                 }
                 // -------------------------
                 // Calculate target delay

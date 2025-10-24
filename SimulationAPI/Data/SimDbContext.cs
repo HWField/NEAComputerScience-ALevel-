@@ -25,6 +25,7 @@ namespace MySimulationAPI.Data
         public DbSet<DiseasePreset> DiseasePresets { get; set; } = null!;
         public DbSet<MedicalProfile> MedicalProfiles { get; set; } = null!;
         public DbSet<Mitigation> Mitigations { get; set; } = null!;
+        public DbSet<SimulationMetric> SimulationMetrics { get; set; } = null!;
         public DbSet<SimulationSnapshot> SimulationSnapshots { get; set; } = null!;
         public DbSet<AgentSnapshot> AgentSnapshots { get; set; } = null!;
         public DbSet<BuildingSnapshot> BuildingSnapshots { get; set; } = null!;
@@ -118,6 +119,12 @@ namespace MySimulationAPI.Data
             modelBuilder.Entity<Simulation>()
                 .HasMany(s => s.SimulationSnapshots)
                 .WithOne(snap => snap.Simulation)
+                .HasForeignKey("SimulationId")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Simulation>()
+                .HasMany(s => s.SimulationMetrics)
+                .WithOne(metric => metric.Simulation)
                 .HasForeignKey("SimulationId")
                 .OnDelete(DeleteBehavior.Cascade);
 

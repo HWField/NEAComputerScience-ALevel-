@@ -20,5 +20,6 @@ namespace MySimulationAPI.Models
         public Disease Disease { get; set; } = null!;
         public List<Mitigation> Mitigations { get; set; } = new();
         public List<SimulationSnapshot> SimulationSnapshots { get; set; } = new();
+        public List<SimulationMetric> SimulationMetrics { get; set; } = new();
     }
 }

@@ -34,6 +34,7 @@ namespace MySimulationAPI.SimulationConfiguration
         public BuildingService BuildingService { get; }
         public RoutingService RoutingService { get; }
         public SnapshotManager Snapshots { get; }
+        public MetricManager MetricsManager { get; }
         public AgentService AgentService { get; }
         public InfectionService InfectionService { get; }
         public SimulationEngine Engine { get; }
@@ -77,6 +78,7 @@ namespace MySimulationAPI.SimulationConfiguration
             RoutingService = new RoutingService(this);
             BuildingService = new BuildingService(this);
             Snapshots = new SnapshotManager(this);
+            MetricsManager = new MetricManager(this);
             AgentService = new AgentService(this);
             Engine = new SimulationEngine(this);
             InfectionService = new InfectionService(this);
