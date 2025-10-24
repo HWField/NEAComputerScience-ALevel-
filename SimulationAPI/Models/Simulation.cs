@@ -11,9 +11,6 @@ namespace MySimulationAPI.Models
         public User? User { get; set; }
         public string Status { get; set; } = "Created";
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [NotMapped]
-        public long CurrentTick { get; set; } = 0;
         public int TickLength { get; set; } = 300; // Number of seconds each tick lasts (default 5 minutes)
         public MapArea MapArea { get; set; } = null!;
         public List<Agent> Agents { get; set; } = new();
