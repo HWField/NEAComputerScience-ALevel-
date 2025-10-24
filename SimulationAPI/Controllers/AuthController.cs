@@ -25,6 +25,9 @@ namespace MySimulationAPI.Controllers
         }
 
         // REGISTER
+        /// <summary>
+        /// Registers a new user with a username and password.
+        /// </summary>
         [HttpPost("register")]
         public IActionResult Register([FromBody] RegisterDto dto)
         {
@@ -44,7 +47,9 @@ namespace MySimulationAPI.Controllers
             return Ok(new { user.Id, user.Username });
         }
 
-        // LOGIN -> short-lived access token + refresh token per device
+        /// <summary>
+        /// Logins a user and issues JWT access and refresh tokens.
+        /// </summary>
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginDto dto)
         {
@@ -78,6 +83,9 @@ namespace MySimulationAPI.Controllers
         }
 
         // REFRESH JWT
+        /// <summary>
+        /// Refreshes the JWT access token using a valid refresh token.
+        /// </summary>
         [HttpPost("refresh")]
         public IActionResult Refresh([FromBody] RefreshDto dto)
         {
@@ -100,6 +108,9 @@ namespace MySimulationAPI.Controllers
         }
 
         // LOGOUT DEVICE
+        /// <summary>
+        /// Revokes a specific refresh token, logging out that device.
+        /// </summary>
         [HttpPost("logout")]
         public IActionResult Logout([FromBody] RefreshDto dto)
         {
@@ -114,7 +125,9 @@ namespace MySimulationAPI.Controllers
             return Ok(new { message = "Logged out successfully" });
         }
 
-        // LOGOUT ALL DEVICES
+        /// <summary>
+        /// Revokes all refresh tokens for a user, logging out from all devices.
+        /// </summary>
         [HttpPost("logout-all")]
         public IActionResult LogoutAll([FromBody] LogoutAllDto dto)
         {

@@ -26,7 +26,9 @@ namespace MySimulationAPI.Controllers
         // Helper to get logged-in user
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-        // GET /api/profile
+        /// <summary>
+        /// Get profile details of the logged-in user
+        /// </summary>
         [HttpGet]
         public IActionResult GetProfile()
         {
@@ -47,6 +49,9 @@ namespace MySimulationAPI.Controllers
         }
 
         // PUT /api/profile
+        /// <summary>
+        /// Update profile details of the logged-in user
+        /// </summary>
         [HttpPut]
         public IActionResult UpdateProfile([FromBody] UpdateProfileDto dto)
         {
@@ -67,6 +72,9 @@ namespace MySimulationAPI.Controllers
             return Ok(new { message = "Profile updated successfully" });
         }
 
+        /// <summary>
+        /// Delete the logged-in user's account
+        /// </summary>
         [HttpDelete]
         public IActionResult DeleteProfile()
         {
@@ -84,6 +92,9 @@ namespace MySimulationAPI.Controllers
             return Ok(new { message = "Account deleted successfully" });
         }
 
+        /// <summary>
+        /// Get simulations created by the logged-in user
+        /// </summary>
         [HttpGet("simulations")]
         public IActionResult GetMySimulations()
         {
@@ -95,8 +106,6 @@ namespace MySimulationAPI.Controllers
                 {
                     s.Id,
                     s.Name,
-                    s.Status,
-                    s.CreatedAt
                 })
                 .ToList();
 

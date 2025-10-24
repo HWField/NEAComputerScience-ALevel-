@@ -16,7 +16,7 @@ namespace MySimulationAPI.Controllers
         }
 
         /// <summary>
-        /// Delete all simulations and their related data (agents, diseases, mitigations, map areas, buildings, paths)
+        /// Delete all simulations and their related data
         /// </summary>
         [HttpDelete("simulations/all")]
         public async Task<IActionResult> DeleteAllSimulations()
@@ -51,7 +51,7 @@ namespace MySimulationAPI.Controllers
         }
 
         /// <summary>
-        /// Delete all presets and their related data (buildings, paths, path nodes)
+        /// Delete all presets and their related data
         /// </summary>
         [HttpDelete("presets/all")]
         public async Task<IActionResult> DeleteAllPresets()
@@ -87,7 +87,7 @@ namespace MySimulationAPI.Controllers
         }
 
         /// <summary>
-        /// Get database statistics (counts of various entities)
+        /// Get database statistics 
         /// </summary>
         [HttpGet("stats")]
         public async Task<IActionResult> GetDatabaseStats()
@@ -134,7 +134,7 @@ namespace MySimulationAPI.Controllers
         }
 
         /// <summary>
-        /// Delete a specific simulation by ID (and all its related data)
+        /// Delete a specific simulation by ID
         /// </summary>
         [HttpDelete("simulations/{id}")]
         public async Task<IActionResult> DeleteSimulation(int id)
@@ -168,7 +168,7 @@ namespace MySimulationAPI.Controllers
 
 
         /// <summary>
-        /// Delete a set of simulationSnapshots by by simulation ID (essentially resetting simulation to fresh)
+        /// Delete a set of simulationSnapshots by by simulation ID (essentially resetting simulation to initial state)
         /// </summary>
         [HttpDelete("SimulationSnapshots/{id}")]
         public async Task<IActionResult> DeleteSimulationSnapshots(int id)
@@ -204,7 +204,7 @@ namespace MySimulationAPI.Controllers
         }
 
         /// <summary>
-        /// Delete a specific preset by ID (and all its related data)
+        /// Delete a specific preset by ID
         /// </summary>
         [HttpDelete("presets/{id}")]
         public async Task<IActionResult> DeletePreset(int id)

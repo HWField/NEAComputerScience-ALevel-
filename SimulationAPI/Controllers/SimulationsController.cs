@@ -34,7 +34,9 @@ namespace MySimulationAPI.Controllers
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
 
-        // routes to generate simulation in multiple steps (used by frontend wizard)
+        /// <summary>
+        /// Initializes a new epidemic simulation.
+        /// </summary>
         [HttpPost("create/step1")]
         public async Task<IActionResult> InitialiseSimulation([FromBody] InitialiseSimulationDto dto)
         {
@@ -48,7 +50,14 @@ namespace MySimulationAPI.Controllers
                 return BadRequest($"Failed to create simulation: {ex.Message}");
             }
         }
-
+        /// <summary>
+        /// Configure the map area for the simulation.
+        /// </summary>
+        /// <remarks>
+        /// This endpoint allows you to associate a geographical area with a simulation.
+        /// You can either use a predefined area preset (<c>PresetId</c>) or define a custom area
+        /// using latitude, longitude, and radius in kilometers.
+        /// </remarks>
         [HttpPost("create/step2")]
         public async Task<IActionResult> SetupMapArea([FromBody] SetupMapAreaDto dto)
         {
@@ -70,7 +79,9 @@ namespace MySimulationAPI.Controllers
                 return BadRequest($"Failed to setup map area: {ex.Message}");
             }
         }
-
+        /// <summary>
+        /// Configure the population for the simulation.
+        /// </summary>
         [HttpPost("create/step3")]
         public async Task<IActionResult> SetupPopulation([FromBody] SetupPopulationDto dto)
         {
@@ -85,6 +96,12 @@ namespace MySimulationAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Configure the disease for the simulation.
+        /// </summary>
+        /// <remarks>
+        /// You can either use a predefined Disease preset (<c>PresetId</c>) or define a custom disease
+        /// </remarks>
         [HttpPost("create/step4")]
         public async Task<IActionResult> SetupDisease([FromBody] SetupDiseaseDto dto)
         {
@@ -103,6 +120,9 @@ namespace MySimulationAPI.Controllers
         }
 
 
+        /// <summary>
+        /// Loads the simulation with given ID into memory and plays the simulation from the latest tick recorded.
+        /// </summary>
         [HttpPost("{id}/start")]
         public async Task<IActionResult> Start(int id)
         {
@@ -120,6 +140,9 @@ namespace MySimulationAPI.Controllers
             return Ok($"Simulation {id} started");
         }
 
+        /// <summary>
+        /// Stops the simulation with the given ID and removes it from memory.
+        /// </summary>
         [HttpPost("{id}/stop")]
         public IActionResult Stop(int id)
         {

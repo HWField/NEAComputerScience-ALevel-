@@ -48,6 +48,7 @@ builder.Services.AddAuthorization();
 
 
 // Swagger service
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -55,11 +56,11 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Simulation API",
         Version = "v1",
-        Description = "API for epidemic simulation with agents and OSM data",
+        Description = "API for epidemic simulation with realistic agents and OSM data",
         Contact = new OpenApiContact
         {
-            Name = "Your Name",
-            Email = "your@email.com"
+            Name = "Henry Field",
+            Email = "hf165122@hrsfc.ac.uk"
         }
     });
 
@@ -88,6 +89,9 @@ builder.Services.AddSwaggerGen(options =>
             new string[] {}
         }
     });
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
 });
 
 Env.Load();
