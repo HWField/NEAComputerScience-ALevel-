@@ -422,13 +422,14 @@ namespace MySimulationAPI.SimulationConfiguration
 
                 var disease = new Disease
                 {
-                    Name = name,
+                    Name = preset.Name,
                     SimulationId = simulation.Id,
                     InfectionRate = preset.InfectionRate,
                     RecoveryRate = preset.RecoveryRate,
                     MortalityRate = preset.MortalityRate,
                 };
                 _db.Diseases.Add(disease);
+                await _db.SaveChangesAsync();
 
             }
             else
