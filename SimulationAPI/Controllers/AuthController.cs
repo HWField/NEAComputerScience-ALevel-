@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
 using MySimulationAPI.Models;
 using MySimulationAPI.DTOs;
+using Microsoft.AspNetCore.Authorization;
 
 namespace MySimulationAPI.Controllers
 {
@@ -23,6 +24,10 @@ namespace MySimulationAPI.Controllers
             _db = db;
             _config = config;
         }
+
+        // Helper to get logged-in user
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+
 
         // REGISTER
         /// <summary>
@@ -111,6 +116,7 @@ namespace MySimulationAPI.Controllers
         /// <summary>
         /// Revokes a specific refresh token, logging out that device.
         /// </summary>
+        [Authorize]
         [HttpPost("logout")]
         public IActionResult Logout([FromBody] RefreshDto dto)
         {
@@ -128,11 +134,12 @@ namespace MySimulationAPI.Controllers
         /// <summary>
         /// Revokes all refresh tokens for a user, logging out from all devices.
         /// </summary>
+        [Authorize]
         [HttpPost("logout-all")]
-        public IActionResult LogoutAll([FromBody] LogoutAllDto dto)
+        public IActionResult LogoutAll()
         {
             var user = _db.Users.Include(u => u.RefreshTokens)
-                                .FirstOrDefault(u => u.Username == dto.Username);
+                                .FirstOrDefault(u => u.Id == GetUserId());
 
             if (user != null)
             {

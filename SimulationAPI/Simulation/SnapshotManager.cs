@@ -79,7 +79,7 @@ namespace MySimulationAPI.SimulationConfiguration
         // ------------------------------------------------------------
         // Load snapshot from DB (nearest <= targetTick)
         // ------------------------------------------------------------
-        public async Task<bool> TryLoadSnapshotAsync(long targetTick)
+        public async Task<bool> LoadTargetTick(long targetTick)
         {
             using var _db = _context.DbFactory.CreateDbContext();
             var snapshot = await _db.SimulationSnapshots
@@ -90,7 +90,10 @@ namespace MySimulationAPI.SimulationConfiguration
                 .FirstOrDefaultAsync();
 
             if (snapshot == null)
+            {
+                Console.WriteLine($"[LoadTargetTick] No snapshot found for tick <= {targetTick}");
                 return false;
+            }
 
             RestoreSnapshot(snapshot);
             return true;

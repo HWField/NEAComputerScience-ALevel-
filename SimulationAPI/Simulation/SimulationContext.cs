@@ -33,7 +33,7 @@ namespace MySimulationAPI.SimulationConfiguration
         // Runtime services (one created per simulation context so that caches etc can be related)
         public BuildingService BuildingService { get; }
         public RoutingService RoutingService { get; }
-        public SnapshotManager Snapshots { get; }
+        public SnapshotManager SnapshotManager { get; }
         public MetricManager MetricsManager { get; }
         public AgentService AgentService { get; }
         public InfectionService InfectionService { get; }
@@ -77,7 +77,7 @@ namespace MySimulationAPI.SimulationConfiguration
             // Instantiate services using in-memory data
             RoutingService = new RoutingService(this);
             BuildingService = new BuildingService(this);
-            Snapshots = new SnapshotManager(this);
+            SnapshotManager = new SnapshotManager(this);
             MetricsManager = new MetricManager(this);
             AgentService = new AgentService(this);
             Engine = new SimulationEngine(this);

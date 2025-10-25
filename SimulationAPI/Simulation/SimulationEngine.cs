@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.SimulationConfiguration;
 
 namespace MySimulationAPI.SimulationRuntime
@@ -35,28 +36,27 @@ namespace MySimulationAPI.SimulationRuntime
         private async Task RunAsync(CancellationToken token)
         {
             Console.WriteLine($"[SimulationEngine] Starting simulation {_context.Simulation.Id}...");
+            using var db = _context.DbFactory.CreateDbContext();
+            bool tick0Exists = await db.SimulationSnapshots
+                .AnyAsync(s => s.SimulationId == _context.Simulation.Id && s.Tick == 0);
+            if (!tick0Exists)
+            {
+                // Save a snapshot of the initial state
+                await _context.SnapshotManager.SaveSnapshotAsync();
+            }
             var sw = new Stopwatch();
-
             while (!token.IsCancellationRequested)
             {
-                Console.WriteLine($"[SimulationEngine] Beginning tick {_context.CurrentTick}...");
                 sw.Restart();
                 Tick(); // run simulation logic
-                Console.WriteLine($"[SimulationEngine] Finished tick {_context.CurrentTick}.");
                 sw.Stop();
-                Console.WriteLine($"[SimulationEngine] Tick {_context.CurrentTick} took {sw.Elapsed.TotalSeconds:F2} seconds.");
-
                 if (_context.CurrentTick % snapshotIntervalTicks == 0)
                 {
-                    Console.WriteLine($"[SimulationEngine] Saving snapshot at tick {_context.CurrentTick}...");
-                    await _context.Snapshots.SaveSnapshotAsync();
-                    Console.WriteLine($"[SimulationEngine] Snapshot saved.");
+                    await _context.SnapshotManager.SaveSnapshotAsync();
                 }
                 if (_context.CurrentTick % metricsIntervalTicks == 0)
                 {
-                    Console.WriteLine($"[SimulationEngine] Saving metrics at tick {_context.CurrentTick}...");
                     await _context.MetricsManager.RecordAsync();
-                    Console.WriteLine($"[SimulationEngine] Metrics saved.");
 
                 }
                 // -------------------------
@@ -93,13 +93,10 @@ namespace MySimulationAPI.SimulationRuntime
         {
             // Advance all agents according to their routines
             _context.AgentService.UpdateAgentsForTick();
-            Console.WriteLine($"[SimulationEngine] Agents updated for tick {_context.CurrentTick}.");
             // Disease progression and infection spread
             _context.InfectionService.UpdateInfectionTick();
-            Console.WriteLine($"[SimulationEngine] Infection updated for tick {_context.CurrentTick}.");
             // Advance simulation time
             _context.CurrentTick++;
-            Console.WriteLine($"[SimulationEngine] Tick {_context.CurrentTick} completed.");
         }
     }
 }

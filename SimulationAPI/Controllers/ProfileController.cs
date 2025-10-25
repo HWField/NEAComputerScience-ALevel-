@@ -15,12 +15,10 @@ namespace MySimulationAPI.Controllers
     public class ProfileController : ControllerBase
     {
         private readonly SimDbContext _db;
-        private readonly OsmService _osmService;
 
         public ProfileController(SimDbContext db, OsmService osmService)
         {
             _db = db;
-            _osmService = osmService;
         }
 
         // Helper to get logged-in user
@@ -92,24 +90,5 @@ namespace MySimulationAPI.Controllers
             return Ok(new { message = "Account deleted successfully" });
         }
 
-        /// <summary>
-        /// Get simulations created by the logged-in user
-        /// </summary>
-        [HttpGet("simulations")]
-        public IActionResult GetMySimulations()
-        {
-            var userId = GetUserId();
-
-            var sims = _db.Simulations
-                .Where(s => s.UserId == userId)
-                .Select(s => new
-                {
-                    s.Id,
-                    s.Name,
-                })
-                .ToList();
-
-            return Ok(sims);
-        }
     }
 }

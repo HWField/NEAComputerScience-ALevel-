@@ -21,7 +21,6 @@ namespace MySimulationAPI.DTOs
 
     public class SetupMapAreaDto
     {
-        public int SimulationId { get; set; }
         public int? PresetId { get; set; }
         // For custom map areas
         public string? PresetName { get; set; }
@@ -32,13 +31,11 @@ namespace MySimulationAPI.DTOs
 
     public class SetupPopulationDto
     {
-        public int SimulationId { get; set; }
         public int AgentCount { get; set; }
     }
 
     public class SetupDiseaseDto
     {
-        public int SimulationId { get; set; }
         public int? PresetId { get; set; }
         public string? Name { get; set; } = "Default Disease";
         public double? InfectionRate { get; set; } = 0.1;

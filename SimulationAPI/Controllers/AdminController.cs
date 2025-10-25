@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
@@ -6,84 +7,57 @@ namespace MySimulationAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin")] // only admins can access these endpoints
     public class AdminController : ControllerBase
     {
-        private readonly SimDbContext _context;
+        private readonly SimDbContext _db;
 
-        public AdminController(SimDbContext context)
+        public AdminController(SimDbContext db)
         {
-            _context = context;
+            _db = db;
         }
 
         /// <summary>
         /// Delete all simulations and their related data
         /// </summary>
-        [HttpDelete("simulations/all")]
+        [HttpDelete("simulations")]
         public async Task<IActionResult> DeleteAllSimulations()
         {
-            try
+            var simulationCount = await _db.Simulations.CountAsync();
+
+            if (simulationCount == 0)
             {
-                var simulationCount = await _context.Simulations.CountAsync();
-
-                if (simulationCount == 0)
-                {
-                    return Ok(new { message = "No simulations to delete", deletedCount = 0 });
-                }
-
-                await _context.Simulations.ExecuteDeleteAsync();
-
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = "All simulations and related data deleted successfully",
-                    deletedSimulations = simulationCount
-                });
+                return Ok(new { message = "No simulations to delete", deletedCount = 0 });
             }
-            catch (Exception ex)
+            await _db.Simulations.ExecuteDeleteAsync();
+            await _db.SaveChangesAsync();
+            return Ok(new
             {
-                return StatusCode(500, new
-                {
-                    message = "Error deleting simulations",
-                    error = ex.Message
-                });
-            }
+                message = "All simulations and related data deleted successfully",
+                deletedSimulations = simulationCount
+            });
         }
 
         /// <summary>
-        /// Delete all presets and their related data
+        /// Delete all (non default) presets and their related data
         /// </summary>
-        [HttpDelete("presets/all")]
+        [HttpDelete("presets")]
         public async Task<IActionResult> DeleteAllPresets()
         {
-            try
+            await _db.MapAreaPresets
+                     .Where(p => p.UserId != null)
+                     .ExecuteDeleteAsync();
+
+            await _db.DiseasePresets
+              .Where(p => p.UserId != null)
+              .ExecuteDeleteAsync();
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new
             {
-                var presetCount = await _context.MapAreaPresets.CountAsync();
-
-                if (presetCount == 0)
-                {
-                    return Ok(new { message = "No presets to delete", deletedCount = 0 });
-                }
-
-
-                await _context.MapAreaPresets.ExecuteDeleteAsync();
-
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = "All presets and related data deleted successfully",
-                    deletedPresets = presetCount
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    message = "Error deleting presets",
-                    error = ex.Message
-                });
-            }
+                message = "All (non default) presets and related data deleted successfully",
+            });
         }
 
         /// <summary>
@@ -96,28 +70,28 @@ namespace MySimulationAPI.Controllers
             {
                 var stats = new
                 {
-                    Simulations = await _context.Simulations.CountAsync(),
+                    Simulations = await _db.Simulations.CountAsync(),
                     Snapshots = new
                     {
-                        Snapshots = await _context.SimulationSnapshots.CountAsync(),
-                        AgentSnapshots = await _context.AgentSnapshots.CountAsync(),
-                        BuildingSnapshots = await _context.BuildingSnapshots.CountAsync()
+                        Snapshots = await _db.SimulationSnapshots.CountAsync(),
+                        AgentSnapshots = await _db.AgentSnapshots.CountAsync(),
+                        BuildingSnapshots = await _db.BuildingSnapshots.CountAsync()
                     },
-                    Metrics = await _context.SimulationMetrics.CountAsync(),
-                    Agents = await _context.Agents.CountAsync(),
-                    MapAreas = await _context.MapAreas.CountAsync(),
-                    Buildings = await _context.Buildings.CountAsync(),
-                    Paths = await _context.Paths.CountAsync(),
-                    Diseases = await _context.Diseases.CountAsync(),
-                    Mitigations = await _context.Mitigations.CountAsync(),
-                    MedicalProfiles = await _context.MedicalProfiles.CountAsync(),
+                    Metrics = await _db.SimulationMetrics.CountAsync(),
+                    Agents = await _db.Agents.CountAsync(),
+                    MapAreas = await _db.MapAreas.CountAsync(),
+                    Buildings = await _db.Buildings.CountAsync(),
+                    Paths = await _db.Paths.CountAsync(),
+                    Diseases = await _db.Diseases.CountAsync(),
+                    Mitigations = await _db.Mitigations.CountAsync(),
+                    MedicalProfiles = await _db.MedicalProfiles.CountAsync(),
                     Presets = new
                     {
-                        MapAreaPresets = await _context.MapAreaPresets.CountAsync(),
-                        OSMBuildingPresets = await _context.OSMBuildingPresets.CountAsync(),
-                        OSMPathPresets = await _context.OSMPathPresets.CountAsync(),
-                        OSMPathNodePresets = await _context.OSMPathNodePresets.CountAsync(),
-                        DiseasePresets = await _context.DiseasePresets.CountAsync()
+                        MapAreaPresets = await _db.MapAreaPresets.CountAsync(),
+                        OSMBuildingPresets = await _db.OSMBuildingPresets.CountAsync(),
+                        OSMPathPresets = await _db.OSMPathPresets.CountAsync(),
+                        OSMPathNodePresets = await _db.OSMPathNodePresets.CountAsync(),
+                        DiseasePresets = await _db.DiseasePresets.CountAsync()
                     }
                 };
 
@@ -128,109 +102,6 @@ namespace MySimulationAPI.Controllers
                 return StatusCode(500, new
                 {
                     message = "Error retrieving database statistics",
-                    error = ex.Message
-                });
-            }
-        }
-
-        /// <summary>
-        /// Delete a specific simulation by ID
-        /// </summary>
-        [HttpDelete("simulations/{id}")]
-        public async Task<IActionResult> DeleteSimulation(int id)
-        {
-            try
-            {
-                var simulation = await _context.Simulations.FindAsync(id);
-
-                if (simulation == null)
-                {
-                    return NotFound(new { message = $"Simulation with ID {id} not found" });
-                }
-
-                _context.Simulations.Remove(simulation);
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = $"Simulation {id} and all related data deleted successfully"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    message = $"Error deleting simulation {id}",
-                    error = ex.Message
-                });
-            }
-        }
-
-
-        /// <summary>
-        /// Delete a set of simulationSnapshots by by simulation ID (essentially resetting simulation to initial state)
-        /// </summary>
-        [HttpDelete("SimulationSnapshots/{id}")]
-        public async Task<IActionResult> DeleteSimulationSnapshots(int id)
-        {
-            try
-            {
-
-                var simulationSnapshots = await _context.SimulationSnapshots
-                    .Where(s => s.SimulationId == id)
-                    .ToListAsync();
-
-                if (simulationSnapshots.Count == 0)
-                {
-                    return NotFound(new { message = $"No SimulationSnapshots found for Simulation ID {id}" });
-                }
-
-                _context.SimulationSnapshots.RemoveRange(simulationSnapshots);
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = $"Simulation {id} Snapshots and all related data deleted successfully"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    message = $"Error deleting Snapshots with Simulation ID: {id}",
-                    error = ex.Message
-                });
-            }
-        }
-
-        /// <summary>
-        /// Delete a specific preset by ID
-        /// </summary>
-        [HttpDelete("presets/{id}")]
-        public async Task<IActionResult> DeletePreset(int id)
-        {
-            try
-            {
-                var preset = await _context.MapAreaPresets.FindAsync(id);
-
-                if (preset == null)
-                {
-                    return NotFound(new { message = $"Preset with ID {id} not found" });
-                }
-
-                _context.MapAreaPresets.Remove(preset);
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = $"Preset {id} and all related data deleted successfully"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    message = $"Error deleting preset {id}",
                     error = ex.Message
                 });
             }
