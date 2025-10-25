@@ -37,7 +37,7 @@ namespace MySimulationAPI.SimulationConfiguration
         }
 
         // Initialise map area and return population estimates based on housing capacity
-        public async Task<(MapArea mapArea, int populationEstimate)> SetupMapArea(int simulationId, int? presetId, string? presetName, double? latitude, double? longitude, double? radiusKm, int userId)
+        public async Task<(MapArea mapArea, int populationEstimate)> SetupMapArea(int simulationId, int? presetId, string? presetName, double? latitude, double? longitude, double? radiusKm, int userId, bool IsAdmin)
         {
             using var _db = _dbFactory.CreateDbContext();
             // Verify simulation exists and belongs to user
@@ -51,8 +51,15 @@ namespace MySimulationAPI.SimulationConfiguration
             if (presetId.HasValue)
             {
                 var preset = await _db.MapAreaPresets
-                    .FirstOrDefaultAsync(p => p.Id == presetId.Value)
-                    ?? throw new Exception("Preset not found");
+                    .FirstOrDefaultAsync(p =>
+                        p.Id == presetId.Value &&
+                        (
+                            p.UserId == null ||
+                            p.UserId == userId ||
+                            IsAdmin
+                        )
+                    )
+                ?? throw new Exception("Preset not found or access denied");
                 actualPresetId = preset.Id;
             }
             else
@@ -407,7 +414,7 @@ namespace MySimulationAPI.SimulationConfiguration
 
 
         // Setup disease
-        public async Task SetupDisease(int simulationId, int? presetId, string? name, double? infectionRate, double? recoveryRate, double? mortalityRate, int? userId, bool savePreset = false)
+        public async Task SetupDisease(int simulationId, int? presetId, string? name, double? infectionRate, double? recoveryRate, double? mortalityRate, bool savePreset, int userId, bool IsAdmin)
         {
             using var _db = _dbFactory.CreateDbContext();
             var simulation = await _db.Simulations
@@ -417,8 +424,15 @@ namespace MySimulationAPI.SimulationConfiguration
             if (presetId.HasValue)
             {
                 var preset = await _db.DiseasePresets
-                    .FirstOrDefaultAsync(p => p.Id == presetId.Value)
-                    ?? throw new Exception("Preset not found");
+                    .FirstOrDefaultAsync(p =>
+                        p.Id == presetId.Value &&
+                        (
+                            p.UserId == null ||
+                            p.UserId == userId ||
+                            IsAdmin
+                        )
+                    )
+                    ?? throw new Exception("Preset not found or access denied");
 
                 var disease = new Disease
                 {

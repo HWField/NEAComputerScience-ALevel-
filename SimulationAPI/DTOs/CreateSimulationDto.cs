@@ -41,5 +41,6 @@ namespace MySimulationAPI.DTOs
         public double? InfectionRate { get; set; } = 0.1;
         public double? RecoveryRate { get; set; } = 0.05;
         public double? MortalityRate { get; set; } = 0.01;
+        public bool SavePreset { get; set; } = false;
     }
 }

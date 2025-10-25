@@ -158,7 +158,7 @@ namespace MySimulationAPI.Controllers
             {
                 var (mapArea, estimate) = await _simulationSetup.SetupMapArea(
                     id, dto.PresetId, dto.PresetName,
-                    dto.Latitude, dto.Longitude, dto.RadiusKm, GetUserId());
+                    dto.Latitude, dto.Longitude, dto.RadiusKm, GetUserId(), IsAdmin());
 
                 return Ok(new
                 {
@@ -216,7 +216,7 @@ namespace MySimulationAPI.Controllers
             {
                 await _simulationSetup.SetupDisease(
                     id, dto.PresetId, dto.Name, dto.InfectionRate,
-                    dto.RecoveryRate, dto.MortalityRate, GetUserId());
+                    dto.RecoveryRate, dto.MortalityRate, dto.SavePreset, GetUserId(), IsAdmin());
 
                 return Ok(new { Message = "Disease configured successfully" });
             }
