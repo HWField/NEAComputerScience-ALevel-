@@ -24,6 +24,16 @@ namespace MySimulationAPI.SimulationConfiguration
         public async Task SaveSnapshotAsync()
         {
             using var _db = _context.DbFactory.CreateDbContext();
+
+            // --- Delete existing snapshot (if any) ---
+            var existing = await _db.SimulationSnapshots
+                .FirstOrDefaultAsync(s => s.SimulationId == _context.Simulation.Id && s.Tick == _context.CurrentTick);
+            if (existing != null)
+            {
+                _db.SimulationSnapshots.Remove(existing);
+                await _db.SaveChangesAsync(); // cascades to AgentSnapshots + BuildingSnapshots
+            }
+
             var snapshot = new SimulationSnapshot
             {
                 SimulationId = _context.Simulation.Id,

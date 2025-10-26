@@ -28,19 +28,33 @@ namespace MySimulationAPI.SimulationConfiguration
             var dead = agents.Count(a => a.HealthState == (byte)AgentHealthState.Dead);
             var quarantined = agents.Count(a => a.IsQuarantined);
 
-            var metric = new SimulationMetric
-            {
-                SimulationId = _context.Simulation.Id,
-                Tick = _context.CurrentTick,
-                TotalAgents = total,
-                Infected = infected,
-                Recovered = recovered,
-                Dead = dead,
-                Quarantined = quarantined
-            };
-
             using var db = _context.DbFactory.CreateDbContext();
-            await db.AddAsync(metric);
+
+            // ensure only one metric entry per tick
+            var existing = await db.SimulationMetrics
+                .FirstOrDefaultAsync(m => m.SimulationId == _context.Simulation.Id && m.Tick == _context.CurrentTick);
+
+            if (existing != null)
+            {
+                existing.TotalAgents = total;
+                existing.Infected = infected;
+                existing.Recovered = recovered;
+                existing.Dead = dead;
+                existing.Quarantined = quarantined;
+            }
+            else
+            {
+                await db.AddAsync(new SimulationMetric
+                {
+                    SimulationId = _context.Simulation.Id,
+                    Tick = _context.CurrentTick,
+                    TotalAgents = total,
+                    Infected = infected,
+                    Recovered = recovered,
+                    Dead = dead,
+                    Quarantined = quarantined
+                });
+            }
             await db.SaveChangesAsync();
         }
     }

@@ -128,12 +128,18 @@ namespace MySimulationAPI.Data
                 .HasForeignKey("SimulationId")
                 .OnDelete(DeleteBehavior.Cascade);
 
+
+            // --- SimulationMetric unique index ---
+            modelBuilder.Entity<SimulationMetric>()
+                .HasIndex(m => new { m.SimulationId, m.Tick })
+                .IsUnique();
+
             // Configure MapArea cascade deletes
             modelBuilder.Entity<MapArea>()
-        .HasMany(m => m.Buildings)
-        .WithOne(b => b.MapArea)
-        .HasForeignKey(b => b.MapAreaId)
-        .OnDelete(DeleteBehavior.Cascade);
+                .HasMany(m => m.Buildings)
+                .WithOne(b => b.MapArea)
+                .HasForeignKey(b => b.MapAreaId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<MapArea>()
                 .HasMany(m => m.Paths)
@@ -181,16 +187,21 @@ namespace MySimulationAPI.Data
 
             // configure SimulationSnapshot relationships
             modelBuilder.Entity<SimulationSnapshot>()
-            .HasMany(s => s.Agents)
-            .WithOne(a => a.Snapshot)
-            .HasForeignKey(a => a.SimulationSnapshotId)
-            .OnDelete(DeleteBehavior.Cascade);
+                .HasMany(s => s.Agents)
+                .WithOne(a => a.Snapshot)
+                .HasForeignKey(a => a.SimulationSnapshotId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<SimulationSnapshot>()
                 .HasMany(s => s.Buildings)
                 .WithOne(b => b.Snapshot)
                 .HasForeignKey(b => b.SimulationSnapshotId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // --- SimulationSnapshot unique index ---
+            modelBuilder.Entity<SimulationSnapshot>()
+                .HasIndex(s => new { s.SimulationId, s.Tick })
+                .IsUnique();
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder options)

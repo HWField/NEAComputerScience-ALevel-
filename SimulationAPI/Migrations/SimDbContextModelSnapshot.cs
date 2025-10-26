@@ -646,7 +646,8 @@ namespace SimulationAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SimulationId");
+                    b.HasIndex("SimulationId", "Tick")
+                        .IsUnique();
 
                     b.ToTable("SimulationMetrics");
                 });
@@ -670,7 +671,8 @@ namespace SimulationAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SimulationId");
+                    b.HasIndex("SimulationId", "Tick")
+                        .IsUnique();
 
                     b.ToTable("SimulationSnapshots");
                 });
