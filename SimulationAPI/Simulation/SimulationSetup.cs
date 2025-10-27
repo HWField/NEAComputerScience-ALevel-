@@ -68,7 +68,7 @@ namespace MySimulationAPI.SimulationConfiguration
                     throw new Exception("Name, Latitude, Longitude, and RadiusKm are required for creating a new preset");
 
                 var preset = await _presetService.FetchAndCreateMapPresetAsync(
-                    presetName, latitude.Value, longitude.Value, radiusKm.Value);
+                    presetName, latitude.Value, longitude.Value, radiusKm.Value, userId);
                 actualPresetId = preset.Id;
 
             }

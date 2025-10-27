@@ -18,19 +18,19 @@ namespace MySimulationAPI.Services
             _osmService = osmService;
         }
 
-        public async Task<MapAreaPreset> FetchAndCreateMapPresetAsync(string name, double latitude, double longitude, double radiusKm)
+        public async Task<MapAreaPreset> FetchAndCreateMapPresetAsync(string name, double latitude, double longitude, double radiusKm, int? userId = null)
         {
             var (buildings, paths) = await _osmService.FetchMapDataAsync(latitude, longitude, radiusKm);
 
             // Create preset from fetched data
             return await CreateMapPresetAsync(name, latitude, longitude, radiusKm,
                 buildings,
-                paths);
+                paths, userId);
         }
 
         public async Task<MapAreaPreset> CreateMapPresetAsync(
     string name, double latitude, double longitude, double radiusKm,
-    List<OSMBuildingPreset> buildings, List<OSMPathPreset> paths)
+    List<OSMBuildingPreset> buildings, List<OSMPathPreset> paths, int? userId = null)
         {
             // Disable tracking completely for performance
             _db.ChangeTracker.AutoDetectChangesEnabled = false;
@@ -41,7 +41,8 @@ namespace MySimulationAPI.Services
                 Name = name,
                 Latitude = latitude,
                 Longitude = longitude,
-                Radius = radiusKm
+                Radius = radiusKm,
+                UserId = userId
             };
 
             await _db.BulkInsertAsync(new List<MapAreaPreset> { preset }, new BulkConfig
