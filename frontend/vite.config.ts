@@ -12,10 +12,10 @@ export default defineConfig({
   server: {
     host: true, // listen on all interfaces (0.0.0.0)
     port: 5173,
-    hmr: {
-      protocol: "ws",
-      host: "henryfield.net",
-    },
+    // hmr: {
+    //   protocol: "ws",
+    //   host: "henryfield.net",
+    // },
   },
   plugins: [vue(), vueDevTools(), visualizer(), tailwind()],
   base: "./",
@@ -29,7 +29,7 @@ export default defineConfig({
       plugins: [autoprefixer()],
     },
   },
-  preview: {
-    allowedHosts: ["henryfield.net"],
-  },
+  // preview: {
+  //   allowedHosts: ["henryfield.net"],
+  // },
 });

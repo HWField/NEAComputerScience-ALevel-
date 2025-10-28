@@ -3,20 +3,27 @@ import HomeView from "@/views/home.vue";
 import AuthenticationView from "@/views/authentication.vue";
 import Error from "@/views/error.vue";
 import { useUserStore } from "@/stores/useUserStore";
-
+import MainLayout from "@/layouts/MainLayout.vue";
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: "/",
-      name: "home",
-      component: HomeView,
-    },
-    {
-      path: "/dashboard",
-      name: "dashboard",
-      component: HomeView,
-      meta: { requiresAuth: true }, // Protect this route
+      component: MainLayout,
+      children: [
+        {
+          path: "",
+          name: "home",
+          component: HomeView,
+          meta: { requiresAuth: true },
+        },
+        {
+          path: "dashboard",
+          name: "dashboard",
+          component: HomeView,
+          meta: { requiresAuth: true },
+        },
+      ],
     },
     {
       path: "/login",

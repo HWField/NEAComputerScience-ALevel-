@@ -14,6 +14,7 @@ const loading = ref(true);
 
 onMounted(async () => {
   try {
+    // if user has tokens, fetch user data (profile name etc)
     if (userStore.refreshToken || userStore.accessToken) {
       await userStore.FetchUser();
     }

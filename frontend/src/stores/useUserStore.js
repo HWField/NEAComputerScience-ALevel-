@@ -48,9 +48,7 @@ export const useUserStore = defineStore(
 
     async function FetchUser() {
       try {
-        const response = await axios.post("/load", {
-          operation: "user",
-        });
+        const response = await axios.get("/profile", {});
         isAuthenticated.value = true;
         console.log("user data:", response.data);
         UpdateUser(response.data);
@@ -63,12 +61,9 @@ export const useUserStore = defineStore(
     }
 
     async function Login(userData, redirect = null) {
-      token.value = userData.access_token;
-      refreshToken.value = userData.refresh_token;
+      token.value = userData.accessToken;
+      refreshToken.value = userData.refreshToken;
       isAuthenticated.value = true;
-
-      const graphStore = useGraphStore();
-      await graphStore.fetchGraph();
       FetchUser();
 
       if (redirect) {

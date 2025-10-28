@@ -1,3 +1,5 @@
 <script setup></script>
 
-<template></template>
+<template>
+  <p>This will be the home page</p>
+</template>

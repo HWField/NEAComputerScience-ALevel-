@@ -3,7 +3,7 @@ import router from "@/router";
 import { useUserStore } from "@/stores/useUserStore";
 
 // Create an Axios instance targeting the backend API
-const BASE_URL = "http://127.0.0.1:8000";
+const BASE_URL = "http://127.0.0.1:5081/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -39,7 +39,7 @@ const refreshAccessToken = async () => {
     return response.data.access_token;
   } catch (error) {
     // If refresh token is invalid or expired, log the user out
-    await userStore.InstantLogout();
+    await userStore.Logout();
     router.push("/login");
     return null;
   }
@@ -47,15 +47,16 @@ const refreshAccessToken = async () => {
 // Interceptor to add JWT token to request headers
 api.interceptors.request.use(
   (config) => {
-    const token = useUserStore().token; // Retrieve the token from Pinia store
+    const token = useUserStore().token;
     if (token) {
-      config.headers["Authorization"] = `Bearer ${token}`; // Attach token to Authorization header
+      config.headers["Authorization"] = `Bearer ${token}`;
+    } else {
+      // Remove Authorization header if not logged in
+      delete config.headers["Authorization"];
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 api.interceptors.response.use(
@@ -93,7 +94,7 @@ api.interceptors.response.use(
 
       console.error("Session expired, please log in again.");
       // If token refresh failed or no refresh token, proceed with logout
-      await userStore.InstantLogout();
+      await userStore.Logout();
 
       // Save the original route in the query parameters
       const currentRoute = window.location.pathname;

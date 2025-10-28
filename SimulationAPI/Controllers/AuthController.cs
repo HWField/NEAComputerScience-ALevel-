@@ -34,7 +34,7 @@ namespace MySimulationAPI.Controllers
         /// Registers a new user with a username and password.
         /// </summary>
         [HttpPost("register")]
-        public IActionResult Register([FromBody] RegisterDto dto)
+        public IActionResult Register([FromBody] LoginDto dto) // changed to LoginDto for simplicity as contain the same information
         {
             if (_db.Users.Any(u => u.Username == dto.Username))
                 return BadRequest("Username taken");
@@ -49,7 +49,25 @@ namespace MySimulationAPI.Controllers
             _db.Users.Add(user);
             _db.SaveChanges();
 
-            return Ok(new { user.Id, user.Username });
+            var accessToken = GenerateJwt(user, TimeSpan.FromHours(99999)); // TEMP: long-lived token for testing
+
+            // Generate per-device refresh token
+            var refreshToken = Guid.NewGuid().ToString("N");
+
+            user.RefreshTokens.Add(new RefreshToken
+            {
+                Token = refreshToken,
+                DeviceInfo = dto.DeviceInfo ?? "Unknown",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            _db.SaveChanges();
+
+            return Ok(new
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken
+            });
         }
 
         /// <summary>

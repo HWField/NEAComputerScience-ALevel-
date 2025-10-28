@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/useUserStore";
-
+import axios from "../api/axios";
 const route = useRoute();
 const userStore = useUserStore();
 
@@ -15,16 +15,49 @@ const form = {
   password: "",
   confirmPassword: "",
 };
+function getDeviceInfo() {
+  return JSON.stringify({
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    vendor: navigator.vendor,
+    language: navigator.language,
+    languages: navigator.languages,
+    cookieEnabled: navigator.cookieEnabled,
+    hardwareConcurrency: navigator.hardwareConcurrency,
+    deviceMemory: navigator.deviceMemory,
+    screen: {
+      width: window.screen.width,
+      height: window.screen.height,
+      availWidth: window.screen.availWidth,
+      availHeight: window.screen.availHeight,
+      colorDepth: window.screen.colorDepth,
+      pixelDepth: window.screen.pixelDepth,
+    },
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
+}
 
 const handleSubmit = async () => {
   try {
     if (isLogin.value) {
       // Use axios to login
-      await userStore.login(form.username, form.password);
+      const response = await axios.post("/Auth/login", {
+        Username: form.username,
+        Password: form.password,
+        DeviceInfo: getDeviceInfo(),
+      });
+      await userStore.Login(response.data);
     } else {
       // Use axios to register
-
-      await userStore.login(form.username, form.password, form.confirmPassword);
+      if (form.password !== form.confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
+      const response = await axios.post("/Auth/register", {
+        Username: form.username,
+        Password: form.password,
+        DeviceInfo: getDeviceInfo(),
+      });
+      await userStore.Login(response.data);
     }
   } catch (err) {
     console.error(err);
