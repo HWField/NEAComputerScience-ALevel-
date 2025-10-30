@@ -58,7 +58,8 @@ namespace MySimulationAPI.Controllers
             {
                 Token = refreshToken,
                 DeviceInfo = dto.DeviceInfo ?? "Unknown",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                LastUsedAt = DateTime.UtcNow
             });
 
             _db.SaveChanges();
@@ -93,7 +94,8 @@ namespace MySimulationAPI.Controllers
             {
                 Token = refreshToken,
                 DeviceInfo = dto.DeviceInfo ?? "Unknown",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                LastUsedAt = DateTime.UtcNow
             });
 
             _db.SaveChanges();
@@ -105,6 +107,33 @@ namespace MySimulationAPI.Controllers
             });
         }
 
+
+        /// <summary>
+        /// Returns a list of active sessions (refresh tokens) for the logged-in user.
+        /// </summary>
+        [Authorize]
+        [HttpGet("sessions")]
+        public IActionResult GetActiveSessions()
+        {
+            var user = _db.Users
+                .Include(u => u.RefreshTokens)
+                .FirstOrDefault(u => u.Id == GetUserId());
+
+            if (user == null)
+                return NotFound("User not found");
+
+            var sessions = user.RefreshTokens.Select(rt => new
+            {
+                rt.Id,
+                rt.DeviceInfo,
+                rt.CreatedAt,
+                rt.LastUsedAt
+            })
+            .OrderByDescending(rt => rt.LastUsedAt)
+            .ToList();
+
+            return Ok(sessions);
+        }
         // REFRESH JWT
         /// <summary>
         /// Refreshes the JWT access token using a valid refresh token.
@@ -147,6 +176,25 @@ namespace MySimulationAPI.Controllers
             }
 
             return Ok(new { message = "Logged out successfully" });
+        }
+
+        /// <summary>
+        /// Revokes a specific session by its ID, logging out that device. (used by users to manage their sessions)
+        /// </summary>
+        [Authorize]
+        [HttpPost("logout-session")]
+        public IActionResult LogoutSession([FromBody] LogoutSessionDto dto)
+        {
+            var session = _db.RefreshTokens
+                .FirstOrDefault(rt => rt.Id == dto.SessionId && rt.UserId == GetUserId());
+
+            if (session == null)
+                return NotFound("Session not found or not authorized");
+
+            _db.RefreshTokens.Remove(session);
+            _db.SaveChanges();
+
+            return Ok(new { message = "Session logged out successfully" });
         }
 
         /// <summary>

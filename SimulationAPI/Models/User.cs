@@ -7,8 +7,9 @@ namespace MySimulationAPI.Models
         public int Id { get; set; }
         public string Username { get; set; } = null!;
         public string PasswordHash { get; set; } = null!;
-        public string Role { get; set; } = "User"; // Default role
-
+        public string Role { get; set; } = "User";
+        public string Theme { get; set; } = "light";
+        public bool StreamerMode { get; set; } = false;
         public List<RefreshToken> RefreshTokens { get; set; } = new();
     }
 }

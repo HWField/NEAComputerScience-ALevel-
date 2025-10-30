@@ -8,6 +8,7 @@ namespace MySimulationAPI.Models
         public string Token { get; set; }
         public string DeviceInfo { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime LastUsedAt { get; set; }
 
     }
 }

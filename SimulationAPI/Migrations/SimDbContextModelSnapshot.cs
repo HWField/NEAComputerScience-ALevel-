@@ -528,6 +528,9 @@ namespace SimulationAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Token")
                         .IsRequired()
                         .HasColumnType("text");
@@ -690,6 +693,13 @@ namespace SimulationAPI.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("StreamerMode")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Theme")
                         .IsRequired()
                         .HasColumnType("text");
 

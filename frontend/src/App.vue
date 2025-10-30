@@ -1,14 +1,17 @@
 <template>
-  <RouterView v-if="!loading" class="h-full" />
-  <div v-else class="flex justify-center items-center h-screen">
-    <span class="loading loading-ring loading-xl"></span>
+  <div class="h-full">
+    <RouterView v-if="!loading" class="h-full" />
+    <div v-else class="flex justify-center items-center h-screen">
+      <span class="loading loading-ring loading-xl"></span>
+    </div>
+    <AppToast />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from "vue";
 import { useUserStore } from "@/stores/useUserStore";
-
+import AppToast from "@/components/AppToast.vue";
 const userStore = useUserStore();
 const loading = ref(true);
 

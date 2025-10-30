@@ -1,7 +1,7 @@
 <template>
   <div class="navbar bg-base-100 shadow-sm">
     <div class="flex-1">
-      <a class="btn btn-ghost text-xl">Epedemic simulation</a>
+      <a @click="Home" class="btn btn-ghost text-xl">Epedemic simulation</a>
     </div>
     <div class="flex gap-2">
       <div class="dropdown dropdown-end">
@@ -17,12 +17,13 @@
           tabindex="-1"
           class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow"
         >
-          <li>
-            <a> Profile </a>
+          <li><a @click="() => router.push('/help')">Help</a></li>
+          <li v-if="userStore.role === 'Admin'">
+            <a @click="() => router.push('/admin')">Admin</a>
           </li>
-          <li><a>Settings</a></li>
+          <li><a @click="Settings">Settings</a></li>
           <li>
-            <a @click="logout">Logout</a>
+            <a @click="logout" class="text-error">Logout</a>
           </li>
         </ul>
       </div>
@@ -32,10 +33,25 @@
 
 <script setup>
 import { useUserStore } from "@/stores/useUserStore";
+import axios from "../api/axios";
+import { useRouter } from "vue-router";
+import { useToastStore } from "@/stores/useToastStore";
 
+const toast = useToastStore();
+const router = useRouter();
 const userStore = useUserStore();
 
-function logout() {
+function Settings() {
+  router.push("/settings");
+}
+async function logout() {
+  await axios.post("/Auth/logout", {
+    refreshToken: userStore.refreshToken,
+  });
+  toast.show("Logged out successfully", "success");
   userStore.Logout();
+}
+function Home() {
+  router.push("/");
 }
 </script>

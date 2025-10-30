@@ -62,12 +62,30 @@ namespace MySimulationAPI.Controllers
             if (!string.IsNullOrWhiteSpace(dto.Username))
                 user.Username = dto.Username;
 
-            if (!string.IsNullOrWhiteSpace(dto.Password))
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+            if (!string.IsNullOrWhiteSpace(dto.Theme))
+                user.Theme = dto.Theme;
+
+            if (dto.StreamerMode.HasValue)
+                user.StreamerMode = dto.StreamerMode.Value;
 
             _db.SaveChanges();
 
             return Ok(new { message = "Profile updated successfully" });
+        }
+        [HttpPost("change-password")]
+        public IActionResult ChangePassword([FromBody] ChangePasswordDto dto)
+        {
+            var user = _db.Users.FirstOrDefault(u => u.Id == GetUserId());
+            if (user == null)
+                return NotFound("User not found");
+
+            if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+                return BadRequest("Incorrect current password");
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            _db.SaveChanges();
+
+            return Ok(new { message = "Password changed successfully" });
         }
 
         /// <summary>
