@@ -5,6 +5,7 @@ using MySimulationAPI.Services;
 using EFCore.BulkExtensions;
 using System.Collections.Concurrent;
 using SQLitePCL;
+using MySimulationAPI.DTOs;
 
 namespace MySimulationAPI.SimulationConfiguration
 {
@@ -37,7 +38,7 @@ namespace MySimulationAPI.SimulationConfiguration
         }
 
         // Initialise map area and return population estimates based on housing capacity
-        public async Task<(MapArea mapArea, int populationEstimate)> SetupMapArea(int simulationId, int? presetId, string? presetName, double? latitude, double? longitude, double? radiusKm, int userId, bool IsAdmin)
+        public async Task<PopulationCapacityResult> SetupMapArea(int simulationId, int? presetId, string? presetName, double? latitude, double? longitude, double? radiusKm, bool? savePreset, int userId, bool IsAdmin)
         {
             using var _db = _dbFactory.CreateDbContext();
             // Verify simulation exists and belongs to user
@@ -125,8 +126,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 building.Name = b.Name;
                 building.Latitude = b.Latitude;
                 building.Longitude = b.Longitude;
-                building.Capacity = 4;
-                // for now assumign capacity of 4 per building but will need changing, will use number of housing buildings to estimate (can later refine with more parameters
+                building.Capacity = b.Capacity ?? 0;
                 building.MapAreaId = mapArea.Id;
                 switch (building)
                 {
@@ -245,15 +245,63 @@ namespace MySimulationAPI.SimulationConfiguration
             await _db.BulkInsertAsync(newPaths, opts => opts.IncludeGraph = true);
             _db.ChangeTracker.Clear();
 
-            // Calculate population estimates
-            var estimate = numHousing * 4; // assume average of 4 people per housing unit for now
+            // Remove the preset map area from DB if it was just created and savePreset is false
+            if (!presetId.HasValue && savePreset == false)
+            {
+                var presetToRemove = await _db.MapAreaPresets.FirstOrDefaultAsync(p => p.Id == actualPresetId);
+                if (presetToRemove != null)
+                {
+                    _db.MapAreaPresets.Remove(presetToRemove);
+                    await _db.SaveChangesAsync();
+                }
+            }
 
-            return (mapArea, estimate);
+            var residentialCount = newBuildings.OfType<ResidentialBuilding>().Sum(b => b.Capacity);
+            var educationCapacity = newBuildings.OfType<EducationBuilding>().Sum(b => b.MaxStudents);
+            var officeCapacity = newBuildings.OfType<OfficeBuilding>().Sum(b => b.Capacity);
+            var medicalCapacity = newBuildings.OfType<MedicalBuilding>().Sum(b => b.Capacity);
+            var retailCapacity = newBuildings.OfType<RetailBuilding>().Sum(b => b.Capacity);
+            var leisureCapacity = newBuildings.OfType<LeisureBuilding>().Sum(b => b.Capacity);
+
+            // Calculate max population (housing is the hard limit)
+            var maxPopulation = residentialCount;
+
+            // Calculate constraints for each agent type
+            var maxStudents = educationCapacity;
+            var maxOfficeWorkers = officeCapacity;
+            var maxMedicalWorkers = medicalCapacity;
+            var maxRetailWorkers = retailCapacity;
+            var maxServiceWorkers = leisureCapacity;
+            // Elderly don't need workplace, so limited only by housing
+            var maxElderly = maxPopulation;
+
+            var population = new PopulationCapacityResult
+            {
+                MaxTotalPopulation = maxPopulation,
+                MaxStudents = maxStudents,
+                MaxOfficeWorkers = maxOfficeWorkers,
+                MaxMedicalWorkers = maxMedicalWorkers,
+                MaxRetailWorkers = maxRetailWorkers,
+                MaxServiceWorkers = maxServiceWorkers,
+                MaxElderlyRetired = maxElderly,
+            };
+
+            return population;
         }
 
+        public class PopulationCapacityResult
+        {
+            public int MaxTotalPopulation { get; set; }
+            public int MaxStudents { get; set; }
+            public int MaxOfficeWorkers { get; set; }
+            public int MaxMedicalWorkers { get; set; }
+            public int MaxRetailWorkers { get; set; }
+            public int MaxServiceWorkers { get; set; }
+            public int MaxElderlyRetired { get; set; }
+        }
 
         // Generate population
-        public async Task SetupPopulation(int simulationId, int agentCount, int userId)
+        public async Task SetupPopulation(int simulationId, SetupPopulationDto agentCounts, int userId)
         {
             using var _db = _dbFactory.CreateDbContext();
             // Fetch simulation from DB
@@ -265,11 +313,62 @@ namespace MySimulationAPI.SimulationConfiguration
             // Create the SimulationContext
             var context = new SimulationContext(simulation, _dbFactory);
 
-            // Generate agents
-            var agents = new List<Agent>(agentCount);
-            for (int i = 0; i < agentCount; i++)
+            // Generate agents based on the specified counts for each type
+            var agents = new List<Agent>();
+
+            for (int i = 0; i < agentCounts.StudentCount; i++)
             {
-                agents.Add(CreateRandomAgent(simulation.Id));
+                var agent = new StudentAgent
+                {
+                    Name = GenerateRandomName(_rng),
+                    SimulationId = simulation.Id
+                };
+                agents.Add(agent);
+            }
+            for (int i = 0; i < agentCounts.OfficeWorker; i++)
+            {
+                var agent = new OfficeWorkerAgent
+                {
+                    Name = GenerateRandomName(_rng),
+                    SimulationId = simulation.Id
+                };
+                agents.Add(agent);
+            }
+            for (int i = 0; i < agentCounts.MedicalWorker; i++)
+            {
+                var agent = new MedicalWorkerAgent
+                {
+                    Name = GenerateRandomName(_rng),
+                    SimulationId = simulation.Id
+                };
+                agents.Add(agent);
+            }
+            for (int i = 0; i < agentCounts.RetailWorker; i++)
+            {
+                var agent = new RetailWorkerAgent
+                {
+                    Name = GenerateRandomName(_rng),
+                    SimulationId = simulation.Id
+                };
+                agents.Add(agent);
+            }
+            for (int i = 0; i < agentCounts.ElderlyRetiredAgent; i++)
+            {
+                var agent = new ElderlyRetiredAgent
+                {
+                    Name = GenerateRandomName(_rng),
+                    SimulationId = simulation.Id
+                };
+                agents.Add(agent);
+            }
+            for (int i = 0; i < agentCounts.ServiceWorker; i++)
+            {
+                var agent = new ServiceWorkerAgent
+                {
+                    Name = GenerateRandomName(_rng),
+                    SimulationId = simulation.Id
+                };
+                agents.Add(agent);
             }
 
             // Group agents by their concrete type

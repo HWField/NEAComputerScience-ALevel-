@@ -42,7 +42,9 @@ namespace MySimulationAPI.Controllers
             {
                 user.Id,
                 user.Username,
-                user.Role
+                user.Role,
+                user.Theme,
+                user.StreamerMode
             });
         }
 

@@ -4,6 +4,7 @@ import AdminView from "@/views/admin.vue";
 import HelpView from "@/views/help.vue";
 import AuthenticationView from "@/views/authentication.vue";
 import SettingsView from "@/views/settings.vue";
+import SimulationView from "@/views/simulation.vue";
 import Error from "@/views/error.vue";
 import { useUserStore } from "@/stores/useUserStore";
 import { useToastStore } from "@/stores/useToastStore";
@@ -38,6 +39,13 @@ const router = createRouter({
           name: "settings",
           component: SettingsView,
           meta: { requiresAuth: true },
+        },
+        {
+          path: "simulation/:id",
+          name: "simulation",
+          component: SimulationView,
+          meta: { requiresAuth: true },
+          props: true,
         },
       ],
     },

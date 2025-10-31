@@ -34,8 +34,7 @@ namespace MySimulationAPI.Controllers
         public async Task<IActionResult> GetMapAreas()
         {
             IQueryable<MapAreaPreset> query = _db.MapAreaPresets
-             .Include(p => p.Buildings)
-             .Include(p => p.Paths)
+
              .AsSplitQuery();
 
             if (!IsAdmin())
@@ -50,8 +49,6 @@ namespace MySimulationAPI.Controllers
                 s.Latitude,
                 s.Longitude,
                 s.Radius,
-                BuildingCount = s.Buildings?.Count ?? 0,
-                PathCount = s.Paths?.Count ?? 0
             }));
         }
 

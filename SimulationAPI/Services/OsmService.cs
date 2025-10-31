@@ -91,12 +91,20 @@ out center;
 
                 if (elementLat.HasValue && elementLon.HasValue && el.Id.HasValue)
                 {
+                    // Calculate capacity based on building type and OSM tags
+                    int capacity = BuildingCapacityCalculator.CalculateCapacity(type, el.Tags);
+
+                    // Extract building name if available
+                    string buildingName = el.Tags?.Name ?? $"{type} {el.Id.Value}";
+
                     locations.Add(new OSMBuildingPreset
                     {
                         OSMId = el.Id.Value.ToString(),
+                        Name = buildingName,
                         Type = type,
                         Latitude = elementLat.Value,
-                        Longitude = elementLon.Value
+                        Longitude = elementLon.Value,
+                        Capacity = capacity
                     });
                 }
             });
@@ -237,6 +245,43 @@ out geom;
 
         [JsonPropertyName("oneway")]
         public string? Oneway { get; set; }
+
+        // Capacity-related tags
+        [JsonPropertyName("building:levels")]
+        public string? BuildingLevels { get; set; }
+
+        [JsonPropertyName("building:flats")]
+        public string? BuildingFlats { get; set; }
+
+        [JsonPropertyName("capacity")]
+        public string? Capacity { get; set; }
+
+        [JsonPropertyName("beds")]
+        public string? Beds { get; set; }
+
+        [JsonPropertyName("rooms")]
+        public string? Rooms { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("building:type")]
+        public string? BuildingType { get; set; }
+
+        [JsonPropertyName("shop")]
+        public string? Shop { get; set; }
+
+        [JsonPropertyName("office")]
+        public string? Office { get; set; }
+
+        [JsonPropertyName("tourism")]
+        public string? Tourism { get; set; }
+
+        [JsonPropertyName("healthcare")]
+        public string? Healthcare { get; set; }
+
+        [JsonPropertyName("emergency")]
+        public string? Emergency { get; set; }
     }
 
     public class GeometryPoint

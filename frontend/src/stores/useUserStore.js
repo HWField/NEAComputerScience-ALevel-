@@ -19,7 +19,9 @@ export const useUserStore = defineStore(
 
     function UpdateUser(data) {
       username.value = data.username;
-      role.value = data.role;
+      role.value = data.role || "User";
+      theme.value = data.theme || "light";
+      streamerMode.value = data.streamerMode || false;
     }
 
     async function FetchUser() {
@@ -27,10 +29,6 @@ export const useUserStore = defineStore(
         const response = await axios.get("/profile", {});
         isAuthenticated.value = true;
         UpdateUser(response.data);
-        if (response.data.theme) {
-          applyTheme(response.data.theme);
-        }
-
         return true;
       } catch (error) {
         console.error("Error fetching user data:", error);

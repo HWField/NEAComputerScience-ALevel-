@@ -27,11 +27,17 @@ namespace MySimulationAPI.DTOs
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
         public double? RadiusKm { get; set; }
+        public bool? SavePreset { get; set; } = false;
     }
 
     public class SetupPopulationDto
     {
-        public int AgentCount { get; set; }
+        public int StudentCount { get; set; }
+        public int OfficeWorker { get; set; }
+        public int MedicalWorker { get; set; }
+        public int ElderlyRetiredAgent { get; set; }
+        public int RetailWorker { get; set; }
+        public int ServiceWorker { get; set; }
     }
 
     public class SetupDiseaseDto

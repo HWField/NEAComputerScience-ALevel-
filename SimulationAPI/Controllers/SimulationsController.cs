@@ -46,6 +46,7 @@ namespace MySimulationAPI.Controllers
             IQueryable<Simulation> query = _db.Simulations
                 .Include(s => s.MapArea)
                 .Include(s => s.Disease)
+                .Include(s => s.Agents)
                 .AsSplitQuery();
 
 
@@ -62,7 +63,8 @@ namespace MySimulationAPI.Controllers
                 s.CreatedAt,
                 s.Status,
                 MapArea = s.MapArea?.Name,
-                Disease = s.Disease?.Name
+                Disease = s.Disease?.Name,
+                AgentCount = s.Agents.Count
             }));
         }
 
@@ -76,10 +78,53 @@ namespace MySimulationAPI.Controllers
                 .Include(s => s.MapArea)
                 .Include(s => s.Disease)
                 .FirstOrDefaultAsync(s => s.Id == id);
+
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
-            return Ok(sim);
+
+            var agentCount = await _db.Agents
+                .Where(a => a.SimulationId == id)
+                .CountAsync();
+
+            var buildingCount = sim.MapArea != null
+                ? await _db.Buildings
+                    .Where(b => b.MapAreaId == sim.MapArea.Id)
+                    .CountAsync()
+                : 0;
+
+            return Ok(new
+            {
+                // Simulation basic info
+                sim.Id,
+                sim.Name,
+                sim.Status,
+                sim.CreatedAt,
+
+                // Disease info
+                Disease = sim.Disease == null ? null : new
+                {
+                    sim.Disease.Id,
+                    sim.Disease.Name,
+                    sim.Disease.InfectionRate,
+                    sim.Disease.RecoveryRate,
+                    sim.Disease.MortalityRate,
+                },
+
+                // Map area info
+                MapArea = sim.MapArea == null ? null : new
+                {
+                    sim.MapArea.Id,
+                    sim.MapArea.Name,
+                    sim.MapArea.CenterLat,
+                    sim.MapArea.CenterLon,
+                    sim.MapArea.RadiusKm,
+                    BuildingCount = buildingCount
+                },
+
+                // Agent count
+                AgentCount = agentCount
+            });
         }
 
         /// <summary>
@@ -156,13 +201,12 @@ namespace MySimulationAPI.Controllers
                 return Forbid();
             try
             {
-                var (mapArea, estimate) = await _simulationSetup.SetupMapArea(
+                var estimate = await _simulationSetup.SetupMapArea(
                     id, dto.PresetId, dto.PresetName,
-                    dto.Latitude, dto.Longitude, dto.RadiusKm, GetUserId(), IsAdmin());
+                    dto.Latitude, dto.Longitude, dto.RadiusKm, dto.SavePreset, GetUserId(), IsAdmin());
 
                 return Ok(new
                 {
-                    MapAreaId = mapArea.Id,
                     PopulationEstimate = estimate,
                     Message = "Map area set up successfully"
                 });
@@ -187,7 +231,7 @@ namespace MySimulationAPI.Controllers
                 return Forbid();
             try
             {
-                await _simulationSetup.SetupPopulation(id, dto.AgentCount, GetUserId());
+                await _simulationSetup.SetupPopulation(id, dto, GetUserId());
                 return Ok(new { Message = "Population generated successfully" });
             }
             catch (Exception ex)

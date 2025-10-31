@@ -61,7 +61,8 @@ namespace MySimulationAPI.Services
                     OSMId = b.OSMId,
                     Latitude = b.Latitude,
                     Longitude = b.Longitude,
-                    Type = b.Type
+                    Type = b.Type,
+                    Capacity = b.Capacity
                 }).ToList();
 
                 await _db.BulkInsertAsync(buildingEntities, new BulkConfig
