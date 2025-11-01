@@ -10,6 +10,7 @@ const emit = defineEmits(["created"]);
 const show = defineModel<boolean>({ required: true });
 const step = ref(1);
 const loading = ref(false);
+const loadingMessage = ref("");
 
 interface Preset {
   id: number;
@@ -22,7 +23,7 @@ const newSimDetails = ref({});
 // Leaflet map refs
 const map = ref<L.Map | null>(null);
 const circle = ref<L.Circle | null>(null);
-const FIXED_CIRCLE_RADIUS_PX = 100; // Fixed radius in pixels on screen
+const radiusKm = ref(1.0); // Fixed radius in kilometers (real-world distance)
 
 const createNewSimulation = async () => {
   const response = await axios.get("/Preset/mapareas");
@@ -101,37 +102,26 @@ watch(
   }
 );
 
-// Calculate real-world radius based on pixel radius and zoom level
-const calculateRadius = (map: L.Map): number => {
-  const centerPoint = map.getSize().divideBy(2);
-  const centerLatLng = map.getCenter();
-
-  // Get a point that's FIXED_CIRCLE_RADIUS_PX pixels away from center
-  const pointOnCircle = L.point(
-    centerPoint.x + FIXED_CIRCLE_RADIUS_PX,
-    centerPoint.y
-  );
-  const pointLatLng = map.containerPointToLatLng(pointOnCircle);
-
-  // Calculate distance in meters
-  const radiusMeters = centerLatLng.distanceTo(pointLatLng);
-  return radiusMeters / 1000; // Convert to km
-};
-
+// Update circle position when map moves
 const updateCircle = () => {
   if (!map.value || !circle.value) return;
 
   const center = map.value.getCenter();
-  const radius = calculateRadius(map.value);
 
-  // Update circle position and visual radius
+  // Update circle position (radius stays constant in km)
   circle.value.setLatLng(center);
-  circle.value.setRadius(radius * 1000); // Convert km to meters for Leaflet
 
   // Update the stored values
   newSimDetails.value.customMap.longitude = center.lng;
   newSimDetails.value.customMap.latitude = center.lat;
-  newSimDetails.value.customMap.radius = radius;
+  newSimDetails.value.customMap.radius = radiusKm.value;
+};
+
+// Update circle radius when slider changes
+const updateCircleRadius = () => {
+  if (!circle.value) return;
+  circle.value.setRadius(radiusKm.value * 1000); // Convert km to meters
+  updateCircle();
 };
 
 const initializeMap = () => {
@@ -145,9 +135,9 @@ const initializeMap = () => {
   const mapContainer = document.getElementById("simulation-map");
   if (!mapContainer) return;
 
-  // Initialize map centered on a default location (e.g., London)
-  const defaultLat = newSimDetails.value.customMap.latitude || 51.505;
-  const defaultLng = newSimDetails.value.customMap.longitude || -0.09;
+  // Initialize map centered on Hills Road Sixth Form College, Cambridge
+  const defaultLat = newSimDetails.value.customMap.latitude || 52.1882;
+  const defaultLng = newSimDetails.value.customMap.longitude || 0.1356;
   const defaultZoom = 13;
 
   map.value = L.map("simulation-map", {
@@ -159,17 +149,16 @@ const initializeMap = () => {
     maxZoom: 19,
   }).addTo(map.value);
 
-  // Add the fixed-size circle
-  const initialRadius = calculateRadius(map.value);
+  // Add the circle with fixed kilometer radius
   circle.value = L.circle([defaultLat, defaultLng], {
-    radius: initialRadius * 1000,
+    radius: radiusKm.value * 1000, // Convert km to meters for Leaflet
     color: "#3b82f6",
     fillColor: "#3b82f6",
     fillOpacity: 0.2,
     weight: 2,
   }).addTo(map.value);
 
-  // Update circle on map move/zoom
+  // Update circle position on map move (radius stays constant)
   map.value.on("move", updateCircle);
   map.value.on("zoom", updateCircle);
 
@@ -198,6 +187,7 @@ const initializeMap = () => {
 
 const handleNextStep = async () => {
   loading.value = true;
+  loadingMessage.value = ""; // Reset message
 
   try {
     if (step.value === 1) {
@@ -205,6 +195,7 @@ const handleNextStep = async () => {
         toast.show("Please enter a simulation name.", "error");
         return;
       }
+      loadingMessage.value = "Creating simulation...";
       const response = await axios.post("/Simulation", {
         SimulationName: newSimDetails.value.name,
         // icon: newSimDetails.value.icon,
@@ -219,6 +210,7 @@ const handleNextStep = async () => {
           toast.show("Please select a map preset.", "error");
           return;
         }
+        loadingMessage.value = "Loading map area preset...";
         const response = await axios.post(
           `/Simulation/${newSimDetails.value.id}/map-area`,
           {
@@ -277,6 +269,17 @@ const handleNextStep = async () => {
           newSimDetails.value.population = population;
         }
       } else {
+        // Custom map area - this may take a while for large areas
+        if (
+          !newSimDetails.value.customMap.PresetName ||
+          newSimDetails.value.customMap.PresetName.trim() === ""
+        ) {
+          toast.show("Please enter a custom map name.", "error");
+          return;
+        }
+        loadingMessage.value =
+          "Downloading map data from OpenStreetMap... This may take several minutes for large areas.";
+
         const response = await axios.post(
           `/Simulation/${newSimDetails.value.id}/map-area`,
           {
@@ -285,6 +288,9 @@ const handleNextStep = async () => {
             latitude: newSimDetails.value.customMap.latitude,
             radiusKm: newSimDetails.value.customMap.radius,
             SavePreset: newSimDetails.value.customMap.savePreset,
+          },
+          {
+            timeout: 600000, // 10 minutes timeout for large map downloads
           }
         );
 
@@ -339,6 +345,7 @@ const handleNextStep = async () => {
           newSimDetails.value.population = population;
         }
       }
+      loadingMessage.value = ""; // Clear loading message after step 2
     }
 
     if (step.value === 3) {
@@ -418,6 +425,7 @@ const handleNextStep = async () => {
       }
 
       // Send population configuration to API
+      loadingMessage.value = "Generating population...";
       const response = await axios.post(
         `/Simulation/${newSimDetails.value.id}/population`,
         {
@@ -430,9 +438,11 @@ const handleNextStep = async () => {
           serviceWorker: newSimDetails.value.population.ServiceWorker,
         }
       );
+      loadingMessage.value = "";
     }
 
     if (step.value === 4) {
+      loadingMessage.value = "Configuring disease parameters...";
       if (newSimDetails.value.diseaseType === "preset") {
         if (newSimDetails.value.diseasePresetID === 0) {
           toast.show("Please select a disease preset.", "error");
@@ -456,6 +466,7 @@ const handleNextStep = async () => {
           }
         );
       }
+      loadingMessage.value = "";
     }
 
     if (step.value < 5) step.value++;
@@ -510,7 +521,7 @@ const handleNextStep = async () => {
             <input
               v-model="newSimDetails.name"
               class="input input-bordered w-full"
-              placeholder="e.g. Pandemic City"
+              placeholder="e.g. Sick City"
             />
           </div>
           <div class="form-control">
@@ -570,49 +581,109 @@ const handleNextStep = async () => {
           </div>
 
           <div v-else>
-            <label class="label"
-              ><span class="label-text">Custom Map Name:</span></label
-            >
-            <input
-              v-model="newSimDetails.customMap.PresetName"
-              class="input input-bordered w-full mb-2"
-              placeholder="Enter custom map name"
-            />
-            <div class="flex items-center mb-4">
-              <input
-                type="checkbox"
-                v-model="newSimDetails.customMap.savePreset"
-                class="checkbox mr-2"
-                id="save-map-preset"
-              />
-              <label for="save-map-preset" class="cursor-pointer select-none">
-                Save as preset
-              </label>
-            </div>
-
-            <!-- Leaflet Map -->
-            <div class="mb-4">
-              <label class="label">
-                <span class="label-text">Select Map Area:</span>
-                <span class="label-text-alt text-xs"
-                  >Pan and zoom to select your area. The circle shows the
-                  simulation boundary.</span
+            <!-- Map Configuration -->
+            <div class="mb-6">
+              <label class="label mb-4">
+                <span class="label-text font-semibold text-base"
+                  >Map Configuration</span
                 >
               </label>
+
+              <!-- Map Name -->
+              <div class="mb-6">
+                <label class="label mb-2">
+                  <span class="label-text">Custom Map Name</span>
+                </label>
+                <input
+                  v-model="newSimDetails.customMap.PresetName"
+                  class="input input-bordered w-full"
+                  placeholder="e.g., Hills Road Area"
+                />
+              </div>
+
+              <!-- Save as Preset -->
+              <div class="mb-6">
+                <label class="label cursor-pointer justify-start gap-3">
+                  <input
+                    type="checkbox"
+                    v-model="newSimDetails.customMap.savePreset"
+                    class="checkbox checkbox-primary"
+                  />
+                  <span class="label-text">Save as preset for future use</span>
+                </label>
+              </div>
+
+              <!-- Radius Slider -->
+              <div class="mb-4">
+                <label class="label flex justify-between items-center mb-2">
+                  <span class="label-text">Simulation Radius</span>
+                  <span class="label-text-alt text-primary font-bold">
+                    {{ radiusKm.toFixed(2) }} km
+                  </span>
+                </label>
+                <div class="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="15"
+                    step="0.1"
+                    v-model.number="radiusKm"
+                    @input="updateCircleRadius"
+                    class="range range-primary range-xs flex-1"
+                  />
+                </div>
+                <div class="flex justify-between px-2.5 mt-2 text-xs">
+                  <span>|</span>
+                  <span>|</span>
+                </div>
+                <div class="flex justify-between px-2.5 mt-2 text-xs">
+                  <span>0 km</span>
+                  <span>15 km</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map Selection -->
+            <div class="mb-4">
+              <label class="label">
+                <span class="label-text font-semibold text-base"
+                  >Select Map Area</span
+                >
+                <span class="label-text-alt text-xs opacity-70">
+                  Pan and zoom to position
+                </span>
+              </label>
+
               <div
                 id="simulation-map"
-                class="w-full h-96 rounded-lg border-2 border-base-300"
+                class="w-full h-96 rounded-lg border-2 border-base-300 shadow-md mb-3"
               ></div>
-              <div class="mt-2 text-sm text-gray-600">
-                <p>
-                  Center:
-                  {{ newSimDetails.customMap.latitude?.toFixed(4) ?? "N/A" }},
-                  {{ newSimDetails.customMap.longitude?.toFixed(4) ?? "N/A" }}
-                </p>
-                <p>
-                  Radius:
-                  {{ newSimDetails.customMap.radius?.toFixed(2) ?? "N/A" }} km
-                </p>
+
+              <!-- Map Center Info -->
+              <div class="bg-base-200 rounded-lg p-3">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h4 class="text-xs font-semibold opacity-70 mb-1">
+                      Map Center
+                    </h4>
+                    <p class="text-sm font-mono">
+                      {{
+                        newSimDetails.customMap.latitude?.toFixed(4) ?? "N/A"
+                      }},
+                      {{
+                        newSimDetails.customMap.longitude?.toFixed(4) ?? "N/A"
+                      }}
+                    </p>
+                  </div>
+                  <div class="text-right">
+                    <h4 class="text-xs font-semibold opacity-70 mb-1">
+                      Coverage Area
+                    </h4>
+                    <p class="text-sm font-bold text-primary">
+                      ~{{ (Math.PI * radiusKm * radiusKm).toFixed(2) }} km²
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -866,16 +937,26 @@ const handleNextStep = async () => {
         <div class="modal-action flex justify-between mt-6">
           <div></div>
           <div>
-            <button
-              v-if="step < 4"
-              class="btn btn-primary"
-              @click="handleNextStep"
-            >
-              Next
-            </button>
-            <button v-else class="btn btn-success" @click="handleNextStep">
-              Finish
-            </button>
+            <!-- Loading State -->
+            <div v-if="loading" class="flex items-center gap-3">
+              <span class="loading loading-spinner loading-md"></span>
+              <span v-if="loadingMessage" class="text-sm">{{
+                loadingMessage
+              }}</span>
+            </div>
+            <!-- Buttons when not loading -->
+            <div v-else>
+              <button
+                v-if="step < 4"
+                class="btn btn-primary"
+                @click="handleNextStep"
+              >
+                Next
+              </button>
+              <button v-else class="btn btn-success" @click="handleNextStep">
+                Finish
+              </button>
+            </div>
           </div>
         </div>
       </div>

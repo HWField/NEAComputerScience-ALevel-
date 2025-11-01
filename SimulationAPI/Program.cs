@@ -9,6 +9,13 @@ using MySimulationAPI.SimulationConfiguration;
 using DotNetEnv;
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Kestrel to allow longer request timeouts for large map downloads
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(15);
+    serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(15);
+});
+
 // Database context configuration
 builder.Services.AddDbContextFactory<SimDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
