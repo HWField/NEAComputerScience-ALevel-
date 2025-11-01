@@ -46,7 +46,6 @@ namespace MySimulationAPI.Controllers
             IQueryable<Simulation> query = _db.Simulations
                 .Include(s => s.MapArea)
                 .Include(s => s.Disease)
-                .Include(s => s.Agents)
                 .AsSplitQuery();
 
 
@@ -56,6 +55,15 @@ namespace MySimulationAPI.Controllers
             }
 
             var sims = await query.ToListAsync();
+
+            // Get agent counts efficiently
+            var simIds = sims.Select(s => s.Id).ToList();
+            var agentCounts = await _db.Agents
+                .Where(a => simIds.Contains(a.SimulationId))
+                .GroupBy(a => a.SimulationId)
+                .Select(g => new { SimulationId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.SimulationId, x => x.Count);
+
             return Ok(sims.Select(s => new
             {
                 s.Id,
@@ -64,7 +72,7 @@ namespace MySimulationAPI.Controllers
                 s.Status,
                 MapArea = s.MapArea?.Name,
                 Disease = s.Disease?.Name,
-                AgentCount = s.Agents.Count
+                AgentCount = agentCounts.GetValueOrDefault(s.Id, 0)
             }));
         }
 

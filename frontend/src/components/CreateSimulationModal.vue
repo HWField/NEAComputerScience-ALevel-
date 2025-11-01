@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, onMounted, nextTick } from "vue";
 import axios from "../api/axios";
 import { useToastStore } from "@/stores/useToastStore";
+import L from "leaflet";
+import { GeoSearchControl, OpenStreetMapProvider } from "leaflet-geosearch";
 const toast = useToastStore();
 const emit = defineEmits(["created"]);
 
@@ -16,6 +18,11 @@ interface Preset {
 const mapAreaPresets = ref<Preset[]>([]);
 const diseasePresets = ref<Preset[]>([]);
 const newSimDetails = ref({});
+
+// Leaflet map refs
+const map = ref<L.Map | null>(null);
+const circle = ref<L.Circle | null>(null);
+const FIXED_CIRCLE_RADIUS_PX = 100; // Fixed radius in pixels on screen
 
 const createNewSimulation = async () => {
   const response = await axios.get("/Preset/mapareas");
@@ -42,7 +49,7 @@ const createNewSimulation = async () => {
       longitude: 0,
       latitude: 0,
       radius: 0,
-      savePreset: false,
+      savePreset: true,
     },
     // step 3 population
     maxPopulation: {
@@ -82,6 +89,112 @@ watch(show, (val) => {
     createNewSimulation();
   }
 });
+
+// Initialize map
+watch(
+  () => [step.value, newSimDetails.value.mapType],
+  async ([newStep, newMapType]) => {
+    if (newStep === 2 && newMapType === "custom") {
+      await nextTick();
+      initializeMap();
+    }
+  }
+);
+
+// Calculate real-world radius based on pixel radius and zoom level
+const calculateRadius = (map: L.Map): number => {
+  const centerPoint = map.getSize().divideBy(2);
+  const centerLatLng = map.getCenter();
+
+  // Get a point that's FIXED_CIRCLE_RADIUS_PX pixels away from center
+  const pointOnCircle = L.point(
+    centerPoint.x + FIXED_CIRCLE_RADIUS_PX,
+    centerPoint.y
+  );
+  const pointLatLng = map.containerPointToLatLng(pointOnCircle);
+
+  // Calculate distance in meters
+  const radiusMeters = centerLatLng.distanceTo(pointLatLng);
+  return radiusMeters / 1000; // Convert to km
+};
+
+const updateCircle = () => {
+  if (!map.value || !circle.value) return;
+
+  const center = map.value.getCenter();
+  const radius = calculateRadius(map.value);
+
+  // Update circle position and visual radius
+  circle.value.setLatLng(center);
+  circle.value.setRadius(radius * 1000); // Convert km to meters for Leaflet
+
+  // Update the stored values
+  newSimDetails.value.customMap.longitude = center.lng;
+  newSimDetails.value.customMap.latitude = center.lat;
+  newSimDetails.value.customMap.radius = radius;
+};
+
+const initializeMap = () => {
+  // Destroy existing map if any
+  if (map.value) {
+    map.value.remove();
+    map.value = null;
+    circle.value = null;
+  }
+
+  const mapContainer = document.getElementById("simulation-map");
+  if (!mapContainer) return;
+
+  // Initialize map centered on a default location (e.g., London)
+  const defaultLat = newSimDetails.value.customMap.latitude || 51.505;
+  const defaultLng = newSimDetails.value.customMap.longitude || -0.09;
+  const defaultZoom = 13;
+
+  map.value = L.map("simulation-map", {
+    attributionControl: false,
+  }).setView([defaultLat, defaultLng], defaultZoom);
+
+  // Add OpenStreetMap tiles
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+  }).addTo(map.value);
+
+  // Add the fixed-size circle
+  const initialRadius = calculateRadius(map.value);
+  circle.value = L.circle([defaultLat, defaultLng], {
+    radius: initialRadius * 1000,
+    color: "#3b82f6",
+    fillColor: "#3b82f6",
+    fillOpacity: 0.2,
+    weight: 2,
+  }).addTo(map.value);
+
+  // Update circle on map move/zoom
+  map.value.on("move", updateCircle);
+  map.value.on("zoom", updateCircle);
+
+  // Add search control
+  const provider = new OpenStreetMapProvider();
+  const searchControl = new (GeoSearchControl as any)({
+    provider: provider,
+    style: "bar",
+    autoComplete: true,
+    autoCompleteDelay: 250,
+    showMarker: false,
+    retainZoomLevel: false,
+  });
+
+  map.value.addControl(searchControl);
+
+  // Handle search result
+  map.value.on("geosearch/showlocation", (result: any) => {
+    const { x, y } = result.location;
+    map.value?.setView([y, x], 13);
+  });
+
+  // Initialize the stored values
+  updateCircle();
+};
 
 const handleNextStep = async () => {
   loading.value = true;
@@ -465,7 +578,7 @@ const handleNextStep = async () => {
               class="input input-bordered w-full mb-2"
               placeholder="Enter custom map name"
             />
-            <div class="flex items-center mb-2">
+            <div class="flex items-center mb-4">
               <input
                 type="checkbox"
                 v-model="newSimDetails.customMap.savePreset"
@@ -476,36 +589,30 @@ const handleNextStep = async () => {
                 Save as preset
               </label>
             </div>
-            <div class="grid grid-cols-3 gap-2">
-              <div>
-                <label class="label"
-                  ><span class="label-text">Longitude:</span></label
+
+            <!-- Leaflet Map -->
+            <div class="mb-4">
+              <label class="label">
+                <span class="label-text">Select Map Area:</span>
+                <span class="label-text-alt text-xs"
+                  >Pan and zoom to select your area. The circle shows the
+                  simulation boundary.</span
                 >
-                <input
-                  type="number"
-                  v-model.number="newSimDetails.customMap.longitude"
-                  class="input input-bordered w-full"
-                />
-              </div>
-              <div>
-                <label class="label"
-                  ><span class="label-text">Latitude:</span></label
-                >
-                <input
-                  type="number"
-                  v-model.number="newSimDetails.customMap.latitude"
-                  class="input input-bordered w-full"
-                />
-              </div>
-              <div>
-                <label class="label"
-                  ><span class="label-text">Radius (km):</span></label
-                >
-                <input
-                  type="number"
-                  v-model.number="newSimDetails.customMap.radius"
-                  class="input input-bordered w-full"
-                />
+              </label>
+              <div
+                id="simulation-map"
+                class="w-full h-96 rounded-lg border-2 border-base-300"
+              ></div>
+              <div class="mt-2 text-sm text-gray-600">
+                <p>
+                  Center:
+                  {{ newSimDetails.customMap.latitude?.toFixed(4) ?? "N/A" }},
+                  {{ newSimDetails.customMap.longitude?.toFixed(4) ?? "N/A" }}
+                </p>
+                <p>
+                  Radius:
+                  {{ newSimDetails.customMap.radius?.toFixed(2) ?? "N/A" }} km
+                </p>
               </div>
             </div>
           </div>
@@ -775,3 +882,17 @@ const handleNextStep = async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+#simulation-map {
+  z-index: 0;
+}
+
+:deep(.geosearch) {
+  z-index: 1000;
+}
+
+:deep(.leaflet-control-geosearch) {
+  z-index: 1000;
+}
+</style>

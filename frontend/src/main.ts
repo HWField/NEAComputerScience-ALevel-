@@ -1,4 +1,6 @@
 import "./style.css";
+import "leaflet/dist/leaflet.css";
+import "leaflet-geosearch/dist/geosearch.css";
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 
