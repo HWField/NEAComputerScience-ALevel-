@@ -280,10 +280,10 @@ namespace MySimulationAPI.Controllers
 
 
         /// <summary>
-        /// Loads the simulation with given ID into memory and plays the simulation from the latest tick recorded.
+        /// Loads the simulation with given ID into memory.
         /// </summary>
-        [HttpPost("{id}/start")]
-        public async Task<IActionResult> Start(int id)
+        [HttpPost("{id}/load")]
+        public async Task<IActionResult> Load(int id)
         {
             var sim = await _db.Simulations
                 .Include(s => s.MapArea)
@@ -298,41 +298,86 @@ namespace MySimulationAPI.Controllers
 
             var context = _simulationManager.GetOrCreate(sim.Id);
             context.GenerateStates();
-            context.Engine.Start();
-            return Ok($"Simulation {id} started");
+            sim.Status = "Loaded";
+            await _db.SaveChangesAsync();
+            return Ok($"Simulation {id} loaded into memory.");
         }
 
+
         /// <summary>
-        /// Stops the simulation with the given ID and removes it from memory.
+        /// Runs the simulation with given ID.
         /// </summary>
-        [HttpPost("{id}/stop")]
-        public IActionResult Stop(int id)
+        [HttpPost("{id}/run")]
+        public async Task<IActionResult> Run(int id, [FromBody] long? targetTick = null)
         {
-            var sim = _db.Simulations.Find(id);
+            var sim = await _db.Simulations.FindAsync(id);
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
             if (!_simulationManager.TryGet(id, out var context) || context == null)
             {
-                return NotFound($"Simulation {id} is not running");
+                return NotFound($"Simulation {id} is not loaded in memory");
+            }
+            context.Engine.Start(targetTick);
+            sim.Status = "Running";
+            await _db.SaveChangesAsync();
+            return Ok($"Simulation {id} is now running.");
+        }
+
+        // <summary>
+        /// Pauses the simulation with given ID.
+        /// </summary>
+        [HttpPost("{id}/pause")]
+        public async Task<IActionResult> Pause(int id)
+        {
+            var sim = await _db.Simulations.FindAsync(id);
+            if (sim == null) return NotFound();
+            if (sim.UserId != GetUserId() && !IsAdmin())
+                return Forbid();
+            if (!_simulationManager.TryGet(id, out var context) || context == null)
+            {
+                return NotFound($"Simulation {id} is not loaded in memory");
+            }
+            context.Engine.Stop();
+            sim.Status = "Paused";
+            await _db.SaveChangesAsync();
+            return Ok($"Simulation {id} paused.");
+        }
+
+
+        // <summary>
+        /// Unloads the simulation with given ID from memory.
+        /// </summary>
+        [HttpPost("{id}/unload")]
+        public async Task<IActionResult> Unload(int id)
+        {
+            var sim = await _db.Simulations.FindAsync(id);
+            if (sim == null) return NotFound();
+            if (sim.UserId != GetUserId() && !IsAdmin())
+                return Forbid();
+            if (!_simulationManager.TryGet(id, out var context) || context == null)
+            {
+                return NotFound($"Simulation {id} is not loaded in memory");
             }
             _simulationManager.Remove(id);
-            return Ok($"Simulation {id} stopped and removed from memory");
+            sim.Status = "Unloaded";
+            await _db.SaveChangesAsync();
+            return Ok($"Simulation {id} unloaded from memory.");
         }
 
         /// <summary>
         /// Sets the simulation speed multiplier.
         /// </summary>
         [HttpPost("{id}/speed")]
-        public IActionResult SetSpeed(int id, [FromBody] int speedMultiplier)
+        public async Task<IActionResult> SetSpeed(int id, [FromBody] int speedMultiplier)
         {
-            var sim = _db.Simulations.Find(id);
+            var sim = await _db.Simulations.FindAsync(id);
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
             if (!_simulationManager.TryGet(id, out var context) || context == null)
             {
-                return NotFound($"Simulation {id} is not running");
+                return NotFound($"Simulation {id} is not loaded in memory");
             }
             context.SimulationSpeed = speedMultiplier;
             return Ok($"Simulation {id} speed set to {speedMultiplier}x");
@@ -345,13 +390,13 @@ namespace MySimulationAPI.Controllers
         public async Task<IActionResult> SetTick(int id, [FromBody] int tick)
         {
             if (tick < 0) return BadRequest("Tick cannot be negative");
-            var sim = _db.Simulations.Find(id);
+            var sim = await _db.Simulations.FindAsync(id);
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
             if (!_simulationManager.TryGet(id, out var context) || context == null)
             {
-                return NotFound($"Simulation {id} is not running");
+                return NotFound($"Simulation {id} is not loaded in memory");
             }
             await context.SnapshotManager.LoadTargetTick(tick);
             return Ok($"Simulation {id} tick set to {tick}");

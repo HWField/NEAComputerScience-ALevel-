@@ -92,6 +92,7 @@ namespace MySimulationAPI.SimulationConfiguration
         public async Task<bool> LoadTargetTick(long targetTick)
         {
             using var _db = _context.DbFactory.CreateDbContext();
+            _context.Engine.Stop();
             var snapshot = await _db.SimulationSnapshots
                 .Include(s => s.Agents)
                 .Include(s => s.Buildings)
@@ -106,6 +107,7 @@ namespace MySimulationAPI.SimulationConfiguration
             }
 
             RestoreSnapshot(snapshot);
+            _context.Engine.Start(targetTick); //compute forward to target tick
             return true;
         }
 

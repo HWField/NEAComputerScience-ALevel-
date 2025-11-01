@@ -13,27 +13,29 @@ namespace MySimulationAPI.SimulationRuntime
         private CancellationTokenSource? _cts;
         private long snapshotIntervalTicks = 0;
         private long metricsIntervalTicks = 0;
+        public bool IsRunning => _cts != null && !_cts.IsCancellationRequested;
         public SimulationEngine(SimulationContext context)
         {
             _context = context;
         }
 
-        public void Start()
+        public void Start(long? targetTick = null)
         {
             // snapshots will save every 14 in sim days be default (can later scale depending on compute times etc)
             snapshotIntervalTicks = (long)(TimeSpan.FromDays(14).TotalSeconds / _context.TickLength);
             // metrics recorded twice every sim day
             metricsIntervalTicks = (long)((TimeSpan.FromDays(1).TotalSeconds / _context.TickLength) / 2);
+
             if (_cts != null && !_cts.IsCancellationRequested)
                 return; // already running
 
             _cts = new CancellationTokenSource();
-            Task.Run(() => RunAsync(_cts.Token));
+            Task.Run(() => RunAsync(_cts.Token, targetTick));
         }
 
         public void Stop() => _cts?.Cancel();
 
-        private async Task RunAsync(CancellationToken token)
+        private async Task RunAsync(CancellationToken token, long? targetTick)
         {
             Console.WriteLine($"[SimulationEngine] Starting simulation {_context.Simulation.Id}...");
             using var db = _context.DbFactory.CreateDbContext();
@@ -58,6 +60,12 @@ namespace MySimulationAPI.SimulationRuntime
                 {
                     await _context.MetricsManager.RecordAsync();
 
+                }
+                // auto pause on target tick
+                if (targetTick.HasValue && _context.CurrentTick >= targetTick.Value)
+                {
+                    Stop();
+                    break;
                 }
                 // -------------------------
                 // Calculate target delay

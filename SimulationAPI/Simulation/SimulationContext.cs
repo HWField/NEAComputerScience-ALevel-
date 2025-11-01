@@ -17,7 +17,6 @@ namespace MySimulationAPI.SimulationConfiguration
         // Runtime properties
         public int TickLength { get; set; } = 300; // Default 5minute tick
         public double SimulationSpeed { get; set; } = 1.0; // multiplier, 1.0 = 1 tick per real second (greater than 1 is faster)
-        public bool IsPaused { get; set; } = false;
         public long CurrentTick { get; set; } = 0; // runtime tick, updated via snapshot
 
         // In-memory object lists (Prevents multiple db calls)
@@ -46,7 +45,6 @@ namespace MySimulationAPI.SimulationConfiguration
             Rng = new Random(simulation.Id); // deterministic seed
             TickLength = Simulation.TickLength;
             SimulationSpeed = 1.0;
-            IsPaused = false;
             using var db = dbFactory.CreateDbContext();
             // Determine current tick (latest snapshot)
             CurrentTick = db.SimulationSnapshots
