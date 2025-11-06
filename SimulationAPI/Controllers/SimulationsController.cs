@@ -170,7 +170,16 @@ namespace MySimulationAPI.Controllers
             _db.SimulationSnapshots.RemoveRange(simulationSnapshots);
             _db.SimulationMetrics.RemoveRange(simulationMetrics);
             await _db.SaveChangesAsync();
-            return Ok($"Simulation {id} reset successfully");
+
+            if (_simulationManager.TryGet(id, out var context))
+            {
+                _simulationManager.Remove(id);
+                // Reload simulation into memory with clean data
+                var newContext = _simulationManager.GetOrCreate(id);
+                newContext.GenerateStates();
+            }
+
+            return Ok($"Simulation {id} reset successfully. It has been unloaded from memory.");
         }
 
         /// <summary>
@@ -302,8 +311,6 @@ namespace MySimulationAPI.Controllers
 
             var context = _simulationManager.GetOrCreate(sim.Id);
             context.GenerateStates();
-            sim.Status = "Loaded";
-            await _db.SaveChangesAsync();
             return Ok($"Simulation {id} loaded into memory.");
         }
 
@@ -328,7 +335,7 @@ namespace MySimulationAPI.Controllers
             return Ok($"Simulation {id} is now running.");
         }
 
-        // <summary>
+        /// <summary>
         /// Pauses the simulation with given ID.
         /// </summary>
         [HttpPost("{id}/pause")]
@@ -349,7 +356,7 @@ namespace MySimulationAPI.Controllers
         }
 
 
-        // <summary>
+        /// <summary>
         /// Unloads the simulation with given ID from memory.
         /// </summary>
         [HttpPost("{id}/unload")]
@@ -364,8 +371,6 @@ namespace MySimulationAPI.Controllers
                 return NotFound($"Simulation {id} is not loaded in memory");
             }
             _simulationManager.Remove(id);
-            sim.Status = "Unloaded";
-            await _db.SaveChangesAsync();
             return Ok($"Simulation {id} unloaded from memory.");
         }
 

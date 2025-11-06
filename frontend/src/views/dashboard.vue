@@ -3,21 +3,11 @@ import { ref, onMounted } from "vue";
 import axios from "../api/axios";
 import { useToastStore } from "@/stores/useToastStore";
 import { useRouter } from "vue-router";
+import type { Simulation } from "@/api/simulation";
 import SimulationDetailsModal from "@/components/SimulationDetailsModal.vue";
 import CreateSimulationModal from "@/components/CreateSimulationModal.vue";
 const toast = useToastStore();
 const router = useRouter();
-
-interface Simulation {
-  id: number;
-  name: string;
-  status: "running" | "completed" | "paused" | "failed";
-  agentCount: number;
-  mapArea: string;
-  diseaese: string;
-  progress?: number;
-  createdAt: string;
-}
 
 // Stats data
 const totalSimulations = ref(0);
@@ -30,10 +20,6 @@ const avgDuration = ref(0);
 const simulations = ref<Simulation[]>([]);
 
 const showCreateModal = ref(false);
-const showIconPicker = ref(false);
-
-const previewData = ref(null);
-const showSneakModal = ref(false);
 
 const openSimulation = (id: number) => {
   router.push({ name: "simulation", params: { id: id.toString() } });
@@ -367,5 +353,3 @@ const createNewSimulation = () => {
     />
   </div>
 </template>
-
-<style scoped></style>

@@ -2,7 +2,7 @@
 import { ref, watch } from "vue";
 import axios from "../api/axios";
 import { useToastStore } from "@/stores/useToastStore";
-
+import type { SimulationDetail } from "@/api/simulation";
 const toast = useToastStore();
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
 const props = defineProps<Props>();
 const emit = defineEmits(["update:show", "deleted", "open"]);
 const show = defineModel<boolean>({ required: true });
-const previewData = ref(null);
+const previewData = ref<SimulationDetail | null>(null);
 
 watch(
   () => props.simulationId,

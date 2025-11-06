@@ -49,6 +49,45 @@
         }
       }
     },
+    "/api/Admin/users": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get Users",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Admin/loaded-simulations": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get Loaded simulations",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Admin/unload-all": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Unload all simulations from memory",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/Auth/register": {
       "post": {
         "tags": [
@@ -839,6 +878,7 @@
         "tags": [
           "Simulation"
         ],
+        "summary": "Pauses the simulation with given ID.",
         "parameters": [
           {
             "name": "id",
@@ -862,6 +902,7 @@
         "tags": [
           "Simulation"
         ],
+        "summary": "Unloads the simulation with given ID from memory.",
         "parameters": [
           {
             "name": "id",

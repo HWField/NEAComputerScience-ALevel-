@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
+using MySimulationAPI.SimulationConfiguration;
 
 namespace MySimulationAPI.Controllers
 {
@@ -11,10 +12,12 @@ namespace MySimulationAPI.Controllers
     public class AdminController : ControllerBase
     {
         private readonly SimDbContext _db;
+        private readonly SimulationManager _simulationManager;
 
-        public AdminController(SimDbContext db)
+        public AdminController(SimDbContext db, SimulationManager simulationManager)
         {
             _db = db;
+            _simulationManager = simulationManager;
         }
 
         /// <summary>
@@ -102,6 +105,108 @@ namespace MySimulationAPI.Controllers
                 return StatusCode(500, new
                 {
                     message = "Error retrieving database statistics",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        /// <summary>
+        /// Get Users
+        /// </summary>
+        [HttpGet("users")]
+        public async Task<IActionResult> GetUsers()
+        {
+            try
+            {
+                var users = await _db.Users
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.Username,
+                        u.Role,
+                    })
+                    .ToListAsync();
+
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Error retrieving users",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        /// <summary>
+        /// Get Loaded simulations
+        /// </summary>
+        [HttpGet("loaded-simulations")]
+        public async Task<IActionResult> GetLoadedSimulations()
+        {
+            try
+            {
+                var loadedContexts = _simulationManager.GetAllLoaded();
+
+                var simulationData = new List<object>();
+
+                foreach (var context in loadedContexts)
+                {
+                    // Get the owner username from database
+                    var owner = await _db.Users
+                        .Where(u => u.Id == context.Simulation.UserId)
+                        .Select(u => u.Username)
+                        .FirstOrDefaultAsync();
+
+                    simulationData.Add(new
+                    {
+                        Id = context.Simulation.Id,
+                        Name = context.Simulation.Name,
+                        Status = context.Simulation.Status,
+                        OwnerUsername = owner,
+                        AgentCount = context.Agents?.Count ?? 0,
+                        CurrentTick = context.CurrentTick,
+                        Speed = context.SimulationSpeed,
+                        TickLength = context.TickLength
+                    });
+                }
+
+                return Ok(simulationData);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Error retrieving loaded simulations",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Unload all simulations from memory
+        /// </summary>
+        [HttpPost("unload-all")]
+        public async Task<IActionResult> UnloadAllSimulations()
+        {
+            try
+            {
+                var count = _simulationManager.GetAllLoaded().ToList().Count;
+                _simulationManager.RemoveAll();
+                return Ok(new
+                {
+                    message = $"Successfully unloaded {count} simulation(s) from memory",
+                    unloadedCount = count
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Error unloading all simulations",
                     error = ex.Message
                 });
             }
