@@ -6,6 +6,10 @@ import vue from "@vitejs/plugin-vue";
 import tailwind from "@tailwindcss/vite";
 import autoprefixer from "autoprefixer";
 import vueDevTools from "vite-plugin-vue-devtools";
+import Icons from "unplugin-icons/vite";
+import IconsResolver from "unplugin-icons/resolver";
+import Components from "unplugin-vue-components/vite";
+import AutoImport from "unplugin-auto-import/vite";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -17,7 +21,39 @@ export default defineConfig({
     //   host: "henryfield.net",
     // },
   },
-  plugins: [vue(), vueDevTools(), visualizer(), tailwind()],
+  plugins: [
+    vue(),
+    vueDevTools(),
+    visualizer(),
+    tailwind(),
+    Icons({
+      autoInstall: true,
+      compiler: "vue3",
+    }),
+    Components({
+      resolvers: [
+        IconsResolver({
+          prefix: "i",
+        }),
+      ],
+      dts: true,
+    }),
+    AutoImport({
+      imports: [
+        "vue",
+        "vue-router",
+        "pinia", // Auto-import defineStore, storeToRefs, etc.
+        {
+          axios: [["default", "axios"]],
+        },
+      ],
+      dts: true,
+      dirs: ["./src/stores/**"],
+      eslintrc: {
+        enabled: true, // Generates .eslintrc-auto-import.json for ESLint
+      },
+    }),
+  ],
   base: "./",
   resolve: {
     alias: {

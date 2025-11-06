@@ -12,24 +12,40 @@
         aria-label="Account"
         checked
       />
-      <div role="tabpanel" class="tab-content p-6">
+      <div role="tabpanel" class="tab-content p-0 pt-6">
         <!-- Account Tab -->
-        <div class="space-y-6">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Username</span>
-            </label>
-            <input
-              type="text"
-              v-model="username"
-              placeholder="Enter username"
-              class="input input-bordered w-full max-w-md"
-            />
-          </div>
+        <div class="max-w-3xl">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-4">Account Information</h2>
+              <p class="text-base-content/70 mb-6">
+                Update your account details and personal information
+              </p>
 
-          <button @click="saveAccount" class="btn btn-primary">
-            Save Account Settings
-          </button>
+              <div class="form-control w-full">
+                <label class="label">
+                  <span class="label-text font-medium">Username:</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="username"
+                  placeholder="Enter username"
+                  class="input input-bordered w-full"
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60"
+                    >This is your public display name</span
+                  >
+                </label>
+              </div>
+
+              <div class="card-actions justify-end mt-4">
+                <button @click="saveAccount" class="btn btn-primary">
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -40,125 +56,165 @@
         class="tab"
         aria-label="Appearance"
       />
-      <div role="tabpanel" class="tab-content p-6">
+      <div role="tabpanel" class="tab-content p-0 pt-6">
         <!-- Appearance Tab -->
         <div class="space-y-6">
-          <!-- Theme Selection -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text text-lg font-semibold"
-                >Theme Selection</span
-              >
-            </label>
+          <!-- Theme Selection Card -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-2">Theme Preferences</h2>
+              <p class="text-base-content/70 mb-6">
+                Customize the look and feel of the platform
+              </p>
 
-            <div
-              class="flex flex-col md:flex-row items-start md:items-center gap-4 mt-2"
-            >
-              <!-- Theme selector dropdown -->
-              <select
-                v-model="selectedTheme"
-                class="select select-bordered w-full md:w-64"
-              >
-                <option
-                  v-for="theme in themes"
-                  :key="theme.name"
-                  :value="theme.name"
-                >
-                  {{ theme.label }}
-                </option>
-              </select>
+              <div class="space-y-6">
+                <!-- Theme Selector -->
+                <div>
+                  <label class="label">
+                    <span class="label-text font-medium text-lg"
+                      >Select Theme</span
+                    >
+                  </label>
 
-              <!-- Theme preview -->
-              <div
-                class="rounded-lg p-4 flex flex-col gap-2 border w-full md:w-64"
-                :data-theme="selectedTheme"
-              >
-                <div
-                  class="bg-primary text-primary-content p-2 rounded text-center font-semibold"
-                >
-                  Primary
-                </div>
-                <div
-                  class="bg-secondary text-secondary-content p-2 rounded text-center font-semibold"
-                >
-                  Secondary
-                </div>
-                <div
-                  class="bg-accent text-accent-content p-2 rounded text-center font-semibold"
-                >
-                  Accent
-                </div>
-              </div>
-            </div>
+                  <div
+                    class="flex flex-col lg:flex-row items-start lg:items-start gap-6"
+                  >
+                    <!-- Theme selector dropdown -->
+                    <div class="w-full lg:w-80">
+                      <select
+                        v-model="selectedTheme"
+                        class="select select-bordered w-full"
+                      >
+                        <option
+                          v-for="theme in themes"
+                          :key="theme.name"
+                          :value="theme.name"
+                        >
+                          {{ theme.label }}
+                        </option>
+                      </select>
+                    </div>
 
-            <!-- Expandable grid preview -->
-            <details class="mt-4">
-              <summary class="cursor-pointer font-medium text-lg">
-                Preview All Themes
-              </summary>
-              <div
-                class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-2"
-              >
-                <div
-                  v-for="theme in themes"
-                  :key="theme.name"
-                  @click="selectedTheme = theme.name"
-                  :class="[
-                    'card cursor-pointer border-2 transition-all',
-                    selectedTheme === theme.name
-                      ? 'border-primary'
-                      : 'border-base-300',
-                  ]"
-                  :data-theme="theme.name"
-                >
-                  <div class="card-body p-2">
-                    <h3 class="card-title text-xs text-center">
-                      {{ theme.label }}
-                    </h3>
-                    <div class="flex flex-col gap-1 mt-1">
+                    <!-- Theme preview -->
+                    <div class="flex-1 w-full">
                       <div
-                        class="bg-primary text-primary-content p-1 rounded text-center text-[10px]"
+                        class="rounded-lg p-4 border-2 border-base-300 bg-base-100"
+                        :data-theme="selectedTheme"
                       >
-                        Primary
-                      </div>
-                      <div
-                        class="bg-secondary text-secondary-content p-1 rounded text-center text-[10px]"
-                      >
-                        Secondary
-                      </div>
-                      <div
-                        class="bg-accent text-accent-content p-1 rounded text-center text-[10px]"
-                      >
-                        Accent
+                        <div class="text-sm font-medium mb-3 opacity-70">
+                          Preview
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                          <div
+                            class="bg-primary text-primary-content p-3 rounded-lg text-center font-semibold text-sm"
+                          >
+                            Primary
+                          </div>
+                          <div
+                            class="bg-secondary text-secondary-content p-3 rounded-lg text-center font-semibold text-sm"
+                          >
+                            Secondary
+                          </div>
+                          <div
+                            class="bg-accent text-accent-content p-3 rounded-lg text-center font-semibold text-sm"
+                          >
+                            Accent
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                <!-- Expandable grid preview -->
+                <div class="divider"></div>
+
+                <details class="collapse collapse-arrow bg-base-200">
+                  <summary
+                    class="collapse-title text-md font-medium cursor-pointer"
+                  >
+                    Browse All Available Themes
+                  </summary>
+                  <div class="collapse-content">
+                    <div
+                      class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 pt-4"
+                    >
+                      <div
+                        v-for="theme in themes"
+                        :key="theme.name"
+                        @click="selectedTheme = theme.name"
+                        :class="[
+                          'card cursor-pointer border-2 transition-all hover:shadow-lg',
+                          selectedTheme === theme.name
+                            ? 'border-primary ring-2 ring-primary ring-offset-2 ring-offset-base-100'
+                            : 'border-base-300 hover:border-base-content/20',
+                        ]"
+                        :data-theme="theme.name"
+                      >
+                        <div class="card-body p-3">
+                          <h3 class="text-sm font-semibold text-center mb-2">
+                            {{ theme.label }}
+                          </h3>
+                          <div class="flex flex-col gap-1.5">
+                            <div
+                              class="bg-primary text-primary-content p-1.5 rounded text-center text-[10px] font-medium"
+                            >
+                              Primary
+                            </div>
+                            <div
+                              class="bg-secondary text-secondary-content p-1.5 rounded text-center text-[10px] font-medium"
+                            >
+                              Secondary
+                            </div>
+                            <div
+                              class="bg-accent text-accent-content p-1.5 rounded text-center text-[10px] font-medium"
+                            >
+                              Accent
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </details>
               </div>
-            </details>
+            </div>
           </div>
 
-          <!-- Streamer Mode -->
-          <div class="form-control">
-            <label class="label cursor-pointer max-w-md">
-              <span class="label-text">Streamer Mode</span>
-              <input
-                type="checkbox"
-                v-model="streamerMode"
-                class="toggle toggle-primary"
-              />
-            </label>
-            <label class="label">
-              <span class="label-text-alt"
-                >Hide sensitive information when streaming</span
-              >
-            </label>
-          </div>
+          <!-- Additional Settings Card -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-2">Display Options</h2>
+              <p class="text-base-content/70 mb-6">
+                Manage your privacy and display preferences
+              </p>
 
-          <!-- Save Button -->
-          <button @click="saveAppearance" class="btn btn-primary">
-            Save Appearance Settings
-          </button>
+              <!-- Streamer Mode -->
+              <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4">
+                  <input
+                    type="checkbox"
+                    v-model="streamerMode"
+                    class="toggle toggle-primary"
+                  />
+                  <div>
+                    <span class="label-text font-medium text-base"
+                      >Streamer Mode</span
+                    >
+                    <p class="text-sm text-base-content/60 mt-1">
+                      Hide sensitive information when streaming or recording
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <div class="card-actions justify-end mt-6">
+                <button @click="saveAppearance" class="btn btn-primary">
+                  Save Appearance Settings
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -169,90 +225,148 @@
         class="tab"
         aria-label="Security"
       />
-      <div role="tabpanel" class="tab-content p-6">
+      <div role="tabpanel" class="tab-content p-0 pt-6">
         <!-- Security Tab -->
         <div class="space-y-6">
-          <div class="space-y-4">
-            <h3 class="text-xl font-semibold">Change Password</h3>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Current Password</span>
-              </label>
-              <input
-                type="password"
-                v-model="currentPassword"
-                placeholder="Enter current password"
-                class="input input-bordered w-full max-w-md"
-              />
-            </div>
+          <!-- Change Password Card -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-2">Change Password</h2>
+              <p class="text-base-content/70 mb-6">
+                Update your password to keep your account secure
+              </p>
 
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">New Password</span>
-              </label>
-              <input
-                type="password"
-                v-model="newPassword"
-                placeholder="Enter new password"
-                class="input input-bordered w-full max-w-md"
-              />
-            </div>
+              <div class="space-y-4 max-w-xl">
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Current Password</span>
+                  </label>
+                  <input
+                    type="password"
+                    v-model="currentPassword"
+                    placeholder="Enter current password"
+                    class="input input-bordered w-full"
+                  />
+                </div>
 
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Confirm New Password</span>
-              </label>
-              <input
-                type="password"
-                v-model="confirmPassword"
-                placeholder="Confirm new password"
-                class="input input-bordered w-full max-w-md"
-              />
-            </div>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">New Password</span>
+                  </label>
+                  <input
+                    type="password"
+                    v-model="newPassword"
+                    placeholder="Enter new password"
+                    class="input input-bordered w-full"
+                  />
+                </div>
 
-            <button @click="changePassword" class="btn btn-primary">
-              Change Password
-            </button>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium"
+                      >Confirm New Password</span
+                    >
+                  </label>
+                  <input
+                    type="password"
+                    v-model="confirmPassword"
+                    placeholder="Confirm new password"
+                    class="input input-bordered w-full"
+                  />
+                </div>
+              </div>
+
+              <div class="card-actions justify-end mt-6">
+                <button @click="changePassword" class="btn btn-primary">
+                  Update Password
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="divider"></div>
+          <!-- Active Sessions Card -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <div
+                class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6"
+              >
+                <div>
+                  <h2 class="card-title text-2xl mb-2">Active Sessions</h2>
+                  <p class="text-base-content/70">
+                    Manage devices that are currently logged into your account
+                  </p>
+                </div>
+                <button
+                  class="btn btn-error btn-sm sm:btn-md"
+                  @click="logoutAllSessions"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  Logout All Sessions
+                </button>
+              </div>
 
-          <div>
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-xl font-semibold">Active Sessions</h3>
-              <button class="btn btn-error btn-sm" @click="logoutAllSessions">
-                Logout All Sessions
-              </button>
-            </div>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                  <thead>
+                    <tr>
+                      <th class="font-semibold">Device</th>
+                      <th class="font-semibold">Platform</th>
+                      <th class="font-semibold">IP Address</th>
+                      <th class="font-semibold">Last Active</th>
+                      <th class="font-semibold">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="session in activeSessions" :key="session.id">
+                      <td class="font-medium">{{ session.name }}</td>
+                      <td>{{ session.platform }}</td>
+                      <td>
+                        <code class="text-xs bg-base-200 px-2 py-1 rounded">{{
+                          session.ip
+                        }}</code>
+                      </td>
+                      <td class="text-sm">{{ session.lastActive }}</td>
+                      <td>
+                        <button
+                          class="btn btn-error btn-xs"
+                          @click="logoutSession(session.id)"
+                        >
+                          Logout
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-            <div class="overflow-x-auto">
-              <table class="table table-zebra">
-                <thead>
-                  <tr>
-                    <th>Device</th>
-                    <th>Platform</th>
-                    <th>IP Address</th>
-                    <th>Last Active</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="session in activeSessions" :key="session.id">
-                    <td>{{ session.name }}</td>
-                    <td>{{ session.platform }}</td>
-                    <td>{{ session.ip }}</td>
-                    <td>{{ session.lastActive }}</td>
-                    <td>
-                      <button
-                        class="btn btn-error btn-xs"
-                        @click="logoutSession(session.id)"
-                      >
-                        Logout
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div v-if="activeSessions.length === 0" class="text-center py-12">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-16 w-16 mx-auto text-base-content/20 mb-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+                <p class="text-base-content/60">No active sessions found</p>
+              </div>
             </div>
           </div>
         </div>

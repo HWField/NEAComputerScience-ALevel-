@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
+using MySimulationAPI.Hubs;
 using MySimulationAPI.Models;
 
 namespace MySimulationAPI.SimulationConfiguration
@@ -9,10 +11,12 @@ namespace MySimulationAPI.SimulationConfiguration
     {
         private readonly ConcurrentDictionary<int, SimulationContext> _contexts = new();
         private readonly IDbContextFactory<SimDbContext> _dbFactory;
+        private readonly IHubContext<SimulationHub> _hubContext;
 
-        public SimulationManager(IDbContextFactory<SimDbContext> dbFactory)
+        public SimulationManager(IDbContextFactory<SimDbContext> dbFactory, IHubContext<SimulationHub> hubContext)
         {
             _dbFactory = dbFactory;
+            _hubContext = hubContext;
         }
 
         public SimulationContext GetOrCreate(int simulationId)
@@ -27,7 +31,7 @@ namespace MySimulationAPI.SimulationConfiguration
                     .Include(s => s.Disease)
                     .First(s => s.Id == id);
 
-                return new SimulationContext(sim, _dbFactory);
+                return new SimulationContext(sim, _dbFactory, _hubContext);
             });
         }
 

@@ -6,7 +6,10 @@ using MySimulationAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using MySimulationAPI.SimulationConfiguration;
+using MySimulationAPI.Hubs;
 using DotNetEnv;
+using Swashbuckle.AspNetCore.Swagger;
+using Microsoft.OpenApi.Writers;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel to allow longer request timeouts for large map downloads
@@ -39,8 +42,10 @@ builder.Services.AddCors(options =>
             .WithOrigins("http://localhost:5173") // Vite dev server
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials());
+            .AllowCredentials()
+            .SetIsOriginAllowed(_ => true)); // Allow SignalR WebSocket upgrade
 });
+builder.Services.AddSignalR();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -57,6 +62,24 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+
+    // Allow SignalR to read token from query string
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            // If the request is for SignalR hub and has a token in query string
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -127,12 +150,25 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Simulation API v1");
         c.RoutePrefix = string.Empty; // makes Swagger UI at root "/"
+
     });
+
+    // Generate and save swagger.json at build time using OpenAPI writer
+    var swaggerProvider = app.Services.GetRequiredService<ISwaggerProvider>();
+    var swagger = swaggerProvider.GetSwagger("v1");
+
+    using (var outputStream = new FileStream("swagger.json", FileMode.Create))
+    using (var writer = new StreamWriter(outputStream))
+    {
+        var jsonWriter = new OpenApiJsonWriter(writer);
+        swagger.SerializeAsV3(jsonWriter);
+    }
 }
 app.UseCors("AllowFrontend");
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<SimulationHub>("/hubs/simulation");
 
 app.Run();

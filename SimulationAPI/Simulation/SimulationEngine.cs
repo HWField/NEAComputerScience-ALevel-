@@ -2,21 +2,27 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.SimulationConfiguration;
+using MySimulationAPI.Hubs;
 
 namespace MySimulationAPI.SimulationRuntime
 {
     public class SimulationEngine
     {
         private readonly SimulationContext _context;
+        private readonly IHubContext<SimulationHub> _hubContext;
         private CancellationTokenSource? _cts;
         private long snapshotIntervalTicks = 0;
         private long metricsIntervalTicks = 0;
+        private long broadcastIntervalTicks = 0;
         public bool IsRunning => _cts != null && !_cts.IsCancellationRequested;
-        public SimulationEngine(SimulationContext context)
+
+        public SimulationEngine(SimulationContext context, IHubContext<SimulationHub> hubContext)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         public void Start(long? targetTick = null)
@@ -25,6 +31,8 @@ namespace MySimulationAPI.SimulationRuntime
             snapshotIntervalTicks = (long)(TimeSpan.FromDays(14).TotalSeconds / _context.TickLength);
             // metrics recorded twice every sim day
             metricsIntervalTicks = (long)((TimeSpan.FromDays(1).TotalSeconds / _context.TickLength) / 2);
+            // broadcast updates every 5 sim minutes (1 tick at default settings)
+            broadcastIntervalTicks = 1;
 
             if (_cts != null && !_cts.IsCancellationRequested)
                 return; // already running
@@ -52,6 +60,13 @@ namespace MySimulationAPI.SimulationRuntime
                 sw.Restart();
                 Tick(); // run simulation logic
                 sw.Stop();
+
+                // Broadcast tick update via SignalR
+                if (_context.CurrentTick % broadcastIntervalTicks == 0)
+                {
+                    _ = SimulationHub.BroadcastTickUpdate(_hubContext, _context.Simulation.Id, _context.CurrentTick);
+                }
+
                 if (_context.CurrentTick % snapshotIntervalTicks == 0)
                 {
                     await _context.SnapshotManager.SaveSnapshotAsync();
@@ -59,7 +74,6 @@ namespace MySimulationAPI.SimulationRuntime
                 if (_context.CurrentTick % metricsIntervalTicks == 0)
                 {
                     await _context.MetricsManager.RecordAsync();
-
                 }
                 // auto pause on target tick
                 if (targetTick.HasValue && _context.CurrentTick >= targetTick.Value)

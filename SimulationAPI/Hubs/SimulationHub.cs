@@ -1,0 +1,112 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using MySimulationAPI.Data;
+using MySimulationAPI.SimulationConfiguration;
+using System.Collections.Concurrent;
+using System.Security.Claims;
+
+namespace MySimulationAPI.Hubs
+{
+    [Authorize]
+    public class SimulationHub : Hub
+    {
+        private readonly SimulationManager _simulationManager;
+        private readonly IDbContextFactory<SimDbContext> _dbFactory;
+        private static readonly ConcurrentDictionary<string, int> _connectionSimulations = new();
+
+        public SimulationHub(SimulationManager simulationManager, IDbContextFactory<SimDbContext> dbFactory)
+        {
+            _simulationManager = simulationManager;
+            _dbFactory = dbFactory;
+        }
+
+        private int GetUserId() => int.Parse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
+        private bool IsAdmin() => Context.User?.IsInRole("Admin") ?? false;
+
+        public override async Task OnConnectedAsync()
+        {
+            await base.OnConnectedAsync();
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            // Remove from simulation group when disconnected
+            if (_connectionSimulations.TryGetValue(Context.ConnectionId, out var simId))
+            {
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Simulation_{simId}");
+                _connectionSimulations.TryRemove(Context.ConnectionId, out _);
+            }
+            await base.OnDisconnectedAsync(exception);
+        }
+
+        public async Task JoinSimulation(int simulationId)
+        {
+
+            var userId = GetUserId();
+
+            using var db = _dbFactory.CreateDbContext();
+            var simulation = await db.Simulations
+                .Where(s => s.Id == simulationId)
+                .Select(s => new { s.Id, s.UserId })
+                .FirstOrDefaultAsync();
+
+            if (simulation == null)
+            {
+                throw new HubException("Simulation not found.");
+            }
+
+            if (simulation.UserId != userId && !IsAdmin())
+            {
+                throw new HubException("Not authorized to join this simulation.");
+            }
+
+            // Store which simulation this connection is watching
+            _connectionSimulations[Context.ConnectionId] = simulationId;
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"Simulation_{simulationId}");
+
+            // Send initial state
+            if (_simulationManager.TryGet(simulationId, out var context))
+            {
+                await Clients.Caller.SendAsync("SimulationState", new
+                {
+                    CurrentTick = context.CurrentTick,
+                    IsRunning = context.Engine.IsRunning,
+                    Speed = context.SimulationSpeed,
+                    TickLength = context.TickLength
+                });
+            }
+        }
+
+
+        public async Task LeaveSimulation(int simulationId)
+        {
+            _connectionSimulations.TryRemove(Context.ConnectionId, out _);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Simulation_{simulationId}");
+        }
+
+
+        public static async Task BroadcastTickUpdate(IHubContext<SimulationHub> hubContext, int simulationId, long currentTick)
+        {
+            await hubContext.Clients.Group($"Simulation_{simulationId}").SendAsync("TickUpdate", new
+            {
+                Tick = currentTick,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+        }
+
+        public static async Task BroadcastMetrics(IHubContext<SimulationHub> hubContext, int simulationId, object metrics)
+        {
+            await hubContext.Clients.Group($"Simulation_{simulationId}").SendAsync("MetricsUpdate", metrics);
+        }
+
+        public static async Task BroadcastStatusChange(IHubContext<SimulationHub> hubContext, int simulationId, string status)
+        {
+            await hubContext.Clients.Group($"Simulation_{simulationId}").SendAsync("StatusChanged", new
+            {
+                Status = status,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+        }
+    }
+}

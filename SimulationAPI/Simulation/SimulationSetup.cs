@@ -13,12 +13,14 @@ namespace MySimulationAPI.SimulationConfiguration
     {
         private readonly IDbContextFactory<SimDbContext> _dbFactory;
         private readonly PresetService _presetService;
+        private readonly SimulationManager _simulationManager;
         private readonly Random _rng = new();
 
-        public SimulationSetup(IDbContextFactory<SimDbContext> dbFactory, PresetService presetService)
+        public SimulationSetup(IDbContextFactory<SimDbContext> dbFactory, PresetService presetService, SimulationManager simulationManager)
         {
             _dbFactory = dbFactory;
             _presetService = presetService;
+            _simulationManager = simulationManager;
         }
 
         // Create initial simulation with just name (will later add input for parameters such as seed, tick rate etc)
@@ -311,7 +313,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 ?? throw new Exception("Simulation not found or access denied");
 
             // Create the SimulationContext
-            var context = new SimulationContext(simulation, _dbFactory);
+            var context = _simulationManager.GetOrCreate(simulationId);
 
             // Generate agents based on the specified counts for each type
             var agents = new List<Agent>();

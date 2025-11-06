@@ -2,8 +2,10 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using EFCore.BulkExtensions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
+using MySimulationAPI.Hubs;
 using MySimulationAPI.Models;
 using NetTopologySuite.Operation.Overlay.Snap;
 using SimulationRuntime;
@@ -13,10 +15,12 @@ namespace MySimulationAPI.SimulationConfiguration
     public class MetricManager
     {
         private readonly SimulationContext _context;
+        private readonly IHubContext<SimulationHub>? _hubContext;
 
-        public MetricManager(SimulationContext context)
+        public MetricManager(SimulationContext context, IHubContext<SimulationHub>? hubContext = null)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         public async Task RecordAsync()
@@ -56,6 +60,21 @@ namespace MySimulationAPI.SimulationConfiguration
                 });
             }
             await db.SaveChangesAsync();
+
+            // Broadcast metrics 
+            if (_hubContext != null)
+            {
+                await SimulationHub.BroadcastMetrics(_hubContext, _context.Simulation.Id, new
+                {
+                    Tick = _context.CurrentTick,
+                    TotalAgents = total,
+                    Infected = infected,
+                    Recovered = recovered,
+                    Dead = dead,
+                    Quarantined = quarantined,
+                    Healthy = total - infected - recovered - dead
+                });
+            }
         }
     }
 }

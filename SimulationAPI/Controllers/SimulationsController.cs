@@ -295,6 +295,10 @@ namespace MySimulationAPI.Controllers
 
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
+            if (_simulationManager.TryGet(id, out var existingContext) && existingContext != null)
+            {
+                return Ok($"Simulation {id} is already loaded in memory.");
+            }
 
             var context = _simulationManager.GetOrCreate(sim.Id);
             context.GenerateStates();

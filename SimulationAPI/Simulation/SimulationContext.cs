@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using MySimulationAPI.Data;
+using MySimulationAPI.Hubs;
 using MySimulationAPI.Models;
 using MySimulationAPI.Services;
 using MySimulationAPI.SimulationRuntime;
@@ -38,7 +40,7 @@ namespace MySimulationAPI.SimulationConfiguration
         public InfectionService InfectionService { get; }
         public SimulationEngine Engine { get; }
 
-        public SimulationContext(Simulation simulation, IDbContextFactory<SimDbContext> dbFactory)
+        public SimulationContext(Simulation simulation, IDbContextFactory<SimDbContext> dbFactory, IHubContext<SimulationHub> hubContext)
         {
             Simulation = simulation;
             DbFactory = dbFactory;
@@ -76,9 +78,9 @@ namespace MySimulationAPI.SimulationConfiguration
             RoutingService = new RoutingService(this);
             BuildingService = new BuildingService(this);
             SnapshotManager = new SnapshotManager(this);
-            MetricsManager = new MetricManager(this);
+            MetricsManager = new MetricManager(this, hubContext);
             AgentService = new AgentService(this);
-            Engine = new SimulationEngine(this);
+            Engine = new SimulationEngine(this, hubContext);
             InfectionService = new InfectionService(this);
         }
         public void ReloadEntities()

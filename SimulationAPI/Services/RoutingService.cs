@@ -204,7 +204,7 @@ namespace MySimulationAPI.Services
             double maxLat = nodes.Values.Max(n => n.Lat);
             double maxLon = nodes.Values.Max(n => n.Lon);
 
-            double cellSizeDeg = 0.002; // ≈200m cells
+            double cellSizeDeg = 0.002; // roughly 200m cells
             int cols = Math.Max(1, (int)((maxLon - minLon) / cellSizeDeg) + 1);
             int rows = Math.Max(1, (int)((maxLat - minLat) / cellSizeDeg) + 1);
 
