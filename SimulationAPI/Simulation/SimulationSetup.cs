@@ -313,7 +313,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 ?? throw new Exception("Simulation not found or access denied");
 
             // Create the SimulationContext
-            var context = _simulationManager.GetOrCreate(simulationId);
+            var context = await _simulationManager.GetOrCreateAsync(simulationId);
 
             // Generate agents based on the specified counts for each type
             var agents = new List<Agent>();

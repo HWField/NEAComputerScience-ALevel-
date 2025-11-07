@@ -17,6 +17,7 @@ export interface SimulationDetail {
   status: string;
   createdAt: string;
   progress: number;
+  tickLength: number;
   disease: {
     id: number;
     name: string;
@@ -34,6 +35,36 @@ export interface SimulationDetail {
   } | null;
   agentCount: number;
 }
+
+// SignalR/Hub related types
+export interface SimulationState {
+  currentTick: number;
+  status: string;
+  speed: number;
+  tickLength: number;
+}
+
+export interface TickUpdate {
+  Tick: number;
+  Timestamp: number;
+}
+
+export interface MetricsUpdate {
+  Tick: number;
+  TotalAgents: number;
+  Infected: number;
+  Recovered: number;
+  Dead: number;
+  Quarantined: number;
+  Healthy: number;
+}
+
+export type ConnectionStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "failed";
 
 export const simulationApi = {
   // Get all simulations

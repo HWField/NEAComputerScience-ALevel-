@@ -1,40 +1,12 @@
 import { ref, onUnmounted } from "vue";
 import * as signalR from "@microsoft/signalr";
 import { useUserStore } from "@/stores/useUserStore";
-
-export interface SimulationState {
-  CurrentTick: number;
-  IsRunning: boolean;
-  Speed: number;
-  TickLength: number;
-}
-
-export interface TickUpdate {
-  Tick: number;
-  Timestamp: number;
-}
-
-export interface MetricsUpdate {
-  Tick: number;
-  TotalAgents: number;
-  Infected: number;
-  Recovered: number;
-  Dead: number;
-  Quarantined: number;
-  Healthy: number;
-}
-
-export interface StatusChanged {
-  Status: string;
-  Timestamp: number;
-}
-
-export type ConnectionStatus =
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "failed";
+import type {
+  SimulationState,
+  TickUpdate,
+  MetricsUpdate,
+  ConnectionStatus,
+} from "@/api/simulation";
 
 export function useSimulationHub(simulationId: number) {
   const userStore = useUserStore();
@@ -46,12 +18,11 @@ export function useSimulationHub(simulationId: number) {
   // State from server
   const currentState = ref<SimulationState | null>(null);
   const latestMetrics = ref<MetricsUpdate | null>(null);
-  const currentStatus = ref<string>("Unknown");
 
   // Event handlers
   const onTickUpdate = ref<((data: TickUpdate) => void) | null>(null);
   const onMetricsUpdate = ref<((data: MetricsUpdate) => void) | null>(null);
-  const onStatusChange = ref<((data: StatusChanged) => void) | null>(null);
+  const onStateChange = ref<((data: SimulationState) => void) | null>(null);
 
   const connect = async () => {
     if (connection.value || connectionStatus.value === "connecting") return;
@@ -80,9 +51,10 @@ export function useSimulationHub(simulationId: number) {
 
       // Set up event handlers
       hubConnection.on("SimulationState", (data: SimulationState) => {
-        console.log("[SimulationHub] Received initial state:", data);
         currentState.value = data;
-        currentStatus.value = data.IsRunning ? "Running" : "Paused";
+        if (onStateChange.value) {
+          onStateChange.value(data);
+        }
       });
 
       hubConnection.on("TickUpdate", (data: TickUpdate) => {
@@ -98,16 +70,6 @@ export function useSimulationHub(simulationId: number) {
         latestMetrics.value = data;
         if (onMetricsUpdate.value) {
           onMetricsUpdate.value(data);
-        }
-      });
-
-      hubConnection.on("StatusChanged", (data: StatusChanged) => {
-        currentStatus.value = data.Status;
-        if (currentState.value) {
-          currentState.value.IsRunning = data.Status === "Running";
-        }
-        if (onStatusChange.value) {
-          onStatusChange.value(data);
         }
       });
 
@@ -226,12 +188,11 @@ export function useSimulationHub(simulationId: number) {
     // Data
     currentState,
     latestMetrics,
-    currentStatus,
 
     // Event handlers
     onTickUpdate,
     onMetricsUpdate,
-    onStatusChange,
+    onStateChange,
 
     // Methods
     connect,

@@ -19,44 +19,88 @@ namespace MySimulationAPI.SimulationConfiguration
             _hubContext = hubContext;
         }
 
-        public SimulationContext GetOrCreate(int simulationId)
+        public async Task<SimulationContext> GetOrCreateAsync(int simulationId)
         {
-            return _contexts.GetOrAdd(simulationId, id =>
+            if (_contexts.TryGetValue(simulationId, out var existing))
             {
-                using var db = _dbFactory.CreateDbContext();
+                return existing;
+            }
 
-                var sim = db.Simulations
-                    .Include(s => s.MapArea)
-                    .Include(s => s.Agents)
-                    .Include(s => s.Disease)
-                    .First(s => s.Id == id);
+            using var db = _dbFactory.CreateDbContext();
 
-                var context = new SimulationContext(sim, _dbFactory, _hubContext);
-                sim.Status = "Loaded";
-                db.SaveChanges();
+            var sim = await db.Simulations
+                .Include(s => s.MapArea)
+                .Include(s => s.Agents)
+                .Include(s => s.Disease)
+                .FirstAsync(s => s.Id == simulationId);
 
-                return context;
-            });
+            // Create in-memory context
+            var context = new SimulationContext(sim, _dbFactory, _hubContext);
+            _contexts[simulationId] = context;
+
+            Console.WriteLine($"Broadcasting state: Status={context.Status}");
+            await SimulationHub.BroadcastState(_hubContext, simulationId, context);
+
+            return context;
+        }
+
+        public async Task StartAsync(int simulationId, long? targetTick = null)
+        {
+            if (!_contexts.TryGetValue(simulationId, out var context))
+            {
+                throw new InvalidOperationException($"Simulation {simulationId} is not loaded in memory");
+            }
+
+            context.Engine.Start(targetTick);
+            context.Status = "Running";
+
+            Console.WriteLine($"Broadcasting state: Status={context.Status}");
+            await SimulationHub.BroadcastState(_hubContext, simulationId, context);
+        }
+
+        public async Task PauseAsync(int simulationId)
+        {
+            if (!_contexts.TryGetValue(simulationId, out var context))
+            {
+                throw new InvalidOperationException($"Simulation {simulationId} is not loaded in memory");
+            }
+
+            context.Engine.Stop();
+            context.Status = "Paused";
+            await SimulationHub.BroadcastState(_hubContext, simulationId, context);
+        }
+
+        public async Task SetSpeedAsync(int simulationId, int speedMultiplier)
+        {
+            if (!_contexts.TryGetValue(simulationId, out var context))
+            {
+                throw new InvalidOperationException($"Simulation {simulationId} is not loaded in memory");
+            }
+
+            context.SimulationSpeed = speedMultiplier;
+            await SimulationHub.BroadcastState(_hubContext, simulationId, context);
+        }
+
+        public async Task SetTickAsync(int simulationId, int targetTick)
+        {
+            if (!_contexts.TryGetValue(simulationId, out var context))
+            {
+                throw new InvalidOperationException($"Simulation {simulationId} is not loaded in memory");
+            }
+            await context.SnapshotManager.LoadTargetTick(targetTick);
+
+            await SimulationHub.BroadcastState(_hubContext, simulationId, context);
         }
 
         public bool TryGet(int simulationId, out SimulationContext context)
             => _contexts.TryGetValue(simulationId, out context);
 
-        public void Remove(int simulationId)
+        public async Task RemoveAsync(int simulationId)
         {
             if (_contexts.TryRemove(simulationId, out var ctx))
             {
 
                 ctx.Engine.Stop();
-
-                using var db = _dbFactory.CreateDbContext();
-                var sim = db.Simulations.Find(simulationId);
-                if (sim != null)
-                {
-                    sim.Status = "Unloaded";
-                    db.SaveChanges();
-                }
-
                 // Dispose the context to release memory and unmanaged resources
                 ctx.Dispose();
             }
@@ -67,12 +111,12 @@ namespace MySimulationAPI.SimulationConfiguration
             return _contexts.Values;
         }
 
-        public void RemoveAll()
+        public async Task RemoveAllAsync()
         {
             var keys = _contexts.Keys.ToList();
             foreach (var key in keys)
             {
-                Remove(key);
+                await RemoveAsync(key);
             }
         }
     }

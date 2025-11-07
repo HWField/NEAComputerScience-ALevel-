@@ -71,7 +71,7 @@ namespace MySimulationAPI.Hubs
                 await Clients.Caller.SendAsync("SimulationState", new
                 {
                     CurrentTick = context.CurrentTick,
-                    IsRunning = context.Engine.IsRunning,
+                    Status = context.Status,
                     Speed = context.SimulationSpeed,
                     TickLength = context.TickLength
                 });
@@ -100,12 +100,14 @@ namespace MySimulationAPI.Hubs
             await hubContext.Clients.Group($"Simulation_{simulationId}").SendAsync("MetricsUpdate", metrics);
         }
 
-        public static async Task BroadcastStatusChange(IHubContext<SimulationHub> hubContext, int simulationId, string status)
+        public static async Task BroadcastState(IHubContext<SimulationHub> hubContext, int simulationId, SimulationContext context)
         {
-            await hubContext.Clients.Group($"Simulation_{simulationId}").SendAsync("StatusChanged", new
+            await hubContext.Clients.Group($"Simulation_{simulationId}").SendAsync("SimulationState", new
             {
-                Status = status,
-                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                CurrentTick = context.CurrentTick,
+                Status = context.Status,
+                Speed = context.SimulationSpeed,
+                TickLength = context.TickLength
             });
         }
     }

@@ -9,7 +9,7 @@ namespace MySimulationAPI.Models
         public required string Name { get; set; }
         public int UserId { get; set; }
         public User? User { get; set; }
-        public string Status { get; set; } = "Created";
+        public string Status { get; set; } = "Created"; // e.g., Created, Archived, (soft) Deleted
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int TickLength { get; set; } = 300; // Number of seconds each tick lasts (default 5 minutes)
         public MapArea MapArea { get; set; } = null!;

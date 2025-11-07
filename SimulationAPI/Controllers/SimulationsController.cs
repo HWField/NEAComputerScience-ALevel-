@@ -22,7 +22,12 @@ namespace MySimulationAPI.Controllers
         private readonly SimulationSetup _simulationSetup;
         private readonly SimulationManager _simulationManager;
 
-        public SimulationController(SimDbContext db, OsmService osmService, PresetService presetService, SimulationSetup simulationSetup, SimulationManager simulationManager)
+        public SimulationController(
+            SimDbContext db,
+            OsmService osmService,
+            PresetService presetService,
+            SimulationSetup simulationSetup,
+            SimulationManager simulationManager)
         {
             _db = db;
             _osmService = osmService;
@@ -106,8 +111,8 @@ namespace MySimulationAPI.Controllers
                 // Simulation basic info
                 sim.Id,
                 sim.Name,
-                sim.Status,
                 sim.CreatedAt,
+                sim.TickLength,
 
                 // Disease info
                 Disease = sim.Disease == null ? null : new
@@ -173,9 +178,9 @@ namespace MySimulationAPI.Controllers
 
             if (_simulationManager.TryGet(id, out var context))
             {
-                _simulationManager.Remove(id);
+                await _simulationManager.RemoveAsync(id);
                 // Reload simulation into memory with clean data
-                var newContext = _simulationManager.GetOrCreate(id);
+                var newContext = await _simulationManager.GetOrCreateAsync(id);
                 newContext.GenerateStates();
             }
 
@@ -309,7 +314,7 @@ namespace MySimulationAPI.Controllers
                 return Ok($"Simulation {id} is already loaded in memory.");
             }
 
-            var context = _simulationManager.GetOrCreate(sim.Id);
+            var context = await _simulationManager.GetOrCreateAsync(id);
             context.GenerateStates();
             return Ok($"Simulation {id} loaded into memory.");
         }
@@ -325,14 +330,16 @@ namespace MySimulationAPI.Controllers
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
-            if (!_simulationManager.TryGet(id, out var context) || context == null)
+
+            try
             {
-                return NotFound($"Simulation {id} is not loaded in memory");
+                await _simulationManager.StartAsync(id, targetTick);
+                return Ok($"Simulation {id} is now running.");
             }
-            context.Engine.Start(targetTick);
-            sim.Status = "Running";
-            await _db.SaveChangesAsync();
-            return Ok($"Simulation {id} is now running.");
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         /// <summary>
@@ -345,14 +352,16 @@ namespace MySimulationAPI.Controllers
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
-            if (!_simulationManager.TryGet(id, out var context) || context == null)
+
+            try
             {
-                return NotFound($"Simulation {id} is not loaded in memory");
+                await _simulationManager.PauseAsync(id);
+                return Ok($"Simulation {id} paused.");
             }
-            context.Engine.Stop();
-            sim.Status = "Paused";
-            await _db.SaveChangesAsync();
-            return Ok($"Simulation {id} paused.");
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
 
@@ -370,7 +379,7 @@ namespace MySimulationAPI.Controllers
             {
                 return NotFound($"Simulation {id} is not loaded in memory");
             }
-            _simulationManager.Remove(id);
+            await _simulationManager.RemoveAsync(id);
             return Ok($"Simulation {id} unloaded from memory.");
         }
 
@@ -384,12 +393,15 @@ namespace MySimulationAPI.Controllers
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
-            if (!_simulationManager.TryGet(id, out var context) || context == null)
+            try
             {
-                return NotFound($"Simulation {id} is not loaded in memory");
+                await _simulationManager.SetSpeedAsync(id, speedMultiplier);
+                return Ok($"Simulation {id} speed set to {speedMultiplier}x");
             }
-            context.SimulationSpeed = speedMultiplier;
-            return Ok($"Simulation {id} speed set to {speedMultiplier}x");
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         /// <summary>
@@ -403,12 +415,15 @@ namespace MySimulationAPI.Controllers
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
-            if (!_simulationManager.TryGet(id, out var context) || context == null)
+            try
             {
-                return NotFound($"Simulation {id} is not loaded in memory");
+                await _simulationManager.SetTickAsync(id, tick);
+                return Ok($"Simulation {id} tick set to {tick}");
             }
-            await context.SnapshotManager.LoadTargetTick(tick);
-            return Ok($"Simulation {id} tick set to {tick}");
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
     }
 }

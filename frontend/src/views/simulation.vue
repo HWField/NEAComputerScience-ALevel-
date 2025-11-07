@@ -363,22 +363,22 @@
                       >{{ infectionRate }}%</span
                     >
                   </div>
-                  <progress
+                  <!-- <progress
                     class="progress progress-error w-full"
                     :value="infectionRate"
                     max="100"
-                  ></progress>
+                  ></progress> -->
                 </div>
                 <div>
                   <div class="flex justify-between mb-2">
                     <span class="text-sm text-base-content/70">Recovery</span>
                     <span class="font-bold text-info">{{ recoveryRate }}%</span>
                   </div>
-                  <progress
+                  <!-- <progress
                     class="progress progress-info w-full"
                     :value="recoveryRate"
                     max="100"
-                  ></progress>
+                  ></progress> -->
                 </div>
               </div>
             </div>
@@ -525,7 +525,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSimulationHub } from "@/composables/useSimulationHub";
 import { simulationApi, type SimulationDetail } from "@/api/simulation";
@@ -551,18 +551,36 @@ const hubState = useSimulationHub(id.value);
 const {
   currentState,
   latestMetrics,
-  currentStatus,
   onTickUpdate,
   onMetricsUpdate,
   connect,
   disconnect,
 } = hubState;
 
-const currentTick = computed(() => currentState.value?.CurrentTick || 0);
-const isRunning = computed(() => currentState.value?.IsRunning || false);
-const currentSpeed = computed(() => currentState.value?.Speed || 1);
-const displayStatus = computed(() => currentStatus.value);
+const currentTick = computed(() => currentState.value?.currentTick || 0);
+
+const isRunning = computed(() => {
+  const status = currentState.value?.status;
+  console.log("[Simulation.vue] isRunning computed - Status:", status);
+  return status === "Running";
+});
+const currentSpeed = computed(() => currentState.value?.speed || 1);
+const displayStatus = computed(() => {
+  const status = currentState.value?.status || "Unknown";
+  console.log("[Simulation.vue] displayStatus computed:", status);
+  return status;
+});
 const metrics = computed(() => latestMetrics.value);
+
+// Watch for status changes
+watch(
+  currentState,
+  (newState) => {
+    console.log("[Simulation.vue] currentState changed:", newState);
+    console.log("[Simulation.vue] New status:", newState?.status);
+  },
+  { deep: true }
+);
 
 // Performance tracking
 const serverTickRate = ref(0);
@@ -653,8 +671,10 @@ async function togglePlayPause() {
   try {
     if (isRunning.value) {
       await simulationApi.pause(id.value);
+      console.error("Simulation paused");
     } else {
       await simulationApi.run(id.value);
+      console.error("Simulation running");
     }
   } catch (err: any) {
     console.error("Failed to toggle play/pause:", err);

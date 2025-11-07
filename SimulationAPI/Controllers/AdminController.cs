@@ -195,7 +195,7 @@ namespace MySimulationAPI.Controllers
             try
             {
                 var count = _simulationManager.GetAllLoaded().ToList().Count;
-                _simulationManager.RemoveAll();
+                await _simulationManager.RemoveAllAsync();
                 return Ok(new
                 {
                     message = $"Successfully unloaded {count} simulation(s) from memory",
