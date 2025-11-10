@@ -220,43 +220,6 @@
               </div>
             </div>
           </div>
-
-          <!-- Map Area Info -->
-          <div class="card bg-base-100 shadow-xl">
-            <div class="card-body">
-              <h3 class="card-title text-lg flex items-center gap-2">
-                <i-ph-map-pin-bold class="w-5 h-5 text-accent" />
-                Map Area
-              </h3>
-              <div v-if="simulationData?.mapArea" class="space-y-3 mt-4">
-                <div>
-                  <div class="text-xs text-base-content/70 mb-1">Location</div>
-                  <div class="font-semibold">
-                    {{ simulationData.mapArea.name }}
-                  </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <div class="text-xs text-base-content/70 mb-1">Radius</div>
-                    <div class="font-bold">
-                      {{ simulationData.mapArea.radiusKm }} km
-                    </div>
-                  </div>
-                  <div>
-                    <div class="text-xs text-base-content/70 mb-1">
-                      Buildings
-                    </div>
-                    <div class="font-bold">
-                      {{ formatNumber(simulationData.mapArea.buildingCount) }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="text-sm text-base-content/60 italic">
-                No map area configured
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- Center - Map View -->
@@ -325,29 +288,6 @@
 
         <!-- Right Sidebar - System Metrics -->
         <div class="col-span-3 space-y-6">
-          <!-- Performance Metrics -->
-          <div class="card bg-base-100 shadow-xl">
-            <div class="card-body">
-              <h3 class="card-title text-lg flex items-center gap-2">
-                <i-ph-chart-line class="w-5 h-5 text-warning" />
-                Performance
-              </h3>
-              <div class="space-y-4 mt-4">
-                <div class="stat bg-base-200 rounded-lg">
-                  <div class="stat-title text-xs">Server Tick Rate</div>
-                  <div class="stat-value text-2xl">
-                    {{ serverTickRate.toFixed(1) }}
-                    <span class="text-base">tps</span>
-                  </div>
-                </div>
-                <div class="stat bg-base-200 rounded-lg">
-                  <div class="stat-title text-xs">Avg Latency</div>
-                  <div class="stat-value text-2xl">{{ avgLatency }}ms</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Infection Metrics -->
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
@@ -383,7 +323,42 @@
               </div>
             </div>
           </div>
-
+          <!-- Map Area Info -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h3 class="card-title text-lg flex items-center gap-2">
+                <i-ph-map-pin-bold class="w-5 h-5 text-accent" />
+                Map Area
+              </h3>
+              <div v-if="simulationData?.mapArea" class="space-y-3 mt-4">
+                <div>
+                  <div class="text-xs text-base-content/70 mb-1">Location</div>
+                  <div class="font-semibold">
+                    {{ simulationData.mapArea.name }}
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <div class="text-xs text-base-content/70 mb-1">Radius</div>
+                    <div class="font-bold">
+                      {{ simulationData.mapArea.radiusKm }} km
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-xs text-base-content/70 mb-1">
+                      Buildings
+                    </div>
+                    <div class="font-bold">
+                      {{ formatNumber(simulationData.mapArea.buildingCount) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-sm text-base-content/60 italic">
+                No map area configured
+              </div>
+            </div>
+          </div>
           <!-- Quick Actions -->
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
@@ -451,40 +426,66 @@
                   <i-ph-pause class="w-5 h-5" v-if="isRunning" />
                   <i-ph-play class="w-5 h-5" v-else />
                 </button>
-                <button
-                  class="btn btn-circle btn-sm"
-                  @click="handleStepBack"
-                  :disabled="!isLoadedInMemory || isRunning"
-                >
-                  <i-ph-skip-back-bold class="w-5 h-5" />
-                </button>
-                <button
-                  class="btn btn-circle btn-sm"
-                  @click="handleStepForward"
-                  :disabled="!isLoadedInMemory || isRunning"
-                >
-                  <i-ph-skip-forward-bold class="w-5 h-5" />
-                </button>
               </div>
             </div>
 
             <!-- Timeline Slider -->
             <div class="relative mb-6">
-              <input
-                type="range"
-                min="0"
-                :max="maxTick"
-                :value="currentTick"
-                @input="handleTickChange"
-                class="range range-primary"
-                :disabled="isRunning"
-              />
+              <!-- Custom Multi-Track Slider -->
+              <div class="relative h-2 w-full rounded-full bg-base-300">
+                <!-- Past/Current Track (Bright Color) -->
+                <div
+                  class="absolute h-full rounded-full bg-primary transition-all duration-200"
+                  :style="{
+                    width: `${(currentTick / maxTick) * 100}%`,
+                  }"
+                ></div>
+
+                <!-- Pre-computed Track (Outlined/Ghost) -->
+                <div
+                  v-if="maxComputedTick > currentTick"
+                  class="absolute h-full rounded-full border-2 border-primary/40 bg-primary/10 transition-all duration-200"
+                  :style="{
+                    left: `${(currentTick / maxTick) * 100}%`,
+                    width: `${
+                      ((maxComputedTick - currentTick) / maxTick) * 100
+                    }%`,
+                  }"
+                ></div>
+
+                <!-- Slider Input -->
+                <input
+                  type="range"
+                  min="0"
+                  :max="maxTick"
+                  :value="currentTick"
+                  @input="handleTickChange"
+                  class="timeline-slider"
+                  :class="{ 'cursor-not-allowed opacity-50': isRunning }"
+                  :disabled="isRunning"
+                />
+              </div>
+
+              <!-- Timeline Labels -->
               <div
-                class="flex justify-between text-xs text-base-content/60 mt-2"
+                class="flex justify-between text-xs text-base-content/60 mt-3"
               >
                 <span>Start</span>
-                <span>{{ formatTime(Math.floor(maxTick / 2)) }}</span>
-                <span>{{ formatTime(maxTick) }}</span>
+                <span class="flex flex-col items-center gap-1">
+                  <span class="text-primary font-medium">Current</span>
+                  <span>{{ formatTime(currentTick) }}</span>
+                </span>
+                <span
+                  v-if="maxComputedTick > 0"
+                  class="flex flex-col items-center gap-1"
+                >
+                  <span class="text-primary/60 font-medium">Computed</span>
+                  <span>{{ formatTime(maxComputedTick) }}</span>
+                </span>
+                <span class="flex flex-col items-center gap-1">
+                  <span>Max (1 Year)</span>
+                  <span>{{ formatTime(maxTick) }}</span>
+                </span>
               </div>
             </div>
 
@@ -551,44 +552,36 @@ const hubState = useSimulationHub(id.value);
 const {
   currentState,
   latestMetrics,
-  onTickUpdate,
-  onMetricsUpdate,
+  currentInterpolatedTick,
+  maxComputedTick,
   connect,
   disconnect,
 } = hubState;
 
-const currentTick = computed(() => currentState.value?.currentTick || 0);
+const currentTick = computed(() => currentInterpolatedTick.value);
 
 const isRunning = computed(() => {
   const status = currentState.value?.status;
-  console.log("[Simulation.vue] isRunning computed - Status:", status);
   return status === "Running";
 });
 const currentSpeed = computed(() => currentState.value?.speed || 1);
 const displayStatus = computed(() => {
   const status = currentState.value?.status || "Unknown";
-  console.log("[Simulation.vue] displayStatus computed:", status);
   return status;
 });
 const metrics = computed(() => latestMetrics.value);
-
-// Watch for status changes
-watch(
-  currentState,
-  (newState) => {
-    console.log("[Simulation.vue] currentState changed:", newState);
-    console.log("[Simulation.vue] New status:", newState?.status);
-  },
-  { deep: true }
-);
 
 // Performance tracking
 const serverTickRate = ref(0);
 const avgLatency = ref(0);
 const tickHistory = ref<{ tick: number; timestamp: number }[]>([]);
 
-// Max tick for timeline - need to decide how to approach this later
-const maxTick = ref(100000);
+const maxTick = computed(() => {
+  if (!simulationData.value) return 100000; // default fallback
+  const tickLength = simulationData.value.tickLength; // seconds per tick
+  const secondsInYear = 365 * 24 * 60 * 60; // 31,536,000 seconds
+  return Math.floor(secondsInYear / tickLength);
+});
 
 // Status badge styling
 const statusBadgeClass = computed(() => {
@@ -630,31 +623,34 @@ function formatNumber(num: number): string {
 }
 
 function formatTime(tick: number): string {
-  const tickLength = simulationData.value?.status === "Loaded" ? 300 : 300; // default 5 min
-  const totalSeconds = tick * tickLength;
+  // Handle invalid tick values
+  if (!isFinite(tick) || tick < 0) {
+    return "000d 00h 00m";
+  }
+
+  const tickLength = simulationData.value?.tickLength ?? 300; // default 5 min
+  const totalSeconds = Math.floor(tick) * tickLength;
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
 
-  if (days > 0) {
-    return `${days}d ${hours}h ${minutes}m`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else {
-    return `${minutes}m`;
-  }
+  // Always show all units with fixed width padding for consistent display
+  return `${String(days).padStart(3, "0")}d ${String(hours).padStart(
+    2,
+    "0"
+  )}h ${String(minutes).padStart(2, "0")}m`;
 }
 
 async function loadSimulation() {
   try {
     isInitializing.value = true;
     error.value = null;
-    // Connect to SignalR
+
+    // Connect to SignalR hub for real-time updates
     await connect();
 
-    // Fetch simulation details
+    // Fetch core simulation details
     simulationData.value = await simulationApi.getById(id.value);
-    console.error("Simulation Data:", simulationData.value);
 
     // Load into server memory
     await simulationApi.load(id.value);
@@ -671,10 +667,8 @@ async function togglePlayPause() {
   try {
     if (isRunning.value) {
       await simulationApi.pause(id.value);
-      console.error("Simulation paused");
     } else {
       await simulationApi.run(id.value);
-      console.error("Simulation running");
     }
   } catch (err: any) {
     console.error("Failed to toggle play/pause:", err);
@@ -751,40 +745,6 @@ async function handleUnload() {
     console.error("Failed to unload simulation:", err);
   }
 }
-onTickUpdate.value = (data) => {
-  const now = Date.now();
-
-  // Store tick number and timestamp
-  tickHistory.value.push({ tick: data.Tick, timestamp: now });
-
-  // Keep last 10 seconds of data
-  const tenSecondsAgo = now - 10000;
-  tickHistory.value = tickHistory.value.filter(
-    (entry) => entry.timestamp > tenSecondsAgo
-  );
-
-  // Calculate server tick rate (ticks per second)
-  if (tickHistory.value.length > 1) {
-    const firstEntry = tickHistory.value[0];
-    const lastEntry = tickHistory.value[tickHistory.value.length - 1];
-
-    if (firstEntry && lastEntry) {
-      const tickDifference = lastEntry.tick - firstEntry.tick;
-      const timeDifference =
-        (lastEntry.timestamp - firstEntry.timestamp) / 1000; // in seconds
-
-      if (timeDifference > 0) {
-        serverTickRate.value = tickDifference / timeDifference;
-      }
-    }
-  }
-
-  // Calculate latency
-  const latency = now - data.Timestamp;
-  if (latency > 0 && latency < 10000) {
-    avgLatency.value = Math.round(latency);
-  }
-};
 
 onMounted(() => {
   loadSimulation();
@@ -793,10 +753,93 @@ onMounted(() => {
 onUnmounted(() => {
   disconnect();
 });
+
+// Debug: Watch interpolated tick
+watch(currentInterpolatedTick, (newVal) => {
+  if (!isFinite(newVal)) {
+    console.error("[Simulation] Invalid interpolated tick:", newVal);
+  }
+});
 </script>
 
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Custom Timeline Slider */
+.timeline-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.timeline-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: hsl(var(--p));
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 3px solid hsl(var(--b1));
+  opacity: 1;
+  position: relative;
+  z-index: 20;
+}
+
+.timeline-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: hsl(var(--p));
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 3px solid hsl(var(--b1));
+  opacity: 1;
+  position: relative;
+  z-index: 20;
+}
+
+.timeline-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.timeline-slider:hover::-moz-range-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.timeline-slider:disabled::-webkit-slider-thumb {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.timeline-slider:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Make the slider thumb visible */
+.timeline-slider {
+  opacity: 1;
+  background: transparent;
+}
+
+.timeline-slider::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 100%;
+}
+
+.timeline-slider::-moz-range-track {
+  background: transparent;
+  height: 100%;
 }
 </style>

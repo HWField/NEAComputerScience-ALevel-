@@ -18,11 +18,150 @@ export function useSimulationHub(simulationId: number) {
   // State from server
   const currentState = ref<SimulationState | null>(null);
   const latestMetrics = ref<MetricsUpdate | null>(null);
+  const currentInterpolatedTick = ref<number>(0);
+  const maxComputedTick = ref<number>(0);
+
+  // Interpolation state
+  let lastServerTick = 0;
+  let lastServerTickTime = 0;
+  let estimatedTicksPerSecond = 0;
+  let interpolationFrameId: number | null = null;
 
   // Event handlers
   const onTickUpdate = ref<((data: TickUpdate) => void) | null>(null);
   const onMetricsUpdate = ref<((data: MetricsUpdate) => void) | null>(null);
   const onStateChange = ref<((data: SimulationState) => void) | null>(null);
+
+  /**
+   * Calculate expected ticks per second based on simulation speed and tick length
+   * matches the server's calculation: ticksPerSecond = speed * (86400 / tickLength)
+   */
+  const calculateExpectedTickRate = (): number => {
+    if (!currentState.value || currentState.value.speed === 0) {
+      return 0;
+    }
+
+    const tickLength = currentState.value.tickLength; // seconds per tick
+    const speed = currentState.value.speed; // speed multiplier
+
+    // Match server calculation from SimulationEngine.cs:
+    // ticksPerDay = 86400.0 / tickLength
+    // ticksPerSecond = speed * ticksPerDay
+    const ticksPerDay = 86400.0 / tickLength;
+    const ticksPerSecond = speed * ticksPerDay;
+
+    return ticksPerSecond;
+  };
+
+  /**
+   * Update interpolation based on server tick update
+   */
+  const updateInterpolation = (serverTick: number | undefined) => {
+    // Validate input
+    if (serverTick === undefined || !isFinite(serverTick) || serverTick < 0) {
+      console.warn(
+        `[SimulationHub] Invalid server tick received: ${serverTick}`
+      );
+      return;
+    }
+
+    const now = performance.now() / 1000; // current time in seconds
+
+    if (lastServerTickTime > 0 && lastServerTick > 0) {
+      // Calculate actual tick rate based on server updates
+      const tickDelta = serverTick - lastServerTick;
+      const timeDelta = now - lastServerTickTime;
+
+      if (timeDelta > 0 && tickDelta > 0) {
+        const actualTicksPerSecond = tickDelta / timeDelta;
+
+        // Smooth the estimation using exponential moving average
+        // Higher alpha = faster response to changes, lower alpha = smoother
+        const alpha = 0.3;
+        if (estimatedTicksPerSecond === 0) {
+          estimatedTicksPerSecond = actualTicksPerSecond;
+        } else {
+          estimatedTicksPerSecond =
+            alpha * actualTicksPerSecond +
+            (1 - alpha) * estimatedTicksPerSecond;
+        }
+
+        console.log(
+          `[SimulationHub] Updated tick rate: ${estimatedTicksPerSecond.toFixed(
+            2
+          )} tps (actual: ${actualTicksPerSecond.toFixed(2)})`
+        );
+      }
+    } else {
+      // First update - use theoretical rate
+      estimatedTicksPerSecond = calculateExpectedTickRate();
+      console.log(
+        `[SimulationHub] Initial tick rate: ${estimatedTicksPerSecond.toFixed(
+          4
+        )} tps (theoretical) - ${(estimatedTicksPerSecond * 86400).toFixed(
+          1
+        )} ticks/day`
+      );
+    }
+
+    // Update tracking variables
+    lastServerTick = serverTick;
+    lastServerTickTime = now;
+    currentInterpolatedTick.value = serverTick;
+
+    console.log(
+      `[SimulationHub] Baseline set - Tick: ${serverTick}, Time: ${now.toFixed(
+        2
+      )}s, Rate: ${estimatedTicksPerSecond.toFixed(4)} tps`
+    );
+  };
+
+  /**
+   * Animation loop for smooth tick interpolation
+   */
+  const interpolateLoop = () => {
+    if (!currentState.value || currentState.value.status !== "Running") {
+      // Not running, don't interpolate
+      interpolationFrameId = requestAnimationFrame(interpolateLoop);
+      return;
+    }
+
+    // Only interpolate if we have a valid baseline
+    if (lastServerTickTime > 0 && estimatedTicksPerSecond > 0) {
+      const now = performance.now() / 1000;
+      const timeSinceLastUpdate = now - lastServerTickTime;
+
+      // Calculate interpolated tick
+      const ticksElapsed = timeSinceLastUpdate * estimatedTicksPerSecond;
+      const interpolatedTick = lastServerTick + ticksElapsed;
+
+      // Update the ref (ensure it's a valid number)
+      if (isFinite(interpolatedTick) && interpolatedTick >= 0) {
+        currentInterpolatedTick.value = interpolatedTick;
+      }
+    }
+
+    // Continue the loop
+    interpolationFrameId = requestAnimationFrame(interpolateLoop);
+  };
+
+  /**
+   * Start the interpolation animation loop
+   */
+  const startInterpolation = () => {
+    if (interpolationFrameId !== null) return; // already running
+    interpolationFrameId = requestAnimationFrame(interpolateLoop);
+  };
+
+  /**
+   * Stop the interpolation animation loop
+   */
+  const stopInterpolation = () => {
+    if (interpolationFrameId !== null) {
+      cancelAnimationFrame(interpolationFrameId);
+      interpolationFrameId = null;
+    }
+  };
 
   const connect = async () => {
     if (connection.value || connectionStatus.value === "connecting") return;
@@ -51,16 +190,68 @@ export function useSimulationHub(simulationId: number) {
 
       // Set up event handlers
       hubConnection.on("SimulationState", (data: SimulationState) => {
+        console.log("[SimulationHub] Received SimulationState:", data);
+
+        // Set state first, before any calculations that depend on it
         currentState.value = data;
+
+        // Ensure maxComputedTick tracks the furthest computed point
+        if (data.currentTick > maxComputedTick.value) {
+          maxComputedTick.value = data.currentTick;
+        }
+
+        // Update interpolation when state changes
+        updateInterpolation(data.currentTick);
+
+        // Handle running state
+        if (data.status === "Running") {
+          // Recalculate expected tick rate when speed changes
+          const newExpectedRate = calculateExpectedTickRate();
+          if (newExpectedRate > 0) {
+            estimatedTicksPerSecond = newExpectedRate;
+            console.log(
+              `[SimulationHub] Speed changed, new expected rate: ${newExpectedRate.toFixed(
+                4
+              )} tps`
+            );
+          }
+          startInterpolation();
+        } else {
+          stopInterpolation();
+          // When paused, we don't need a tick rate, but keep the current interpolated value at the server tick
+          if (data.currentTick !== undefined) {
+            currentInterpolatedTick.value = data.currentTick;
+          }
+        }
+
         if (onStateChange.value) {
           onStateChange.value(data);
         }
       });
 
       hubConnection.on("TickUpdate", (data: TickUpdate) => {
+        // Update server tick in state
         if (currentState.value) {
-          currentState.value.CurrentTick = data.Tick;
+          currentState.value.currentTick = data.currentTick;
         }
+
+        // Update max computed tick from server
+        // Ensure maxComputedTick is always >= currentTick
+        if (
+          data.maximumTick !== undefined &&
+          data.maximumTick >= data.currentTick
+        ) {
+          maxComputedTick.value = data.maximumTick;
+        } else {
+          maxComputedTick.value = Math.max(
+            maxComputedTick.value,
+            data.currentTick
+          );
+        }
+
+        // Update interpolation with new server tick
+        updateInterpolation(data.currentTick);
+
         if (onTickUpdate.value) {
           onTickUpdate.value(data);
         }
@@ -68,6 +259,14 @@ export function useSimulationHub(simulationId: number) {
 
       hubConnection.on("MetricsUpdate", (data: MetricsUpdate) => {
         latestMetrics.value = data;
+
+        if (data.currentTick > maxComputedTick.value) {
+          maxComputedTick.value = data.currentTick;
+        }
+
+        // Metrics also contain currentTick, use it to refine interpolation
+        updateInterpolation(data.currentTick);
+
         if (onMetricsUpdate.value) {
           onMetricsUpdate.value(data);
         }
@@ -164,6 +363,7 @@ export function useSimulationHub(simulationId: number) {
     if (!connection.value) return;
 
     try {
+      stopInterpolation();
       await leaveSimulation();
       await connection.value.stop();
       connection.value = null;
@@ -188,6 +388,8 @@ export function useSimulationHub(simulationId: number) {
     // Data
     currentState,
     latestMetrics,
+    currentInterpolatedTick,
+    maxComputedTick,
 
     // Event handlers
     onTickUpdate,

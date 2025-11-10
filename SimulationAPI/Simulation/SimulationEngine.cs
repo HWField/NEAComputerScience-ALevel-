@@ -64,7 +64,7 @@ namespace MySimulationAPI.SimulationRuntime
                 // Broadcast tick update via SignalR
                 if (_context.CurrentTick % broadcastIntervalTicks == 0)
                 {
-                    _ = SimulationHub.BroadcastTickUpdate(_hubContext, _context.Simulation.Id, _context.CurrentTick);
+                    await SimulationHub.BroadcastTickUpdate(_hubContext, _context.Simulation.Id, _context.CurrentTick, _context.MaxComputedTick);
                 }
 
                 if (_context.CurrentTick % snapshotIntervalTicks == 0)
@@ -81,29 +81,34 @@ namespace MySimulationAPI.SimulationRuntime
                     Stop();
                     break;
                 }
+
                 // -------------------------
                 // Calculate target delay
+                // Only apply delay if no target tick (real-time mode)
+                // When target tick is set, run at full speed
                 // -------------------------
-
-                double ticksPerDay = 86400.0 / _context.TickLength;
-                double ticksPerSecond = _context.SimulationSpeed * ticksPerDay;
-
-                double targetDelaySeconds = (_context.SimulationSpeed == 0)
-                    ? 0
-                    : 1.0 / ticksPerSecond;
-
-                double computeSeconds = sw.Elapsed.TotalSeconds;
-                double remainingSeconds = Math.Max(0, targetDelaySeconds - computeSeconds);
-
-                if (_context.SimulationSpeed != 0)
+                if (!targetTick.HasValue)
                 {
-                    try
+                    double ticksPerDay = 86400.0 / _context.TickLength;
+                    double ticksPerSecond = _context.SimulationSpeed * ticksPerDay;
+
+                    double targetDelaySeconds = (_context.SimulationSpeed == 0)
+                        ? 0
+                        : 1.0 / ticksPerSecond;
+
+                    double computeSeconds = sw.Elapsed.TotalSeconds;
+                    double remainingSeconds = Math.Max(0, targetDelaySeconds - computeSeconds);
+
+                    if (_context.SimulationSpeed != 0)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(remainingSeconds), token);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        break;
+                        try
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(remainingSeconds), token);
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            break;
+                        }
                     }
                 }
             }

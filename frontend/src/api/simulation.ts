@@ -45,12 +45,13 @@ export interface SimulationState {
 }
 
 export interface TickUpdate {
-  Tick: number;
-  Timestamp: number;
+  currentTick: number;
+  maximumTick: number;
+  timestamp: number;
 }
 
 export interface MetricsUpdate {
-  Tick: number;
+  currentTick: number;
   TotalAgents: number;
   Infected: number;
   Recovered: number;

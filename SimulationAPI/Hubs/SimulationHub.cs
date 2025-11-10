@@ -86,12 +86,14 @@ namespace MySimulationAPI.Hubs
         }
 
 
-        public static async Task BroadcastTickUpdate(IHubContext<SimulationHub> hubContext, int simulationId, long currentTick)
+        public static async Task BroadcastTickUpdate(IHubContext<SimulationHub> hubContext, int simulationId, long currentTick, long maximumTick)
         {
+            Console.WriteLine($"Broadcasting tick update for simulation {simulationId}: {currentTick}/{maximumTick}");
             await hubContext.Clients.Group($"Simulation_{simulationId}").SendAsync("TickUpdate", new
             {
-                Tick = currentTick,
-                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                currentTick,
+                maximumTick,
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             });
         }
 

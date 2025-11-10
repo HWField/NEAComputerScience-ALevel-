@@ -69,6 +69,7 @@ namespace MySimulationAPI.SimulationConfiguration
             // --- SAVE TO DATABASE ---
             await _db.BulkInsertAsync(agentSnaps, new BulkConfig { BatchSize = 5000 });
             await _db.BulkInsertAsync(buildingSnaps, new BulkConfig { BatchSize = 5000 });
+            _context.MaxComputedTick = Math.Max(_context.MaxComputedTick, _context.CurrentTick);
         }
 
         /// <summary>
