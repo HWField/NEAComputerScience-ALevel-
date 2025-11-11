@@ -12,11 +12,38 @@ namespace MySimulationAPI.SimulationConfiguration
         private readonly ConcurrentDictionary<int, SimulationContext> _contexts = new();
         private readonly IDbContextFactory<SimDbContext> _dbFactory;
         private readonly IHubContext<SimulationHub> _hubContext;
+        private readonly System.Threading.Timer _broadcastTimer;
+        private const int BroadcastIntervalMs = 100; // 10 times per second
 
         public SimulationManager(IDbContextFactory<SimDbContext> dbFactory, IHubContext<SimulationHub> hubContext)
         {
             _dbFactory = dbFactory;
             _hubContext = hubContext;
+
+            // Start periodic broadcast timer
+            _broadcastTimer = new System.Threading.Timer(
+                BroadcastAllStates,
+                null,
+                BroadcastIntervalMs, // due time
+                BroadcastIntervalMs  // period
+            );
+        }
+
+        private async void BroadcastAllStates(object? state)
+        {
+            // Broadcast tick updates for all running simulations
+            foreach (var context in _contexts.Values)
+            {
+                if (context.Engine.IsRunning)
+                {
+                    await SimulationHub.BroadcastTickUpdate(
+                        _hubContext,
+                        context.Simulation.Id,
+                        context.CurrentTick,
+                        context.MaxComputedTick
+                    );
+                }
+            }
         }
 
         public async Task<SimulationContext> GetOrCreateAsync(int simulationId)
@@ -52,9 +79,7 @@ namespace MySimulationAPI.SimulationConfiguration
             }
 
             context.Engine.Start(targetTick);
-            context.Status = "Running";
-
-            Console.WriteLine($"Broadcasting state: Status={context.Status}");
+            // Status is set by the engine based on whether targetTick is provided
             await SimulationHub.BroadcastState(_hubContext, simulationId, context);
         }
 
@@ -118,6 +143,11 @@ namespace MySimulationAPI.SimulationConfiguration
             {
                 await RemoveAsync(key);
             }
+        }
+
+        public void Dispose()
+        {
+            _broadcastTimer?.Dispose();
         }
     }
 }

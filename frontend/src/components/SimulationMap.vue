@@ -41,6 +41,7 @@
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import type { AgentPosition } from "@/api/simulation";
 
 interface MapArea {
   centerLat: number;
@@ -58,7 +59,7 @@ interface AgentLocation {
 
 const props = defineProps<{
   mapArea: MapArea;
-  agents?: AgentLocation[];
+  agents?: AgentPosition[];
   maxDisplayedAgents?: number; // Limit for performance
 }>();
 
@@ -102,29 +103,19 @@ function initializeMap() {
   map.fitBounds(radiusCircle.getBounds(), { padding: [50, 50] });
 }
 
-function updateAgents(agents: AgentLocation[]) {
+function updateAgents(agents: AgentPosition[]) {
   if (!map) return;
 
   totalAgentCount.value = agents.length;
 
-  //Hard limit displayed agents for performance
   const maxAgents = props.maxDisplayedAgents || 2000;
-  const samplingRate =
-    agents.length > maxAgents ? maxAgents / agents.length : 1;
-
-  const agentsToDisplay = agents
-    .filter((_, index) => {
-      // Sample agents evenly
-      return Math.random() < samplingRate;
-    })
-    .slice(0, maxAgents);
+  const agentsToDisplay =
+    agents.length <= maxAgents ? agents : agents.slice(0, maxAgents);
 
   displayedAgentCount.value = agentsToDisplay.length;
 
-  // Track which agent IDs we're currently displaying
   const currentAgentIds = new Set(agentsToDisplay.map((a) => a.id));
 
-  // Remove markers for agents no longer in the sample
   agentMarkers.forEach((marker, id) => {
     if (!currentAgentIds.has(id)) {
       marker.remove();
@@ -132,9 +123,10 @@ function updateAgents(agents: AgentLocation[]) {
     }
   });
 
-  // Update or create markers for displayed agents
   agentsToDisplay.forEach((agent) => {
-    const color = statusColors[agent.status] || "#6b7280";
+    // Map status directly from agent data
+    const status = agent.isQuarantined ? "Quarantined" : agent.healthState;
+    const color = statusColors[status] || "#6b7280";
 
     let marker = agentMarkers.get(agent.id);
 
@@ -144,6 +136,12 @@ function updateAgents(agents: AgentLocation[]) {
         fillColor: color,
         color: color,
       });
+
+      marker.setPopupContent(`
+        <b>Agent #${agent.id}</b><br>
+        Status: ${status}<br>
+        Location: ${agent.lat.toFixed(6)}, ${agent.lon.toFixed(6)}
+      `);
     } else {
       marker = L.circleMarker([agent.lat, agent.lon], {
         radius: 4,
@@ -158,10 +156,9 @@ function updateAgents(agents: AgentLocation[]) {
         marker.addTo(map);
       }
 
-      // popup with agent info
       marker.bindPopup(`
         <b>Agent #${agent.id}</b><br>
-        Status: ${agent.status}<br>
+        Status: ${status}<br>
         Location: ${agent.lat.toFixed(6)}, ${agent.lon.toFixed(6)}
       `);
 
@@ -176,9 +173,15 @@ watch(
   (newAgents) => {
     if (newAgents && newAgents.length > 0) {
       updateAgents(newAgents);
+    } else if (newAgents && newAgents.length === 0) {
+      // Clear all markers if agents array is empty
+      agentMarkers.forEach((marker) => marker.remove());
+      agentMarkers.clear();
+      displayedAgentCount.value = 0;
+      totalAgentCount.value = 0;
     }
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
 onMounted(() => {

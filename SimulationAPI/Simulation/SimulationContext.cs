@@ -58,6 +58,8 @@ namespace MySimulationAPI.SimulationConfiguration
                 .Select(s => (long?)s.Tick)
                 .FirstOrDefault() ?? 0;
 
+            MaxComputedTick = CurrentTick;
+
             // Load relevant db objects in one go
             Buildings = db.Buildings
                 .Where(b => b.MapAreaId == simulation.MapArea.Id)

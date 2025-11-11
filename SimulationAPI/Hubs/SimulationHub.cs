@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
 using MySimulationAPI.SimulationConfiguration;
+using MySimulationAPI.Services;
 using System.Collections.Concurrent;
 using System.Security.Claims;
 
@@ -13,12 +14,14 @@ namespace MySimulationAPI.Hubs
     {
         private readonly SimulationManager _simulationManager;
         private readonly IDbContextFactory<SimDbContext> _dbFactory;
+        private readonly AgentTrackingService _agentTrackingService;
         private static readonly ConcurrentDictionary<string, int> _connectionSimulations = new();
 
-        public SimulationHub(SimulationManager simulationManager, IDbContextFactory<SimDbContext> dbFactory)
+        public SimulationHub(SimulationManager simulationManager, IDbContextFactory<SimDbContext> dbFactory, AgentTrackingService agentTrackingService)
         {
             _simulationManager = simulationManager;
             _dbFactory = dbFactory;
+            _agentTrackingService = agentTrackingService;
         }
 
         private int GetUserId() => int.Parse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
@@ -37,6 +40,10 @@ namespace MySimulationAPI.Hubs
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Simulation_{simId}");
                 _connectionSimulations.TryRemove(Context.ConnectionId, out _);
             }
+
+            // Remove agent tracking for this client
+            _agentTrackingService.RemoveClientTracking(Context.ConnectionId);
+
             await base.OnDisconnectedAsync(exception);
         }
 
@@ -83,6 +90,57 @@ namespace MySimulationAPI.Hubs
         {
             _connectionSimulations.TryRemove(Context.ConnectionId, out _);
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Simulation_{simulationId}");
+            _agentTrackingService.RemoveClientTracking(Context.ConnectionId);
+        }
+
+
+        public async Task StartAgentTracking(int simulationId, int agentCount = 1000)
+        {
+            var userId = GetUserId();
+
+            using var db = _dbFactory.CreateDbContext();
+            var simulation = await db.Simulations
+                .Where(s => s.Id == simulationId)
+                .Select(s => new { s.Id, s.UserId })
+                .FirstOrDefaultAsync();
+
+            if (simulation == null)
+            {
+                throw new HubException("Simulation not found.");
+            }
+
+            if (simulation.UserId != userId && !IsAdmin())
+            {
+                throw new HubException("Not authorized to track agents in this simulation.");
+            }
+
+            if (!_simulationManager.TryGet(simulationId, out var context))
+            {
+                throw new HubException("Simulation is not currently loaded.");
+            }
+
+            // Allocate agents to the client
+            var allocatedAgentIds = _agentTrackingService.AllocateAgentsToClient(
+                Context.ConnectionId,
+                simulationId,
+                context,
+                agentCount
+            );
+
+            // Send confirmation with allocated agent IDs
+            await Clients.Caller.SendAsync("AgentTrackingStarted", new
+            {
+                simulationId,
+                agentIds = allocatedAgentIds,
+                count = allocatedAgentIds.Length,
+                updateFrequency = 3 // Hz
+            });
+        }
+
+        public async Task StopAgentTracking()
+        {
+            _agentTrackingService.RemoveClientTracking(Context.ConnectionId);
+            await Clients.Caller.SendAsync("AgentTrackingStopped");
         }
 
 

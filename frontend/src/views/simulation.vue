@@ -239,7 +239,7 @@
               >
                 <SimulationMap
                   :mapArea="simulationData.mapArea"
-                  :agents="agentLocations"
+                  :agents="Array.from(agentPositions.values())"
                   :maxDisplayedAgents="2000"
                 />
               </div>
@@ -405,13 +405,29 @@
                   Simulation Time
                 </div>
                 <div
-                  class="text-2xl font-mono font-bold text-primary tabular-nums"
+                  class="text-2xl font-mono font-bold tabular-nums"
+                  :class="isComputing ? 'text-info' : 'text-primary'"
                 >
                   {{ formattedTime }}
                 </div>
                 <div class="text-xs text-base-content/60">
-                  Tick:
-                  <span class="font-mono">{{ formatNumber(currentTick) }}</span>
+                  <span
+                    v-if="isComputing"
+                    class="flex items-center justify-center gap-2"
+                  >
+                    <span
+                      class="loading loading-spinner loading-xs text-info"
+                    ></span>
+                    <span class="text-info font-medium"
+                      >Computing to target time</span
+                    >
+                  </span>
+                  <span v-else>
+                    Tick:
+                    <span class="font-mono">{{
+                      formatNumber(currentTick)
+                    }}</span>
+                  </span>
                 </div>
               </div>
 
@@ -421,7 +437,7 @@
                   class="btn btn-circle btn-sm"
                   :class="isRunning ? 'btn-warning' : 'btn-primary'"
                   @click="togglePlayPause"
-                  :disabled="!isLoadedInMemory"
+                  :disabled="!isLoadedInMemory || isComputing"
                 >
                   <i-ph-pause class="w-5 h-5" v-if="isRunning" />
                   <i-ph-play class="w-5 h-5" v-else />
@@ -435,21 +451,27 @@
               <div class="relative h-2 w-full rounded-full bg-base-300">
                 <!-- Past/Current Track (Bright Color) -->
                 <div
-                  class="absolute h-full rounded-full bg-primary transition-all duration-200"
+                  class="absolute h-full rounded-full bg-primary"
                   :style="{
                     width: `${(currentTick / maxTick) * 100}%`,
+                    transition: isRunning
+                      ? 'width 100ms linear'
+                      : 'width 200ms ease-out',
                   }"
                 ></div>
 
                 <!-- Pre-computed Track (Outlined/Ghost) -->
                 <div
                   v-if="maxComputedTick > currentTick"
-                  class="absolute h-full rounded-full border-2 border-primary/40 bg-primary/10 transition-all duration-200"
+                  class="absolute h-full rounded-full border-2 border-primary/40 bg-primary/10"
                   :style="{
                     left: `${(currentTick / maxTick) * 100}%`,
                     width: `${
                       ((maxComputedTick - currentTick) / maxTick) * 100
                     }%`,
+                    transition: isRunning
+                      ? 'left 100ms linear, width 100ms linear'
+                      : 'left 200ms ease-out, width 200ms ease-out',
                   }"
                 ></div>
 
@@ -459,7 +481,7 @@
                   min="0"
                   :max="maxTick"
                   :value="currentTick"
-                  @input="handleTickChange"
+                  @change="handleTickChange"
                   class="timeline-slider"
                   :class="{ 'cursor-not-allowed opacity-50': isRunning }"
                   :disabled="isRunning"
@@ -508,7 +530,7 @@
                 @input="handleSpeedChange"
                 class="range range-primary range-sm"
                 step="0.5"
-                :disabled="!isLoadedInMemory"
+                :disabled="!isLoadedInMemory || isComputing"
               />
               <div
                 class="flex justify-between text-xs text-base-content/60 mt-1"
@@ -546,7 +568,6 @@ const isInitializing = ref(true);
 const error = ref<string | null>(null);
 const simulationData = ref<SimulationDetail | null>(null);
 const isLoadedInMemory = ref(false);
-const agentLocations = ref<AgentLocation[]>([]);
 
 const hubState = useSimulationHub(id.value);
 const {
@@ -554,16 +575,29 @@ const {
   latestMetrics,
   currentInterpolatedTick,
   maxComputedTick,
+  agentPositions,
+  isTrackingAgents,
   connect,
   disconnect,
+  startAgentTracking,
+  stopAgentTracking,
 } = hubState;
 
-const currentTick = computed(() => currentInterpolatedTick.value);
+const currentTick = computed(() => {
+  // Round to avoid sub-tick visual jitter
+  return Math.floor(currentInterpolatedTick.value);
+});
 
 const isRunning = computed(() => {
   const status = currentState.value?.status;
   return status === "Running";
 });
+
+const isComputing = computed(() => {
+  const status = currentState.value?.status;
+  return status === "Computing";
+});
+
 const currentSpeed = computed(() => currentState.value?.speed || 1);
 const displayStatus = computed(() => {
   const status = currentState.value?.status || "Unknown";
@@ -587,6 +621,7 @@ const maxTick = computed(() => {
 const statusBadgeClass = computed(() => {
   const status = displayStatus.value.toLowerCase();
   if (status === "running") return "badge-success";
+  if (status === "computing") return "badge-info";
   if (status === "loaded" || status === "paused") return "badge-warning";
   if (status === "error") return "badge-error";
   return "badge-ghost";
@@ -595,6 +630,7 @@ const statusBadgeClass = computed(() => {
 const statusIndicatorClass = computed(() => {
   const status = displayStatus.value.toLowerCase();
   if (status === "running") return "bg-success animate-pulse";
+  if (status === "computing") return "bg-info animate-pulse";
   if (status === "loaded" || status === "paused") return "bg-warning";
   if (status === "error") return "bg-error animate-pulse";
   return "bg-base-content/50";
@@ -655,6 +691,9 @@ async function loadSimulation() {
     // Load into server memory
     await simulationApi.load(id.value);
     isLoadedInMemory.value = true;
+
+    // Start agent tracking (1000 agents at 3 Hz)
+    await startAgentTracking(1000);
   } catch (err: any) {
     console.error("Failed to load simulation:", err);
     error.value = err.message || "Failed to load simulation";

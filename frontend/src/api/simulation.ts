@@ -60,6 +60,21 @@ export interface MetricsUpdate {
   Healthy: number;
 }
 
+export interface AgentPosition {
+  id: number;
+  lat: number;
+  lon: number;
+  healthState: "Healthy" | "Infected" | "Recovered" | "Dead";
+  isQuarantined: boolean;
+}
+
+export interface AgentPositionUpdate {
+  simulationId: number;
+  tick: number;
+  agents: AgentPosition[];
+  timestamp: number;
+}
+
 export type ConnectionStatus =
   | "disconnected"
   | "connecting"

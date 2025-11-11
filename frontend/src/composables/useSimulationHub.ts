@@ -6,6 +6,8 @@ import type {
   TickUpdate,
   MetricsUpdate,
   ConnectionStatus,
+  AgentPosition,
+  AgentPositionUpdate,
 } from "@/api/simulation";
 
 export function useSimulationHub(simulationId: number) {
@@ -20,6 +22,11 @@ export function useSimulationHub(simulationId: number) {
   const latestMetrics = ref<MetricsUpdate | null>(null);
   const currentInterpolatedTick = ref<number>(0);
   const maxComputedTick = ref<number>(0);
+
+  // Agent tracking state
+  const agentPositions = ref<Map<number, AgentPosition>>(new Map());
+  const isTrackingAgents = ref(false);
+  const trackedAgentIds = ref<number[]>([]);
 
   // Interpolation state
   let lastServerTick = 0;
@@ -77,7 +84,7 @@ export function useSimulationHub(simulationId: number) {
 
         // Smooth the estimation using exponential moving average
         // Higher alpha = faster response to changes, lower alpha = smoother
-        const alpha = 0.3;
+        const alpha = 0.4;
         if (estimatedTicksPerSecond === 0) {
           estimatedTicksPerSecond = actualTicksPerSecond;
         } else {
@@ -85,42 +92,29 @@ export function useSimulationHub(simulationId: number) {
             alpha * actualTicksPerSecond +
             (1 - alpha) * estimatedTicksPerSecond;
         }
-
-        console.log(
-          `[SimulationHub] Updated tick rate: ${estimatedTicksPerSecond.toFixed(
-            2
-          )} tps (actual: ${actualTicksPerSecond.toFixed(2)})`
-        );
       }
     } else {
       // First update - use theoretical rate
       estimatedTicksPerSecond = calculateExpectedTickRate();
-      console.log(
-        `[SimulationHub] Initial tick rate: ${estimatedTicksPerSecond.toFixed(
-          4
-        )} tps (theoretical) - ${(estimatedTicksPerSecond * 86400).toFixed(
-          1
-        )} ticks/day`
-      );
     }
 
     // Update tracking variables
     lastServerTick = serverTick;
     lastServerTickTime = now;
     currentInterpolatedTick.value = serverTick;
-
-    console.log(
-      `[SimulationHub] Baseline set - Tick: ${serverTick}, Time: ${now.toFixed(
-        2
-      )}s, Rate: ${estimatedTicksPerSecond.toFixed(4)} tps`
-    );
   };
 
   /**
    * Animation loop for smooth tick interpolation
    */
   const interpolateLoop = () => {
-    if (!currentState.value || currentState.value.status !== "Running") {
+    const status = currentState.value?.status;
+
+    // Only interpolate when running normally
+    if (
+      !currentState.value ||
+      (status !== "Running" && status !== "Computing")
+    ) {
       // Not running, don't interpolate
       interpolationFrameId = requestAnimationFrame(interpolateLoop);
       return;
@@ -135,9 +129,18 @@ export function useSimulationHub(simulationId: number) {
       const ticksElapsed = timeSinceLastUpdate * estimatedTicksPerSecond;
       const interpolatedTick = lastServerTick + ticksElapsed;
 
-      // Update the ref (ensure it's a valid number)
-      if (isFinite(interpolatedTick) && interpolatedTick >= 0) {
-        currentInterpolatedTick.value = interpolatedTick;
+      // Clamp interpolation to not exceed maxComputedTick
+      // This prevents the progress bar from going beyond what's actually computed
+      const clampedTick = Math.min(interpolatedTick, maxComputedTick.value);
+
+      // Only extrapolate up to 150ms ahead (1.5 broadcast intervals)
+      // This prevents runaway interpolation if broadcasts stop
+      const maxExtrapolationTime = 0.15; // seconds
+      if (timeSinceLastUpdate > maxExtrapolationTime) {
+        // Hold at the last known position if haven't received updates
+        currentInterpolatedTick.value = lastServerTick;
+      } else if (isFinite(clampedTick) && clampedTick >= 0) {
+        currentInterpolatedTick.value = clampedTick;
       }
     }
 
@@ -192,6 +195,11 @@ export function useSimulationHub(simulationId: number) {
       hubConnection.on("SimulationState", (data: SimulationState) => {
         console.log("[SimulationHub] Received SimulationState:", data);
 
+        const wasRunning = currentState.value?.status === "Running";
+        const wasComputing = currentState.value?.status === "Computing";
+        const isNowRunning = data.status === "Running";
+        const isNowComputing = data.status === "Computing";
+
         // Set state first, before any calculations that depend on it
         currentState.value = data;
 
@@ -203,22 +211,36 @@ export function useSimulationHub(simulationId: number) {
         // Update interpolation when state changes
         updateInterpolation(data.currentTick);
 
-        // Handle running state
-        if (data.status === "Running") {
-          // Recalculate expected tick rate when speed changes
+        // Handle running state transitions
+        if ((isNowRunning || isNowComputing) && !(wasRunning || wasComputing)) {
+          // Just started running or computing
           const newExpectedRate = calculateExpectedTickRate();
           if (newExpectedRate > 0) {
             estimatedTicksPerSecond = newExpectedRate;
             console.log(
-              `[SimulationHub] Speed changed, new expected rate: ${newExpectedRate.toFixed(
-                4
-              )} tps`
+              `[SimulationHub] Simulation ${
+                data.status
+              }, expected rate: ${newExpectedRate.toFixed(4)} tps`
             );
           }
           startInterpolation();
-        } else {
+        } else if (
+          (isNowRunning || isNowComputing) &&
+          data.speed !== currentState.value?.speed
+        ) {
+          // Speed changed while running
+          const newExpectedRate = calculateExpectedTickRate();
+          if (newExpectedRate > 0) {
+            estimatedTicksPerSecond = newExpectedRate;
+            console.log(
+              `[SimulationHub] Speed changed to ${
+                data.speed
+              }x, new rate: ${newExpectedRate.toFixed(4)} tps`
+            );
+          }
+        } else if (!isNowRunning && !isNowComputing) {
+          // Paused or stopped
           stopInterpolation();
-          // When paused, we don't need a tick rate, but keep the current interpolated value at the server tick
           if (data.currentTick !== undefined) {
             currentInterpolatedTick.value = data.currentTick;
           }
@@ -270,6 +292,30 @@ export function useSimulationHub(simulationId: number) {
         if (onMetricsUpdate.value) {
           onMetricsUpdate.value(data);
         }
+      });
+
+      // Agent position updates
+      hubConnection.on("AgentPositions", (data: AgentPositionUpdate) => {
+        for (const agent of data.agents) {
+          agentPositions.value.set(agent.id, agent);
+        }
+        console.log(data);
+      });
+
+      hubConnection.on(
+        "AgentTrackingStarted",
+        (data: { simulationId: number; agentIds: number[]; count: number }) => {
+          trackedAgentIds.value = data.agentIds;
+          isTrackingAgents.value = true;
+          console.log(`[SimulationHub] Started tracking ${data.count} agents`);
+        }
+      );
+
+      hubConnection.on("AgentTrackingStopped", () => {
+        isTrackingAgents.value = false;
+        agentPositions.value.clear();
+        trackedAgentIds.value = [];
+        console.log("[SimulationHub] Stopped tracking agents");
       });
 
       // Connection state handlers
@@ -364,6 +410,7 @@ export function useSimulationHub(simulationId: number) {
 
     try {
       stopInterpolation();
+      await stopAgentTracking();
       await leaveSimulation();
       await connection.value.stop();
       connection.value = null;
@@ -371,6 +418,51 @@ export function useSimulationHub(simulationId: number) {
       console.log("[SimulationHub] Disconnected");
     } catch (err: any) {
       console.error("[SimulationHub] Error during disconnect:", err);
+    }
+  };
+
+  const startAgentTracking = async (agentCount: number = 1000) => {
+    if (
+      !connection.value ||
+      connection.value.state !== signalR.HubConnectionState.Connected
+    ) {
+      console.warn(
+        "[SimulationHub] Cannot start agent tracking - not connected"
+      );
+      return;
+    }
+
+    try {
+      await connection.value.invoke(
+        "StartAgentTracking",
+        simulationId,
+        agentCount
+      );
+      console.log(
+        `[SimulationHub] Requested tracking for ${agentCount} agents`
+      );
+    } catch (err: any) {
+      console.error("[SimulationHub] Failed to start agent tracking:", err);
+      error.value = err.message || "Failed to start agent tracking";
+    }
+  };
+
+  const stopAgentTracking = async () => {
+    if (
+      !connection.value ||
+      connection.value.state !== signalR.HubConnectionState.Connected
+    ) {
+      return;
+    }
+
+    try {
+      await connection.value.invoke("StopAgentTracking");
+      isTrackingAgents.value = false;
+      agentPositions.value.clear();
+      trackedAgentIds.value = [];
+      console.log("[SimulationHub] Stopped agent tracking");
+    } catch (err: any) {
+      console.error("[SimulationHub] Failed to stop agent tracking:", err);
     }
   };
 
@@ -391,6 +483,11 @@ export function useSimulationHub(simulationId: number) {
     currentInterpolatedTick,
     maxComputedTick,
 
+    // Agent tracking
+    agentPositions,
+    isTrackingAgents,
+    trackedAgentIds,
+
     // Event handlers
     onTickUpdate,
     onMetricsUpdate,
@@ -401,5 +498,7 @@ export function useSimulationHub(simulationId: number) {
     disconnect,
     joinSimulation,
     leaveSimulation,
+    startAgentTracking,
+    stopAgentTracking,
   };
 }

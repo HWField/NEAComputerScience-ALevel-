@@ -16,7 +16,6 @@ namespace MySimulationAPI.SimulationRuntime
         private CancellationTokenSource? _cts;
         private long snapshotIntervalTicks = 0;
         private long metricsIntervalTicks = 0;
-        private long broadcastIntervalTicks = 0;
         public bool IsRunning => _cts != null && !_cts.IsCancellationRequested;
 
         public SimulationEngine(SimulationContext context, IHubContext<SimulationHub> hubContext)
@@ -31,11 +30,19 @@ namespace MySimulationAPI.SimulationRuntime
             snapshotIntervalTicks = (long)(TimeSpan.FromDays(14).TotalSeconds / _context.TickLength);
             // metrics recorded twice every sim day
             metricsIntervalTicks = (long)((TimeSpan.FromDays(1).TotalSeconds / _context.TickLength) / 2);
-            // broadcast updates every 5 sim minutes (1 tick at default settings)
-            broadcastIntervalTicks = 1;
 
             if (_cts != null && !_cts.IsCancellationRequested)
                 return; // already running
+
+            // Set status based on whether computing to a target or running normally
+            if (targetTick.HasValue && targetTick.Value > _context.CurrentTick)
+            {
+                _context.Status = "Computing";
+            }
+            else
+            {
+                _context.Status = "Running";
+            }
 
             _cts = new CancellationTokenSource();
             Task.Run(() => RunAsync(_cts.Token, targetTick));
@@ -61,12 +68,6 @@ namespace MySimulationAPI.SimulationRuntime
                 Tick(); // run simulation logic
                 sw.Stop();
 
-                // Broadcast tick update via SignalR
-                if (_context.CurrentTick % broadcastIntervalTicks == 0)
-                {
-                    await SimulationHub.BroadcastTickUpdate(_hubContext, _context.Simulation.Id, _context.CurrentTick, _context.MaxComputedTick);
-                }
-
                 if (_context.CurrentTick % snapshotIntervalTicks == 0)
                 {
                     await _context.SnapshotManager.SaveSnapshotAsync();
@@ -78,6 +79,8 @@ namespace MySimulationAPI.SimulationRuntime
                 // auto pause on target tick
                 if (targetTick.HasValue && _context.CurrentTick >= targetTick.Value)
                 {
+                    _context.Status = "Paused";
+                    await SimulationHub.BroadcastState(_hubContext, _context.Simulation.Id, _context);
                     Stop();
                     break;
                 }
@@ -124,6 +127,12 @@ namespace MySimulationAPI.SimulationRuntime
             _context.InfectionService.UpdateInfectionTick();
             // Advance simulation time
             _context.CurrentTick++;
+
+            // Track maximum computed tick
+            if (_context.CurrentTick > _context.MaxComputedTick)
+            {
+                _context.MaxComputedTick = _context.CurrentTick;
+            }
         }
     }
 }
