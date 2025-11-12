@@ -95,7 +95,7 @@ namespace MySimulationAPI.SimulationConfiguration
             await SimulationHub.BroadcastState(_hubContext, simulationId, context);
         }
 
-        public async Task SetSpeedAsync(int simulationId, int speedMultiplier)
+        public async Task SetSpeedAsync(int simulationId, double speedMultiplier)
         {
             if (!_contexts.TryGetValue(simulationId, out var context))
             {

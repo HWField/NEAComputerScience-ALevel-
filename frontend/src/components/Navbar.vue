@@ -3,7 +3,8 @@
     <div class="flex-1">
       <a @click="Home" class="btn btn-ghost text-xl">Epedemic simulation</a>
     </div>
-    <div class="flex gap-2">
+    <div class="flex gap-2 items-center">
+      <MidiStatus :showDetails="true" />
       <div class="dropdown dropdown-end">
         <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
           <div class="w-10 rounded-full">
@@ -36,6 +37,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import axios from "../api/axios";
 import { useRouter } from "vue-router";
 import { useToastStore } from "@/stores/useToastStore";
+import MidiStatus from "@/components/MidiStatus.vue";
 
 const toast = useToastStore();
 const router = useRouter();

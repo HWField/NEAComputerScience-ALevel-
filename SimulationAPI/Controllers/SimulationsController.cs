@@ -387,7 +387,7 @@ namespace MySimulationAPI.Controllers
         /// Sets the simulation speed multiplier.
         /// </summary>
         [HttpPost("{id}/speed")]
-        public async Task<IActionResult> SetSpeed(int id, [FromBody] int speedMultiplier)
+        public async Task<IActionResult> SetSpeed(int id, [FromBody] double speedMultiplier)
         {
             var sim = await _db.Simulations.FindAsync(id);
             if (sim == null) return NotFound();

@@ -551,6 +551,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSimulationHub } from "@/composables/useSimulationHub";
+import { useMidiSimulation } from "@/composables/useMidiSimulation";
 import { simulationApi, type SimulationDetail } from "@/api/simulation";
 import SimulationMap from "@/components/SimulationMap.vue";
 
@@ -615,6 +616,10 @@ const maxTick = computed(() => {
   const tickLength = simulationData.value.tickLength; // seconds per tick
   const secondsInYear = 365 * 24 * 60 * 60; // 31,536,000 seconds
   return Math.floor(secondsInYear / tickLength);
+});
+
+const tickLength = computed(() => {
+  return simulationData.value?.tickLength ?? 300; // default 5 min
 });
 
 // Status badge styling
@@ -785,19 +790,25 @@ async function handleUnload() {
   }
 }
 
+// Setup MIDI controls for simulation
+const midiSimulation = useMidiSimulation({
+  simulationId: id,
+  currentTick,
+  maxTick,
+  currentSpeed,
+  tickLength,
+  isRunning,
+  isComputing,
+  onReset: handleReset,
+  onUnload: handleUnload,
+});
+
 onMounted(() => {
   loadSimulation();
 });
 
 onUnmounted(() => {
   disconnect();
-});
-
-// Debug: Watch interpolated tick
-watch(currentInterpolatedTick, (newVal) => {
-  if (!isFinite(newVal)) {
-    console.error("[Simulation] Invalid interpolated tick:", newVal);
-  }
 });
 </script>
 
