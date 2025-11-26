@@ -80,6 +80,7 @@ namespace MySimulationAPI.Services
                     MapAreaPresetId = preset.Id,
                     Type = p.Type,
                     IsOneWay = p.IsOneWay,
+                    SpeedModifier = p.SpeedModifier,
                     OSMId = p.OSMId
                 }).ToList();
 
@@ -95,7 +96,7 @@ namespace MySimulationAPI.Services
             {
                 var nodeEntities = new List<OSMPathNodePreset>();
 
-                foreach (var (pathEntity, originalPath) in pathEntities.Zip(paths))
+                foreach (var (pathEntity, originalPath) in pathEntities.Zip(paths!))  // paths! is safe here due to check above
                 {
                     if (originalPath.Nodes is null || !originalPath.Nodes.Any())
                         continue;
@@ -103,6 +104,7 @@ namespace MySimulationAPI.Services
                     nodeEntities.AddRange(originalPath.Nodes.Select(n => new OSMPathNodePreset
                     {
                         OSMPathPresetId = pathEntity.Id,
+                        OSMNodeId = n.OSMNodeId,
                         Latitude = n.Latitude,
                         Longitude = n.Longitude
                     }));

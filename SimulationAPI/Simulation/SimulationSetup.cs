@@ -237,10 +237,12 @@ namespace MySimulationAPI.SimulationConfiguration
                 IsOneWay = presetPath.IsOneWay,
                 SpeedModifier = presetPath.SpeedModifier,
                 MapAreaId = mapArea.Id,
-                Nodes = presetPath.Nodes.Select(n => new PathNode
+                Nodes = presetPath.Nodes.Select((n, index) => new PathNode
                 {
+                    OSMNodeId = n.OSMNodeId,
                     Lat = n.Latitude,
-                    Lon = n.Longitude
+                    Lon = n.Longitude,
+                    Sequence = index
                 }).ToList()
             }).ToList();
 
@@ -479,7 +481,19 @@ namespace MySimulationAPI.SimulationConfiguration
 
             // Save all routine events to the database
             var routineEvents = agents.SelectMany(a => a.RoutineEvents).ToList();
-            Console.WriteLine($"Generatedr outine events for {agents.Count} agents");
+            Console.WriteLine($"Generated routine events for {agents.Count} agents");
+            Console.WriteLine($"Total routine events: {routineEvents.Count}");
+
+            // Debug: Check first event's path
+            if (routineEvents.Count > 0 && routineEvents[0].CachedPath != null)
+            {
+                var firstPath = routineEvents[0].CachedPath;
+                Console.WriteLine($"[DEBUG] First routine event path has {firstPath.Count} nodes");
+                if (firstPath.Count > 0)
+                {
+                    Console.WriteLine($"[DEBUG] First node: ({firstPath[0].Lat}, {firstPath[0].Lon})");
+                }
+            }
 
             // Set up bulk config for routine events
             var routineEventConfig = new BulkConfig
@@ -511,6 +525,8 @@ namespace MySimulationAPI.SimulationConfiguration
             {
                 throw;
             }
+            await _simulationManager.RemoveAsync(simulationId);
+            Console.WriteLine($"Unloaded simulation {simulationId} from memory after population setup");
         }
 
 

@@ -34,18 +34,21 @@ namespace MySimulationAPI.SimulationConfiguration
         public RoutineEventState[] RoutineStates { get; private set; } = Array.Empty<RoutineEventState>();
 
         // Runtime services (one created per simulation context so that caches etc can be related)
-        public BuildingService BuildingService { get; }
-        public RoutingService RoutingService { get; }
+        public BuildingService BuildingService { get; private set; }
+        public RoutingService RoutingService { get; private set; }
         public SnapshotManager SnapshotManager { get; }
         public MetricManager MetricsManager { get; }
-        public AgentService AgentService { get; }
+        public AgentService AgentService { get; private set; }
         public InfectionService InfectionService { get; }
         public SimulationEngine Engine { get; }
+
+        private readonly IHubContext<SimulationHub> _hubContext;
 
         public SimulationContext(Simulation simulation, IDbContextFactory<SimDbContext> dbFactory, IHubContext<SimulationHub> hubContext)
         {
             Simulation = simulation;
             DbFactory = dbFactory;
+            _hubContext = hubContext;
             Rng = new Random(simulation.Id); // deterministic seed
             TickLength = Simulation.TickLength;
             Status = "Loaded";
@@ -108,6 +111,10 @@ namespace MySimulationAPI.SimulationConfiguration
                 .Include(p => p.Nodes)
                 .AsNoTracking()
                 .ToList();
+
+            RoutingService = new RoutingService(this);
+            BuildingService = new BuildingService(this);
+            AgentService = new AgentService(this);
         }
 
         public async Task SaveAsync()

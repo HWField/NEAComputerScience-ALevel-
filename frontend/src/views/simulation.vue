@@ -448,30 +448,31 @@
             <!-- Timeline Slider -->
             <div class="relative mb-6">
               <!-- Custom Multi-Track Slider -->
-              <div class="relative h-2 w-full rounded-full bg-base-300">
-                <!-- Past/Current Track (Bright Color) -->
+              <div class="relative h-3 w-full rounded-full bg-base-300">
+                <!-- Pre-computed Track (Ghost/Background Layer) -->
                 <div
-                  class="absolute h-full rounded-full bg-primary"
+                  v-if="maxComputedTick > 0"
+                  class="absolute h-full rounded-full pointer-events-none"
+                  :class="
+                    isComputing
+                      ? 'bg-info/20 border-2 border-info/40'
+                      : 'bg-warning/20 border-2 border-warning/40'
+                  "
+                  :style="{
+                    width: `${(maxComputedTick / maxTick) * 100}%`,
+                    transition: 'width 200ms ease-out',
+                  }"
+                ></div>
+
+                <!-- Current Progress Track (Foreground Layer) -->
+                <div
+                  class="absolute h-full rounded-full pointer-events-none"
+                  :class="isComputing ? 'bg-info' : 'bg-warning'"
                   :style="{
                     width: `${(currentTick / maxTick) * 100}%`,
                     transition: isRunning
                       ? 'width 100ms linear'
                       : 'width 200ms ease-out',
-                  }"
-                ></div>
-
-                <!-- Pre-computed Track (Outlined/Ghost) -->
-                <div
-                  v-if="maxComputedTick > currentTick"
-                  class="absolute h-full rounded-full border-2 border-primary/40 bg-primary/10"
-                  :style="{
-                    left: `${(currentTick / maxTick) * 100}%`,
-                    width: `${
-                      ((maxComputedTick - currentTick) / maxTick) * 100
-                    }%`,
-                    transition: isRunning
-                      ? 'left 100ms linear, width 100ms linear'
-                      : 'left 200ms ease-out, width 200ms ease-out',
                   }"
                 ></div>
 
@@ -494,14 +495,28 @@
               >
                 <span>Start</span>
                 <span class="flex flex-col items-center gap-1">
-                  <span class="text-primary font-medium">Current</span>
+                  <span
+                    :class="
+                      isComputing
+                        ? 'text-info font-medium'
+                        : 'text-warning font-medium'
+                    "
+                    >Current</span
+                  >
                   <span>{{ formatTime(currentTick) }}</span>
                 </span>
                 <span
                   v-if="maxComputedTick > 0"
                   class="flex flex-col items-center gap-1"
                 >
-                  <span class="text-primary/60 font-medium">Computed</span>
+                  <span
+                    :class="
+                      isComputing
+                        ? 'text-info/60 font-medium'
+                        : 'text-warning/60 font-medium'
+                    "
+                    >Computed</span
+                  >
                   <span>{{ formatTime(maxComputedTick) }}</span>
                 </span>
                 <span class="flex flex-col items-center gap-1">
@@ -813,72 +828,85 @@ watch(currentInterpolatedTick, (newVal) => {
   left: 0;
   width: 100%;
   height: 100%;
-  opacity: 0;
   cursor: pointer;
   z-index: 10;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  margin: 0;
 }
 
+/* Chrome/Safari slider track */
+.timeline-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/* Chrome/Safari slider thumb */
 .timeline-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: hsl(var(--p));
+  background: hsl(var(--wa));
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   border: 3px solid hsl(var(--b1));
-  opacity: 1;
   position: relative;
-  z-index: 20;
+  margin-top: -8.5px; /* Center the thumb vertically */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Firefox slider track */
+.timeline-slider::-moz-range-track {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/* Firefox slider thumb */
 .timeline-slider::-moz-range-thumb {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: hsl(var(--p));
+  background: hsl(var(--wa));
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   border: 3px solid hsl(var(--b1));
-  opacity: 1;
-  position: relative;
-  z-index: 20;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Hover effects */
 .timeline-slider:hover::-webkit-slider-thumb {
-  transform: scale(1.1);
+  transform: scale(1.15);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
 }
 
 .timeline-slider:hover::-moz-range-thumb {
-  transform: scale(1.1);
+  transform: scale(1.15);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Disabled state */
+.timeline-slider:disabled {
+  cursor: not-allowed;
 }
 
 .timeline-slider:disabled::-webkit-slider-thumb {
   cursor: not-allowed;
   opacity: 0.5;
+  background: hsl(var(--b3));
 }
 
 .timeline-slider:disabled::-moz-range-thumb {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-/* Make the slider thumb visible */
-.timeline-slider {
-  opacity: 1;
-  background: transparent;
-}
-
-.timeline-slider::-webkit-slider-runnable-track {
-  background: transparent;
-  height: 100%;
-}
-
-.timeline-slider::-moz-range-track {
-  background: transparent;
-  height: 100%;
+  background: hsl(var(--b3));
 }
 </style>

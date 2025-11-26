@@ -12,14 +12,14 @@ namespace MySimulationAPI.Services
     // -----------------------------
     public class Node
     {
-        public int Id { get; init; }
+        public long Id { get; init; }
         public double Lat { get; init; }
         public double Lon { get; init; }
     }
 
     public class Edge
     {
-        public int ToId { get; init; }
+        public long ToId { get; init; }
         public double DistanceMeters { get; init; }
         public double SpeedModifier { get; init; } = 1.0;
         public int PathId { get; init; }
@@ -32,10 +32,10 @@ namespace MySimulationAPI.Services
     {
         private readonly double _minLon, _minLat, _cellSize;
         private readonly int _cols, _rows;
-        private readonly List<int>[][] _cells;
-        private readonly IReadOnlyDictionary<int, Node> _nodes;
+        private readonly List<long>[][] _cells;  // Changed from int to long
+        private readonly IReadOnlyDictionary<long, Node> _nodes;  // Changed from int to long
 
-        public NodeGridIndex(IReadOnlyDictionary<int, Node> nodes,
+        public NodeGridIndex(IReadOnlyDictionary<long, Node> nodes,  // Changed from int to long
                              double minLon, double minLat,
                              double cellSizeDegrees, int cols, int rows)
         {
@@ -47,7 +47,7 @@ namespace MySimulationAPI.Services
             _rows = rows;
 
             _cells = Enumerable.Range(0, _cols)
-                .Select(_ => Enumerable.Range(0, _rows).Select(__ => new List<int>()).ToArray())
+                .Select(_ => Enumerable.Range(0, _rows).Select(__ => new List<long>()).ToArray())  // Changed from int to long
                 .ToArray();
 
             foreach (var kv in nodes)
@@ -66,10 +66,10 @@ namespace MySimulationAPI.Services
             return (cx, cy);
         }
 
-        public int FindNearestNodeId(double lat, double lon, double radiusMeters = 1000)
+        public long FindNearestNodeId(double lat, double lon, double radiusMeters = 1000)  // Changed return from int to long
         {
             var (cx, cy) = ToCell(lon, lat);
-            var bestId = -1;
+            var bestId = -1L;  // Changed from -1 to -1L for long
             double bestSq = double.MaxValue;
             var radiusCells = Math.Max(1, (int)Math.Ceiling((radiusMeters / 111000.0) / _cellSize));
 
@@ -121,10 +121,10 @@ namespace MySimulationAPI.Services
     public class RoutingService
     {
         private readonly SimulationContext _context;
-        private readonly Dictionary<int, Node> _nodes;
-        private readonly Dictionary<int, List<Edge>> _graph;
+        private readonly Dictionary<long, Node> _nodes;  // Changed from int to long
+        private readonly Dictionary<long, List<Edge>> _graph;  // Changed from int to long
         private readonly NodeGridIndex _grid;
-        private readonly ConcurrentDictionary<(int, int), List<int>> _routeCache = new();
+        private readonly ConcurrentDictionary<(long, long), List<long>> _routeCache = new();  // Changed from int to long
 
         public RoutingService(SimulationContext context)
         {
@@ -143,40 +143,50 @@ namespace MySimulationAPI.Services
         // -----------------------------
         // Graph Construction
         // -----------------------------
-        private static Dictionary<int, Node> BuildNodeDictionary(ICollection<Models.Path> paths)
+        private static Dictionary<long, Node> BuildNodeDictionary(ICollection<Models.Path> paths)  // Changed from int to long
         {
-            var dict = new Dictionary<int, Node>();
+            var dict = new Dictionary<long, Node>();  // Changed from int to long
             foreach (var path in paths)
             {
-                foreach (var n in path.Nodes)
+                foreach (var pathNode in path.Nodes)
                 {
-                    if (!dict.ContainsKey(n.Id))
+                    long nodeKey = pathNode.OSMNodeId;  // Changed from int cast to long (no cast needed)
+                    if (!dict.ContainsKey(nodeKey))
                     {
-                        dict[n.Id] = new Node { Id = n.Id, Lat = n.Lat, Lon = n.Lon };
+                        dict[nodeKey] = new Node
+                        {
+                            Id = nodeKey,
+                            Lat = pathNode.Lat,
+                            Lon = pathNode.Lon
+                        };
                     }
                 }
             }
             return dict;
         }
-
-        private static Dictionary<int, List<Edge>> BuildGraph(ICollection<Models.Path> paths, Dictionary<int, Node> nodes)
+        private static Dictionary<long, List<Edge>> BuildGraph(ICollection<Models.Path> paths, Dictionary<long, Node> nodes)  // Changed from int to long
         {
-            var graph = new Dictionary<int, List<Edge>>();
+            var graph = new Dictionary<long, List<Edge>>();  // Changed from int to long
             foreach (var node in nodes.Values)
                 graph[node.Id] = new List<Edge>();
 
             foreach (var path in paths)
             {
-                var nodeList = path.Nodes.OrderBy(n => n.Id).ToList();
+                var nodeList = path.Nodes.OrderBy(n => n.Sequence).ToList();
                 for (int i = 0; i < nodeList.Count - 1; i++)
                 {
                     var n1 = nodeList[i];
                     var n2 = nodeList[i + 1];
+
+                    // Use OSMNodeId to look up nodes in the graph (not the database Id)
+                    long n1Key = n1.OSMNodeId;  // Changed from int cast to long
+                    long n2Key = n2.OSMNodeId;  // Changed from int cast to long
+
                     var distance = HaversineMeters(n1.Lat, n1.Lon, n2.Lat, n2.Lon);
 
-                    graph[n1.Id].Add(new Edge
+                    graph[n1Key].Add(new Edge
                     {
-                        ToId = n2.Id,
+                        ToId = n2Key,
                         DistanceMeters = distance,
                         SpeedModifier = path.SpeedModifier,
                         PathId = path.Id
@@ -184,9 +194,9 @@ namespace MySimulationAPI.Services
 
                     if (!path.IsOneWay)
                     {
-                        graph[n2.Id].Add(new Edge
+                        graph[n2Key].Add(new Edge
                         {
-                            ToId = n1.Id,
+                            ToId = n1Key,
                             DistanceMeters = distance,
                             SpeedModifier = path.SpeedModifier,
                             PathId = path.Id
@@ -194,10 +204,15 @@ namespace MySimulationAPI.Services
                     }
                 }
             }
+            Console.WriteLine($"[Routing] Loaded {nodes.Count} unique nodes");
+            Console.WriteLine($"[Routing] Graph has {graph.Sum(kvp => kvp.Value.Count)} directed edges");
+            var disconnected = nodes.Keys.Where(id => !graph.ContainsKey(id) || graph[id].Count == 0).Count();
+            Console.WriteLine($"[Routing] {disconnected} disconnected nodes");
+
             return graph;
         }
 
-        private static NodeGridIndex BuildGrid(Dictionary<int, Node> nodes)
+        private static NodeGridIndex BuildGrid(Dictionary<long, Node> nodes)  // Changed from int to long
         {
             double minLat = nodes.Values.Min(n => n.Lat);
             double minLon = nodes.Values.Min(n => n.Lon);
@@ -214,32 +229,37 @@ namespace MySimulationAPI.Services
         // -----------------------------
         // Public Route Computation
         // -----------------------------
-        public ((double Lat, double Lon)[]? path, int travelTime) ComputeRoute(
-    double startLat, double startLon,
-    double endLat, double endLon,
-    double avgSpeedMph = 3.0)
+        public (List<(double Lat, double Lon)>? path, int travelTime) ComputeRoute(
+            double startLat, double startLon,
+            double endLat, double endLon,
+            double avgSpeedMph = 3.0)
         {
-            int startId = _grid.FindNearestNodeId(startLat, startLon);
-            int endId = _grid.FindNearestNodeId(endLat, endLon);
+            long startId = _grid.FindNearestNodeId(startLat, startLon);  // Changed from int to long
+            long endId = _grid.FindNearestNodeId(endLat, endLon);  // Changed from int to long
 
-            if (startId == -1 || endId == -1)
-                return (null, 0);
+            if (startId == -1L || endId == -1L)  // Changed from -1 to -1L
+            {
+                // Fallback: create direct path. should rarely happen
+                return CreateDirectPath(startLat, startLon, endLat, endLon, avgSpeedMph);
+            }
 
             var pathNodeIds = FindPathAStar(startId, endId);
             if (pathNodeIds == null || pathNodeIds.Count < 2)
-                return (null, 0);
+            {
+                return CreateDirectPath(startLat, startLon, endLat, endLon, avgSpeedMph);
+            }
 
-            // Convert node IDs to coordinate array
-            var pathCoords = new (double Lat, double Lon)[pathNodeIds.Count];
+            // Convert node IDs to coordinate list
+            var pathCoords = new List<(double Lat, double Lon)>(pathNodeIds.Count);
             for (int i = 0; i < pathNodeIds.Count; i++)
             {
                 var node = _nodes[pathNodeIds[i]];
-                pathCoords[i] = (node.Lat, node.Lon);
+                pathCoords.Add((node.Lat, node.Lon));
             }
 
             // Compute total route distance
             double totalDistance = 0;
-            for (int i = 0; i < pathCoords.Length - 1; i++)
+            for (int i = 0; i < pathCoords.Count - 1; i++)
             {
                 totalDistance += HaversineMeters(
                     pathCoords[i].Lat, pathCoords[i].Lon,
@@ -253,10 +273,29 @@ namespace MySimulationAPI.Services
             return (pathCoords, travelTime);
         }
 
+        // Create a simple direct path when graph routing fails
+        private (List<(double Lat, double Lon)> path, int travelTime) CreateDirectPath(
+            double startLat, double startLon,
+            double endLat, double endLon,
+            double avgSpeedMph)
+        {
+            var path = new List<(double Lat, double Lon)>
+            {
+                (startLat, startLon),
+                (endLat, endLon)
+            };
+
+            double distance = HaversineMeters(startLat, startLon, endLat, endLon);
+            var speedMps = avgSpeedMph * 0.44704;
+            var travelTime = (int)Math.Round(distance / speedMps);
+
+            return (path, travelTime);
+        }
+
         // -----------------------------
         // A* Search Implementation
         // -----------------------------
-        private List<int>? FindPathAStar(int startId, int endId)
+        private List<long>? FindPathAStar(long startId, long endId)  // Changed from int to long
         {
             var key = (startId, endId);
             if (_routeCache.TryGetValue(key, out var cached))
@@ -264,10 +303,10 @@ namespace MySimulationAPI.Services
 
             if (!_graph.TryGetValue(startId, out _)) return null;
 
-            var open = new PriorityQueue<int, double>();
-            var gScore = new Dictionary<int, double> { [startId] = 0 };
-            var fScore = new Dictionary<int, double> { [startId] = HeuristicMeters(_nodes[startId], _nodes[endId]) };
-            var cameFrom = new Dictionary<int, int>();
+            var open = new PriorityQueue<long, double>();  // Changed from int to long
+            var gScore = new Dictionary<long, double> { [startId] = 0 };  // Changed from int to long
+            var fScore = new Dictionary<long, double> { [startId] = HeuristicMeters(_nodes[startId], _nodes[endId]) };  // Changed from int to long
+            var cameFrom = new Dictionary<long, long>();  // Changed from int to long
 
             open.Enqueue(startId, fScore[startId]);
 
@@ -299,9 +338,9 @@ namespace MySimulationAPI.Services
             return null;
         }
 
-        private static List<int> ReconstructPath(Dictionary<int, int> cameFrom, int current)
+        private static List<long> ReconstructPath(Dictionary<long, long> cameFrom, long current)  // Changed from int to long
         {
-            var path = new List<int> { current };
+            var path = new List<long> { current };  // Changed from int to long
             while (cameFrom.TryGetValue(current, out var prev))
             {
                 current = prev;

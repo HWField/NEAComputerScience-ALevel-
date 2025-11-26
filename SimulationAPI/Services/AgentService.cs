@@ -24,11 +24,12 @@ namespace MySimulationAPI.Services
             var rng = _context.Rng;
             var buildingService = _context.BuildingService;
             var routingService = _context.RoutingService;
-            // local location tracker used whilst calcuating routes
-            (double curLat, double curLon) = (agent.House.Latitude, agent.House.Longitude);
 
             if (agent.House == null)
                 throw new InvalidOperationException("Agent must have a home assigned.");
+
+            // local location tracker used whilst calcuating routes
+            (double curLat, double curLon) = (agent.House.Latitude, agent.House.Longitude);
 
             // ------------------------------
             // Local helper: add a routine event
@@ -36,9 +37,22 @@ namespace MySimulationAPI.Services
             void AddRoutineEvent(int day, TimeOnly start, TimeSpan duration, RoutineEventType type, Building target)
             {
                 var (path, travelTime) = routingService.ComputeRoute(
-       curLat, curLon,
-       target.Latitude, target.Longitude
-   );
+                    curLat, curLon,
+                    target.Latitude, target.Longitude
+                );
+
+                // Debug: Log the first path generation
+                if (events.Count == 0)
+                {
+                    Console.WriteLine($"[AgentService] First route computed:");
+                    Console.WriteLine($"  - Path nodes: {path?.Count ?? 0}");
+                    if (path != null && path.Count > 0)
+                    {
+                        Console.WriteLine($"  - First node: ({path[0].Lat}, {path[0].Lon})");
+                        Console.WriteLine($"  - Last node: ({path[^1].Lat}, {path[^1].Lon})");
+                    }
+                    Console.WriteLine($"  - Travel time: {travelTime}s");
+                }
 
                 events.Add(new RoutineEvent
                 {
@@ -50,7 +64,6 @@ namespace MySimulationAPI.Services
                     CachedTravelDuration = travelTime,
                     CachedPath = path
                 });
-
 
                 // Move agent location so that next route is calculated from here
                 curLat = target.Latitude;

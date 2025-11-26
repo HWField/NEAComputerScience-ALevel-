@@ -14,7 +14,7 @@ namespace MySimulationAPI.Models
         public int BuildingId { get; set; }
         public Building Building { get; set; } = null!;
         public RoutineEventType EventType { get; set; }
-        public (double Lat, double Lon)[]? CachedPath { get; set; }
+        public List<(double Lat, double Lon)>? CachedPath { get; set; }
         public int CachedTravelDuration { get; set; } //stored in seconds
     }
     public enum RoutineEventType

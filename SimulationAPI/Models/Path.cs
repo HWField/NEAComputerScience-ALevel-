@@ -25,12 +25,12 @@ namespace MySimulationAPI.Models
     public class PathNode
     {
         public int Id { get; set; }
+        public long OSMNodeId { get; set; }
         public double Lat { get; set; }
         public double Lon { get; set; }
-
+        public int Sequence { get; set; } // Order in the path
         public int PathId { get; set; }
         public Models.Path Path { get; set; } = null!;
-        // For graph traversal: paths that connect here
         public List<Path> ConnectedPaths { get; set; } = new();
     }
 

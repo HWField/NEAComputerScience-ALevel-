@@ -223,15 +223,16 @@ out center;
         {
             double radiusMeters = radiusKm * 1000;
             string query = $@"
-            [out:json];
-            (
-            way(around:{radiusMeters},{lat},{lon})[highway];
-            way(around:{radiusMeters},{lat},{lon})[footway];
-            way(around:{radiusMeters},{lat},{lon})[path];
-            way(around:{radiusMeters},{lat},{lon})[cycleway];
-            );
-            out geom;
-            ";
+[out:json];
+(
+  way(around:{radiusMeters},{lat},{lon})[highway];
+  way(around:{radiusMeters},{lat},{lon})[footway];
+  way(around:{radiusMeters},{lat},{lon})[path];
+  way(around:{radiusMeters},{lat},{lon})[cycleway];
+);
+(._;>;);
+out body;
+";
 
             using var response = await _http.GetAsync(
                 "https://overpass-api.de/api/interpreter?data=" + Uri.EscapeDataString(query),
@@ -242,48 +243,106 @@ out center;
             await using var stream = await response.Content.ReadAsStreamAsync();
             var osmResponse = await JsonSerializer.DeserializeAsync<OverpassResponse>(stream);
 
-            var paths = new ConcurrentBag<OSMPathPreset>();
-            if (osmResponse?.Elements == null) return paths.ToList();
+            if (osmResponse?.Elements == null) return new List<OSMPathPreset>();
 
-            Parallel.ForEach(osmResponse.Elements, el =>
+            // Separate nodes and ways from the response
+            var nodeDict = new Dictionary<long, (double Lat, double Lon)>();
+            var ways = new List<Element>();
+
+            foreach (var el in osmResponse.Elements)
             {
-                if (el.Geometry == null || el.Geometry.Count < 2) return;
+                if (el.Type == "node" && el.Id.HasValue && el.Lat.HasValue && el.Lon.HasValue)
+                {
+                    nodeDict[el.Id.Value] = (el.Lat.Value, el.Lon.Value);
+                }
+                else if (el.Type == "way")
+                {
+                    ways.Add(el);
+                }
+            }
+
+            Console.WriteLine($"[OSM] Fetched {nodeDict.Count} unique nodes and {ways.Count} ways");
+
+            var paths = new ConcurrentBag<OSMPathPreset>();
+
+            Parallel.ForEach(ways, way =>
+            {
+                if (way.Nodes == null || way.Nodes.Count < 2) return;
 
                 string pathType = "Road";
                 bool isOneWay = false;
+                double speedModifier = 1.0;
 
-                if (el.Tags != null)
+                if (way.Tags != null)
                 {
-                    if (!string.IsNullOrEmpty(el.Tags.Highway))
-                        pathType = el.Tags.Highway switch
+                    if (!string.IsNullOrEmpty(way.Tags.Highway))
+                    {
+                        pathType = way.Tags.Highway switch
                         {
-                            "footway" or "path" or "pedestrian" => "Footpath",
+                            "footway" or "path" or "pedestrian" or "steps" => "Walkway",
                             "cycleway" => "Cycleway",
-                            "motorway" or "trunk" or "primary" or "secondary" => "MainRoad",
+                            "motorway" or "trunk" => "Motorway",
+                            "primary" or "secondary" => "Road",
+                            "residential" or "tertiary" or "unclassified" => "Residential",
+                            "service" or "track" => "Residential",
                             _ => "Road"
                         };
-                    else if (!string.IsNullOrEmpty(el.Tags.Footway)) pathType = "Footpath";
-                    else if (!string.IsNullOrEmpty(el.Tags.Cycleway)) pathType = "Cycleway";
 
-                    if (!string.IsNullOrEmpty(el.Tags.Oneway))
-                        isOneWay = el.Tags.Oneway is "yes" or "1" or "true";
+                        // Set speed modifiers based on road type
+                        speedModifier = way.Tags.Highway switch
+                        {
+                            "motorway" or "trunk" => 2.0,      // Fast roads
+                            "primary" or "secondary" => 1.5,    // Main roads
+                            "residential" or "tertiary" => 1.0, // Normal roads
+                            "service" or "track" => 0.8,        // Slow roads
+                            "footway" or "path" or "pedestrian" => 0.6, // Walking paths
+                            _ => 1.0
+                        };
+                    }
+                    else if (!string.IsNullOrEmpty(way.Tags.Footway))
+                    {
+                        pathType = "Walkway";
+                        speedModifier = 0.6;
+                    }
+                    else if (!string.IsNullOrEmpty(way.Tags.Cycleway))
+                    {
+                        pathType = "Cycleway";
+                        speedModifier = 1.2;
+                    }
+
+                    if (!string.IsNullOrEmpty(way.Tags.Oneway))
+                        isOneWay = way.Tags.Oneway is "yes" or "1" or "true";
                 }
 
-                var nodes = el.Geometry.Select(g => new OSMPathNodePreset
+                // Build ordered list of nodes with their coordinates
+                var pathNodes = new List<OSMPathNodePreset>();
+                foreach (var nodeRef in way.Nodes)
                 {
-                    Latitude = g.Lat,
-                    Longitude = g.Lon
-                }).ToList();
+                    if (nodeDict.TryGetValue(nodeRef, out var coords))
+                    {
+                        pathNodes.Add(new OSMPathNodePreset
+                        {
+                            // CRITICAL: Store the OSM node ID so we can identify shared nodes
+                            OSMNodeId = nodeRef,  // This is the key to graph connectivity!
+                            Latitude = coords.Lat,
+                            Longitude = coords.Lon
+                        });
+                    }
+                }
+
+                if (pathNodes.Count < 2) return;
 
                 paths.Add(new OSMPathPreset
                 {
-                    OSMId = el.Id.ToString(),
+                    OSMId = way.Id?.ToString() ?? "unknown",
                     Type = pathType,
                     IsOneWay = isOneWay,
-                    Nodes = nodes
+                    SpeedModifier = speedModifier,
+                    Nodes = pathNodes
                 });
             });
 
+            Console.WriteLine($"[OSM] Created {paths.Count} path segments");
             return paths.ToList();
         }
 
@@ -305,6 +364,9 @@ out center;
 
     public class Element
     {
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
         [JsonPropertyName("id")]
         public long? Id { get; set; }
 
@@ -322,6 +384,9 @@ out center;
 
         [JsonPropertyName("geometry")]
         public List<GeometryPoint>? Geometry { get; set; }
+
+        [JsonPropertyName("nodes")]
+        public List<long>? Nodes { get; set; }
     }
 
     public class Center

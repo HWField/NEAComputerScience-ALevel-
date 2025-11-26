@@ -59,14 +59,19 @@ namespace MySimulationAPI.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Need to configure the conversion for CachedPath property as it stores a complex type (non primative)
+            var jsonOptions = new JsonSerializerOptions
+            {
+                IncludeFields = true  // This enables serialization of tuple fields (Item1, Item2)
+            };
+
             modelBuilder.Entity<RoutineEvent>()
                 .Property(e => e.CachedPath)
                 .HasConversion(
-                    // Serialize the tuple array to JSON
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    // Deserialize JSON back to tuple array
-                    v => JsonSerializer.Deserialize<(double Lat, double Lon)[]>(v, (JsonSerializerOptions?)null)
-                        ?? Array.Empty<(double, double)>()
+                    // Serialize the List to JSON with proper tuple support
+                    v => JsonSerializer.Serialize(v, jsonOptions),
+                    // Deserialize JSON back to List
+                    v => JsonSerializer.Deserialize<List<(double Lat, double Lon)>>(v, jsonOptions)
+                        ?? new List<(double, double)>()
                 )
                 .HasColumnType("jsonb");
 

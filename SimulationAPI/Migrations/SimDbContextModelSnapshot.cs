@@ -416,6 +416,9 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("Longitude")
                         .HasColumnType("double precision");
 
+                    b.Property<long>("OSMNodeId")
+                        .HasColumnType("bigint");
+
                     b.Property<int>("OSMPathPresetId")
                         .HasColumnType("integer");
 
@@ -503,7 +506,13 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("Lon")
                         .HasColumnType("double precision");
 
+                    b.Property<long>("OSMNodeId")
+                        .HasColumnType("bigint");
+
                     b.Property<int>("PathId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Sequence")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");

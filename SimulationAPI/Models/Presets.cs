@@ -45,6 +45,7 @@ namespace MySimulationAPI.Models
     public class OSMPathNodePreset
     {
         public int Id { get; set; }
+        public long OSMNodeId { get; set; }
         public double Latitude { get; set; }
         public double Longitude { get; set; }
         public int OSMPathPresetId { get; set; }
