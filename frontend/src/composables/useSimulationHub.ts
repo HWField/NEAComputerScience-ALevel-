@@ -282,12 +282,12 @@ export function useSimulationHub(simulationId: number) {
       hubConnection.on("MetricsUpdate", (data: MetricsUpdate) => {
         latestMetrics.value = data;
 
-        if (data.currentTick > maxComputedTick.value) {
-          maxComputedTick.value = data.currentTick;
+        if (data.tick > maxComputedTick.value) {
+          maxComputedTick.value = data.tick;
         }
 
-        // Metrics also contain currentTick, use it to refine interpolation
-        updateInterpolation(data.currentTick);
+        // Metrics also contain tick, use it to refine interpolation
+        updateInterpolation(data.tick);
 
         if (onMetricsUpdate.value) {
           onMetricsUpdate.value(data);

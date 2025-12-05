@@ -14,14 +14,14 @@ namespace MySimulationAPI.Hubs
     {
         private readonly SimulationManager _simulationManager;
         private readonly IDbContextFactory<SimDbContext> _dbFactory;
-        private readonly AgentTrackingService _agentTrackingService;
+        private readonly SimulationBroadcastService _simulationBroadcastService;
         private static readonly ConcurrentDictionary<string, int> _connectionSimulations = new();
 
-        public SimulationHub(SimulationManager simulationManager, IDbContextFactory<SimDbContext> dbFactory, AgentTrackingService agentTrackingService)
+        public SimulationHub(SimulationManager simulationManager, IDbContextFactory<SimDbContext> dbFactory, SimulationBroadcastService simulationBroadcastService)
         {
             _simulationManager = simulationManager;
             _dbFactory = dbFactory;
-            _agentTrackingService = agentTrackingService;
+            _simulationBroadcastService = simulationBroadcastService;
         }
 
         private int GetUserId() => int.Parse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
@@ -42,7 +42,7 @@ namespace MySimulationAPI.Hubs
             }
 
             // Remove agent tracking for this client
-            _agentTrackingService.RemoveClientTracking(Context.ConnectionId);
+            _simulationBroadcastService.RemoveClientTracking(Context.ConnectionId);
 
             await base.OnDisconnectedAsync(exception);
         }
@@ -90,7 +90,7 @@ namespace MySimulationAPI.Hubs
         {
             _connectionSimulations.TryRemove(Context.ConnectionId, out _);
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Simulation_{simulationId}");
-            _agentTrackingService.RemoveClientTracking(Context.ConnectionId);
+            _simulationBroadcastService.RemoveClientTracking(Context.ConnectionId);
         }
 
 
@@ -120,7 +120,7 @@ namespace MySimulationAPI.Hubs
             }
 
             // Allocate agents to the client
-            var allocatedAgentIds = _agentTrackingService.AllocateAgentsToClient(
+            var allocatedAgentIds = _simulationBroadcastService.AllocateAgentsToClient(
                 Context.ConnectionId,
                 simulationId,
                 context,
@@ -139,7 +139,7 @@ namespace MySimulationAPI.Hubs
 
         public async Task StopAgentTracking()
         {
-            _agentTrackingService.RemoveClientTracking(Context.ConnectionId);
+            _simulationBroadcastService.RemoveClientTracking(Context.ConnectionId);
             await Clients.Caller.SendAsync("AgentTrackingStopped");
         }
 

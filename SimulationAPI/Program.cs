@@ -25,7 +25,7 @@ builder.Services.AddDbContextFactory<SimDbContext>(options =>
 
 // Centralised service registrations
 builder.Services.AddSingleton<SimulationManager>();
-builder.Services.AddSingleton<AgentTrackingService>();
+builder.Services.AddSingleton<SimulationBroadcastService>();
 builder.Services.AddControllers();
 builder.Services.AddScoped<OsmService>();
 builder.Services.AddScoped<PresetService>();

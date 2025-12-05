@@ -51,13 +51,13 @@ export interface TickUpdate {
 }
 
 export interface MetricsUpdate {
-  currentTick: number;
-  TotalAgents: number;
-  Infected: number;
-  Recovered: number;
-  Dead: number;
-  Quarantined: number;
-  Healthy: number;
+  tick: number;
+  totalAgents: number;
+  infected: number;
+  recovered: number;
+  dead: number;
+  quarantined: number;
+  healthy: number;
 }
 
 export interface AgentPosition {

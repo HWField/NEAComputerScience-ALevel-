@@ -163,7 +163,7 @@
                   <div class="stat-value text-2xl">
                     {{
                       formatNumber(
-                        metrics?.TotalAgents || simulationData?.agentCount || 0
+                        metrics?.totalAgents || simulationData?.agentCount || 0
                       )
                     }}
                   </div>
@@ -177,7 +177,7 @@
                       Healthy
                     </span>
                     <span class="font-bold text-success">{{
-                      formatNumber(metrics?.Healthy || 0)
+                      formatNumber(metrics?.healthy || 0)
                     }}</span>
                   </div>
                   <div class="flex justify-between items-center">
@@ -186,7 +186,7 @@
                       Infected
                     </span>
                     <span class="font-bold text-error">{{
-                      formatNumber(metrics?.Infected || 0)
+                      formatNumber(metrics?.infected || 0)
                     }}</span>
                   </div>
                   <div class="flex justify-between items-center">
@@ -195,7 +195,7 @@
                       Recovered
                     </span>
                     <span class="font-bold text-info">{{
-                      formatNumber(metrics?.Recovered || 0)
+                      formatNumber(metrics?.recovered || 0)
                     }}</span>
                   </div>
                   <div class="flex justify-between items-center">
@@ -204,7 +204,7 @@
                       Deceased
                     </span>
                     <span class="font-bold text-base-content/70">{{
-                      formatNumber(metrics?.Dead || 0)
+                      formatNumber(metrics?.dead || 0)
                     }}</span>
                   </div>
                   <div class="flex justify-between items-center">
@@ -213,7 +213,7 @@
                       Quarantined
                     </span>
                     <span class="font-bold text-warning">{{
-                      formatNumber(metrics?.Quarantined || 0)
+                      formatNumber(metrics?.quarantined || 0)
                     }}</span>
                   </div>
                 </div>
@@ -656,15 +656,15 @@ const formattedTime = computed(() => {
 });
 
 const infectionRate = computed(() => {
-  if (!metrics.value || metrics.value.TotalAgents === 0) return 0;
-  return ((metrics.value.Infected / metrics.value.TotalAgents) * 100).toFixed(
+  if (!metrics.value || metrics.value.totalAgents === 0) return 0;
+  return ((metrics.value.infected / metrics.value.totalAgents) * 100).toFixed(
     1
   );
 });
 
 const recoveryRate = computed(() => {
-  if (!metrics.value || metrics.value.TotalAgents === 0) return 0;
-  return ((metrics.value.Recovered / metrics.value.TotalAgents) * 100).toFixed(
+  if (!metrics.value || metrics.value.totalAgents === 0) return 0;
+  return ((metrics.value.recovered / metrics.value.totalAgents) * 100).toFixed(
     1
   );
 });

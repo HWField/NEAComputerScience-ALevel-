@@ -10,7 +10,7 @@ using SimulationRuntime;
 namespace MySimulationAPI.Services
 {
 
-    public class AgentTrackingService : IDisposable
+    public class SimulationBroadcastService : IDisposable
     {
         private readonly IHubContext<SimulationHub> _hubContext;
         private readonly System.Threading.Timer _broadcastTimer;
@@ -23,7 +23,7 @@ namespace MySimulationAPI.Services
         // Track which simulations have active tracking
         private readonly ConcurrentDictionary<int, SimulationContext> _activeSimulations = new();
 
-        public AgentTrackingService(IHubContext<SimulationHub> hubContext)
+        public SimulationBroadcastService(IHubContext<SimulationHub> hubContext)
         {
             _hubContext = hubContext;
 
@@ -94,15 +94,16 @@ namespace MySimulationAPI.Services
         }
 
         /// <summary>
-        /// Periodic broadcast of agent positions to all connected clients.
+        /// Periodic broadcast of agent positions and health metrics to tracking clients only.
         /// </summary>
         private async void BroadcastAllAgentPositions(object? state)
         {
             if (_clientAgents.IsEmpty)
             {
-                return; // No clients tracking, skip broadcast
+                return; // No clients tracking, skip
             }
 
+            // Broadcast agent positions and metrics to clients who requested tracking
             foreach (var (connectionId, allocation) in _clientAgents)
             {
                 try
@@ -116,10 +117,15 @@ namespace MySimulationAPI.Services
                     // Gather current positions for tracked agents
                     var agentPositions = GatherAgentPositions(context, agentIds);
 
+                    // Calculate metrics for this simulation
+                    var metrics = CalculateHealthMetrics(context);
+
+                    // Send both agent positions and metrics to the specific tracking client
+                    var client = _hubContext.Clients.Client(connectionId);
+
                     if (agentPositions.Length > 0)
                     {
-                        // Send to specific client
-                        await _hubContext.Clients.Client(connectionId).SendAsync("AgentPositions", new
+                        await client.SendAsync("AgentPositions", new
                         {
                             simulationId,
                             tick = context.CurrentTick,
@@ -131,12 +137,73 @@ namespace MySimulationAPI.Services
                     {
                         Console.WriteLine($"[AgentTracking] Warning: No agent positions found for client {connectionId.Substring(0, 8)}... tracking {agentIds.Length} agents");
                     }
+
+                    // Send metrics update to the same tracking client
+                    await client.SendAsync("MetricsUpdate", new
+                    {
+                        tick = context.CurrentTick,
+                        totalAgents = metrics.Total,
+                        infected = metrics.Infected,
+                        recovered = metrics.Recovered,
+                        dead = metrics.Dead,
+                        quarantined = metrics.Quarantined,
+                        healthy = metrics.Healthy
+                    });
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[AgentTracking] Error broadcasting to {connectionId.Substring(0, 8)}...: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Efficiently calculates current health metrics from agent states.
+        /// </summary>
+        private HealthMetrics CalculateHealthMetrics(SimulationContext context)
+        {
+            var agents = context.AgentStates;
+            int total = agents.Length;
+            int infected = 0;
+            int recovered = 0;
+            int dead = 0;
+            int quarantined = 0;
+
+            // Single pass through all agents for efficiency
+            for (int i = 0; i < agents.Length; i++)
+            {
+                ref var agent = ref agents[i];
+
+                switch ((AgentHealthState)agent.HealthState)
+                {
+                    case AgentHealthState.Infected:
+                        infected++;
+                        break;
+                    case AgentHealthState.Recovered:
+                        recovered++;
+                        break;
+                    case AgentHealthState.Dead:
+                        dead++;
+                        break;
+                }
+
+                if (agent.IsQuarantined)
+                {
+                    quarantined++;
+                }
+            }
+
+            int healthy = total - infected - recovered - dead;
+
+            return new HealthMetrics
+            {
+                Total = total,
+                Healthy = healthy,
+                Infected = infected,
+                Recovered = recovered,
+                Dead = dead,
+                Quarantined = quarantined
+            };
         }
 
         /// <summary>
@@ -220,5 +287,15 @@ namespace MySimulationAPI.Services
         public string HealthState { get; set; } = "Healthy";
         public bool IsQuarantined { get; set; }
         public int? CurrentBuildingId { get; set; }
+    }
+
+    public class HealthMetrics
+    {
+        public int Total { get; set; }
+        public int Healthy { get; set; }
+        public int Infected { get; set; }
+        public int Recovered { get; set; }
+        public int Dead { get; set; }
+        public int Quarantined { get; set; }
     }
 }
