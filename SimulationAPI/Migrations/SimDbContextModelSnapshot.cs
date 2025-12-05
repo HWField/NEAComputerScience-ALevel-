@@ -606,6 +606,9 @@ namespace SimulationAPI.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("InitialInfectionCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1139,8 +1142,7 @@ namespace SimulationAPI.Migrations
                 {
                     b.Navigation("Agents");
 
-                    b.Navigation("Disease")
-                        .IsRequired();
+                    b.Navigation("Disease");
 
                     b.Navigation("MapArea")
                         .IsRequired();

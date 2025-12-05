@@ -166,25 +166,20 @@ namespace MySimulationAPI.Controllers
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
 
-            var simulationSnapshots = await _db.SimulationSnapshots
-                .Where(s => s.SimulationId == id)
-                .ToListAsync();
-            var simulationMetrics = await _db.SimulationMetrics
-                .Where(m => m.SimulationId == id)
-                .ToListAsync();
-            _db.SimulationSnapshots.RemoveRange(simulationSnapshots);
-            _db.SimulationMetrics.RemoveRange(simulationMetrics);
-            await _db.SaveChangesAsync();
-
-            if (_simulationManager.TryGet(id, out var context))
+            try
             {
-                await _simulationManager.RemoveAsync(id);
-                // Reload simulation into memory with clean data
-                var newContext = await _simulationManager.GetOrCreateAsync(id);
-                newContext.GenerateStates();
-            }
+                await _simulationManager.ResetAsync(id);
 
-            return Ok($"Simulation {id} reset successfully. It has been unloaded from memory.");
+                var message = sim.InitialInfectionCount > 0
+                    ? $"Simulation {id} reset successfully. {sim.InitialInfectionCount} agents re-infected."
+                    : $"Simulation {id} reset successfully.";
+
+                return Ok(message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to reset simulation: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -453,6 +448,11 @@ namespace MySimulationAPI.Controllers
             try
             {
                 context.InfectionService.SeedInfection(infectCount);
+
+                // Store the initial infection count for future resets
+                sim.InitialInfectionCount = infectCount;
+                await _db.SaveChangesAsync();
+
                 return Ok(new
                 {
                     Message = $"Successfully seeded {infectCount} initial infection(s)",

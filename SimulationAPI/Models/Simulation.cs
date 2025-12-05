@@ -12,6 +12,7 @@ namespace MySimulationAPI.Models
         public string Status { get; set; } = "Created"; // e.g., Created, Archived, (soft) Deleted
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int TickLength { get; set; } = 60; // Number of seconds each tick lasts (default 1 minute)
+        public int InitialInfectionCount { get; set; } = 0; // Number of agents initially infected (for seeding/reset)
         public MapArea MapArea { get; set; } = null!;
         public List<Agent> Agents { get; set; } = new();
         public Disease? Disease { get; set; }

@@ -117,8 +117,55 @@ namespace MySimulationAPI.SimulationConfiguration
             await SimulationHub.BroadcastState(_hubContext, simulationId, context);
         }
 
-        public bool TryGet(int simulationId, out SimulationContext context)
+        public bool TryGet(int simulationId, out SimulationContext? context)
             => _contexts.TryGetValue(simulationId, out context);
+
+        /// <summary>
+        /// Resets a simulation by clearing all computed data and reseeding the initial infection.
+        /// </summary>
+        public async Task ResetAsync(int simulationId)
+        {
+            using var db = _dbFactory.CreateDbContext();
+
+            var sim = await db.Simulations.FindAsync(simulationId)
+                ?? throw new InvalidOperationException($"Simulation {simulationId} not found");
+
+            // If simulation is loaded in memory, unload and reload it
+            if (_contexts.TryGetValue(simulationId, out var oldContext))
+            {
+                await RemoveAsync(simulationId);
+            }
+
+            // Remove computed data from database
+            var simulationSnapshots = await db.SimulationSnapshots
+                .Where(s => s.SimulationId == simulationId)
+                .ToListAsync();
+            var simulationMetrics = await db.SimulationMetrics
+                .Where(m => m.SimulationId == simulationId)
+                .ToListAsync();
+
+            db.SimulationSnapshots.RemoveRange(simulationSnapshots);
+            db.SimulationMetrics.RemoveRange(simulationMetrics);
+            await db.SaveChangesAsync();
+
+            Console.WriteLine($"[SimulationManager] Reset simulation {simulationId}: removed {simulationSnapshots.Count} snapshots and {simulationMetrics.Count} metrics");
+
+
+
+            // Reload simulation with clean state
+            var newContext = await GetOrCreateAsync(simulationId);
+            newContext.GenerateStates();
+
+            // Re-seed infection if initial infection count was set
+            if (sim.InitialInfectionCount > 0)
+            {
+                newContext.InfectionService.SeedInfection(sim.InitialInfectionCount);
+                Console.WriteLine($"[SimulationManager] Re-seeded {sim.InitialInfectionCount} initial infections after reset");
+            }
+
+            // Broadcast the reset state
+            await SimulationHub.BroadcastState(_hubContext, simulationId, newContext);
+        }
 
         public async Task RemoveAsync(int simulationId)
         {

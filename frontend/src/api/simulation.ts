@@ -134,4 +134,9 @@ export const simulationApi = {
   async reset(id: number): Promise<void> {
     await api.delete(`/simulation/${id}/reset`);
   },
+
+  // Seed infection
+  async seedInfection(id: number, count: number = 1): Promise<void> {
+    await api.post(`/simulation/${id}/infect`, count);
+  },
 };
