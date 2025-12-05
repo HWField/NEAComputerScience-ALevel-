@@ -24,10 +24,7 @@ namespace MySimulationAPI.Services
             _routingService = context.RoutingService;
             _buildings = context.Buildings.ToList();
 
-            // Pre-build KD-trees by building type for fast spatial lookup
             _kdTrees = BuildKdTrees(_buildings);
-
-            // Cache building lists by type
             _buildingsByType = new Dictionary<Type, List<Building>>
             {
                 [typeof(ResidentialBuilding)] = _buildings.OfType<ResidentialBuilding>().Cast<Building>().ToList(),
@@ -81,9 +78,9 @@ namespace MySimulationAPI.Services
 
         public static class GeoUtils
         {
-            /// <summary>
-            /// Calculate approximate distance using Haversine formula (in meters)
-            /// </summary>
+
+            // Calculate approximate distance using Haversine formula (in meters)
+
             public static double Distance(double lat1, double lon1, double lat2, double lon2)
             {
                 const double R = 6371000; // Earth's radius in meters
@@ -145,38 +142,62 @@ namespace MySimulationAPI.Services
 
             public List<T> KNearest(double x, double y, int k)
             {
-                var result = new List<(double dist, T value)>();
-                if (root != null)
-                    Search(root, new[] { x, y }, k, result);
-                return result.OrderBy(r => r.dist).Take(k).Select(r => r.value).ToList();
+                if (root == null || k <= 0)
+                    return new List<T>();
+
+                // Umin-heap (priority queue) for efficient k-nearest tracking
+                var heap = new SortedSet<(double dist, int id, T value)>(
+                    Comparer<(double dist, int id, T value)>.Create((a, b) =>
+                    {
+                        int cmp = a.dist.CompareTo(b.dist);
+                        return cmp != 0 ? cmp : a.id.CompareTo(b.id); // Use id as tiebreaker in case of equal distances
+                    })
+                );
+
+                int nextId = 0;
+                SearchOptimized(root, x, y, k, heap, ref nextId);
+
+                return heap.Select(h => h.value).ToList();
             }
 
-            private void Search(Node? node, double[] target, int k, List<(double dist, T value)> result)
+            private void SearchOptimized(Node? node, double x, double y, int k,
+                                        SortedSet<(double dist, int id, T value)> heap,
+                                        ref int nextId)
             {
                 if (node == null) return;
 
-                double d = Math.Sqrt(
-                    Math.Pow(node.Point[0] - target[0], 2) +
-                    Math.Pow(node.Point[1] - target[1], 2)
-                );
-                result.Add((d, node.Value));
+                // Calculate squared distance 
+                double dx = node.Point[0] - x;
+                double dy = node.Point[1] - y;
+                double distSq = dx * dx + dy * dy;
 
-                int axis = node.Depth % 2;
-                Node? next = target[axis] < node.Point[axis] ? node.Left : node.Right;
-                Node? other = target[axis] < node.Point[axis] ? node.Right : node.Left;
+                // Add to heap
+                heap.Add((Math.Sqrt(distSq), nextId++, node.Value));
 
-                Search(next, target, k, result);
-
-                if (result.Count < k || Math.Abs(node.Point[axis] - target[axis]) < result.Max(r => r.dist))
+                // Keep only k nearest to optimize memory pressure
+                if (heap.Count > k)
                 {
-                    Search(other, target, k, result);
+                    heap.Remove(heap.Max);
+                }
+
+                // Determine which subtree to search first
+                int axis = node.Depth % 2;
+                double diff = (axis == 0 ? x : y) - node.Point[axis];
+
+                Node? nearSubtree = diff < 0 ? node.Left : node.Right;
+                Node? farSubtree = diff < 0 ? node.Right : node.Left;
+
+                SearchOptimized(nearSubtree, x, y, k, heap, ref nextId);
+
+                // Only search far subtree if it could contain closer points
+                double maxDistSq = heap.Count < k ? double.MaxValue : heap.Max.dist * heap.Max.dist;
+                if (diff * diff < maxDistSq)
+                {
+                    SearchOptimized(farSubtree, x, y, k, heap, ref nextId);
                 }
             }
         }
 
-        // ---------------------------------------------------------
-        // Assignment
-        // ---------------------------------------------------------
 
         public void AssignHousing()
         {
@@ -186,133 +207,310 @@ namespace MySimulationAPI.Services
 
             Console.WriteLine($"Assigning housing to {agents.Count} agents across {houses.Count} houses");
 
-            // Reset capacities
-            foreach (var h in houses) h.RemainingCapacity = h.Capacity;
+            // set local capacities
+            foreach (var h in houses)
+                h.RemainingCapacity = h.Capacity;
 
-            // Build list of available slots (much more efficient than random selection)
-            var availableSlots = new List<ResidentialBuilding>();
-            foreach (var house in houses)
-            {
-                for (int i = 0; i < house.Capacity; i++)
-                {
-                    availableSlots.Add(house);
-                }
-            }
+            // Calculate total capacity
+            long totalCapacity = houses.Sum(h => (long)h.Capacity);
+            Console.WriteLine($"Total housing capacity: {totalCapacity}");
 
-            Console.WriteLine($"Total housing capacity: {availableSlots.Count}");
-
-            if (availableSlots.Count < agents.Count)
+            if (totalCapacity < agents.Count)
             {
                 throw new InvalidOperationException(
-                    $"Insufficient housing capacity: {availableSlots.Count} slots for {agents.Count} agents");
+                    $"Insufficient housing capacity: {totalCapacity} slots for {agents.Count} agents");
             }
 
-            // Shuffle the slots for random distribution
-            for (int i = availableSlots.Count - 1; i > 0; i--)
+            var startTime = DateTime.Now;
+
+            // Build cumulative capacity array for O(log n) binary search
+            var cumulativeCapacity = new long[houses.Count];
+            long cumSum = 0;
+            for (int i = 0; i < houses.Count; i++)
+            {
+                cumSum += houses[i].Capacity;
+                cumulativeCapacity[i] = cumSum;
+            }
+
+            // Shuffle agents performantly
+            var shuffledIndices = Enumerable.Range(0, agents.Count).ToArray();
+
+            // Fisher-Yates shuffle on indices
+            for (int i = shuffledIndices.Length - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
-                (availableSlots[i], availableSlots[j]) = (availableSlots[j], availableSlots[i]);
+                (shuffledIndices[i], shuffledIndices[j]) = (shuffledIndices[j], shuffledIndices[i]);
             }
 
-            // Assign agents to shuffled slots - O(n) instead of O(n²)!
-            for (int i = 0; i < agents.Count; i++)
+            // Assign agents using weighted random selection
+            long currentSlot = 0;
+            int currentHouseIdx = 0;
+            int slotsUsedInCurrentHouse = 0;
+
+            foreach (var agentIdx in shuffledIndices)
             {
-                var house = availableSlots[i];
-                agents[i].House = house;
+                while (currentHouseIdx < houses.Count && slotsUsedInCurrentHouse >= houses[currentHouseIdx].Capacity)
+                {
+                    currentHouseIdx++;
+                    slotsUsedInCurrentHouse = 0;
+                }
+
+                if (currentHouseIdx >= houses.Count)
+                    break; // Safety check
+
+                var house = houses[currentHouseIdx];
+                agents[agentIdx].House = house;
                 house.RemainingCapacity--;
+
+                slotsUsedInCurrentHouse++;
+                currentSlot++;
             }
+
+            var elapsed = (DateTime.Now - startTime).TotalSeconds;
+            Console.WriteLine($"✓ Housing assigned in {elapsed:F2}s ({agents.Count / elapsed:F0} agents/s)");
         }
 
         public void AssignWorkplaces(
             double beta = 2.0,
-            int shortlistSize = 10,
-            int spilloverIncrement = 10)
+            int shortlistSize = 50,
+            int maxCandidates = 200)
         {
             var agents = _context.Agents;
-            var buildings = _context.Buildings.ToList();
-            var rng = _context.Rng;
+            var buildings = _context.Buildings;
+
+            Console.WriteLine($"Assigning workplaces to {agents.Count} agents across {buildings.Count} buildings");
 
             // Reset building capacities
             foreach (var b in buildings)
                 b.RemainingCapacity = b.Capacity;
 
-            // Use pre-built KD-trees from constructor
-            var buildingTypeToKdTree = _kdTrees;
+            // Filter agents that need workplace assignment and group by type
+            var agentsNeedingWork = agents
+                .Where(a => !(a is ElderlyRetiredAgent) && a.House != null)
+                .ToList();
 
-            // Process sequentially to avoid race conditions
-            foreach (var agent in agents)
+            if (agentsNeedingWork.Count == 0)
             {
-                // Skip retired agents
-                if (agent is ElderlyRetiredAgent) continue;
+                Console.WriteLine("No agents need workplace assignment");
+                return;
+            }
 
-                // Match agent type to building type
+            Console.WriteLine($"Agents needing workplace: {agentsNeedingWork.Count}");
+
+            // Group agents by their building type needs
+            var agentsByBuildingType = new Dictionary<Type, List<Agent>>();
+            foreach (var agent in agentsNeedingWork)
+            {
                 Type buildingType = agent switch
                 {
                     StudentAgent => typeof(EducationBuilding),
                     MedicalWorkerAgent => typeof(MedicalBuilding),
                     RetailWorkerAgent => typeof(RetailBuilding),
                     ServiceWorkerAgent => typeof(LeisureBuilding),
-                    _ => typeof(OfficeBuilding) // Default for office workers and others
+                    _ => typeof(OfficeBuilding)
                 };
 
-                // If no buildings of this type, skip
-                if (!buildingTypeToKdTree.TryGetValue(buildingType, out var tree))
-                    continue;
+                if (!agentsByBuildingType.ContainsKey(buildingType))
+                    agentsByBuildingType[buildingType] = new List<Agent>();
 
-                if (agent.House == null) continue; // Skip if no home assigned
+                agentsByBuildingType[buildingType].Add(agent);
+            }
 
-                int k = shortlistSize;
-                bool assigned = false;
+            var startTime = DateTime.Now;
+            int totalAssigned = 0;
 
-                // Keep expanding search until workplace found or no more options
-                while (!assigned && k <= buildings.Count)
+            // Process each building type independently to eliminate lock contention
+            foreach (var (buildingType, typeAgents) in agentsByBuildingType)
+            {
+                if (!_kdTrees.TryGetValue(buildingType, out var tree))
                 {
-                    var shortlist = tree.KNearest(agent.House.Latitude, agent.House.Longitude, k);
+                    Console.WriteLine($"No buildings of type {buildingType.Name}, skipping {typeAgents.Count} agents");
+                    continue;
+                }
 
-                    // Compute weights based on distance and capacity
-                    var weights = new List<double>();
-                    double totalW = 0;
+                Console.WriteLine($"\nAssigning {typeAgents.Count} agents to {buildingType.Name}...");
 
-                    foreach (var b in shortlist)
+                var typeStartTime = DateTime.Now;
+                int assigned = AssignWorkplacesForType(typeAgents, tree, beta, shortlistSize, maxCandidates);
+                var typeTime = (DateTime.Now - typeStartTime).TotalSeconds;
+
+                totalAssigned += assigned;
+                Console.WriteLine($"  ✓ Assigned {assigned}/{typeAgents.Count} in {typeTime:F2}s ({(assigned / typeTime):F0} agents/s)");
+            }
+
+            var totalTime = (DateTime.Now - startTime).TotalSeconds;
+            Console.WriteLine($"\n✓ Workplace assignment complete in {totalTime:F1}s");
+            Console.WriteLine($"  Total assigned: {totalAssigned}/{agentsNeedingWork.Count} agents");
+            Console.WriteLine($"  Average rate: {(totalAssigned / totalTime):F0} agents/s");
+        }
+
+        private int AssignWorkplacesForType(
+            List<Agent> agents,
+            KDTree<Building> tree,
+            double beta,
+            int shortlistSize,
+            int maxCandidates)
+        {
+            var rng = _context.Rng;
+
+            // Get all buildings of type for fallback assignment
+            var allBuildings = _buildingsByType.Values
+                .SelectMany(list => list)
+                .Where(b => tree.KNearest(b.Latitude, b.Longitude, 1).Contains(b))
+                .ToList();
+
+            // Gather candidates for all agents
+            var candidateData = new (Agent agent, List<(Building building, double weight)> candidates)[agents.Count];
+
+            Parallel.For(0, agents.Count, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+            {
+                var agent = agents[i];
+                var house = agent.House!;
+
+                // Get more candidates than needed to account for capacity issues
+                var nearbyBuildings = tree.KNearest(house.Latitude, house.Longitude, maxCandidates);
+
+                if (nearbyBuildings.Count == 0)
+                {
+                    candidateData[i] = (agent, new List<(Building, double)>());
+                    return;
+                }
+
+                // Compute weights for all candidates
+                var weightedCandidates = new List<(Building building, double weight)>(nearbyBuildings.Count);
+
+                foreach (var building in nearbyBuildings)
+                {
+                    double latDiff = building.Latitude - house.Latitude;
+                    double lonDiff = building.Longitude - house.Longitude;
+                    double distSq = latDiff * latDiff + lonDiff * lonDiff;
+
+                    // higher capacity and closer are higher weighted (Adding 1 to avoid division by zero)
+                    double weight = (building.Capacity + 1) / Math.Pow(distSq + 0.0001, beta / 2);
+                    weightedCandidates.Add((building, weight));
+                }
+
+                // Sort by weight descending - most preferred first
+                weightedCandidates.Sort((a, b) => b.weight.CompareTo(a.weight));
+
+                candidateData[i] = (agent, weightedCandidates);
+            });
+
+            // Assign in priority order (sequential but cache-friendly)
+            // Sort agents by their top candidate's weight, prioritizing agents with fewer good options
+            var sortedAgentIndices = Enumerable.Range(0, agents.Count)
+                .Where(i => candidateData[i].candidates.Count > 0)
+                .OrderBy(i =>
+                {
+                    var candidates = candidateData[i].candidates;
+                    // Agents with lower weight variance (fewer good options) get priority
+                    if (candidates.Count < 2) return 0;
+                    return candidates[0].weight - candidates[Math.Min(shortlistSize - 1, candidates.Count - 1)].weight;
+                })
+                .ToList();
+
+            int assignedCount = 0;
+            var unassignedAgents = new List<Agent>();
+
+            // Assign workplaces sequentially to avoid capacity conflicts
+            foreach (var idx in sortedAgentIndices)
+            {
+                var (agent, candidates) = candidateData[idx];
+
+                if (candidates.Count == 0)
+                {
+                    unassignedAgents.Add(agent);
+                    continue;
+                }
+
+                // Try top candidates in order until one with capacity is found
+                // Use probabilistic selection from top candidates
+                Building? chosen = null;
+
+                // Take top N candidates with remaining capacity
+                var availableCandidates = candidates
+                    .Where(c => c.building.RemainingCapacity > 0)
+                    .Take(shortlistSize)
+                    .ToList();
+
+                if (availableCandidates.Count > 0)
+                {
+                    // Weighted random selection from available candidates
+                    double totalWeight = availableCandidates.Sum(c => c.weight);
+                    double rand = rng.NextDouble() * totalWeight;
+                    double cumulative = 0;
+
+                    foreach (var (building, weight) in availableCandidates)
                     {
-                        double dist = GeoUtils.Distance(agent.House.Latitude, agent.House.Longitude,
-                                                       b.Latitude, b.Longitude);
-                        double w = (b.RemainingCapacity + 1) / Math.Pow(dist + 1, beta);
-                        weights.Add(w);
-                        totalW += w;
-                    }
-
-                    if (totalW <= 0)
-                    {
-                        k += spilloverIncrement;
-                        continue;
-                    }
-
-                    // Sample from weighted distribution
-                    double r = rng.NextDouble() * totalW;
-                    double cum = 0;
-
-                    for (int i = 0; i < shortlist.Count; i++)
-                    {
-                        cum += weights[i];
-                        if (r <= cum)
+                        cumulative += weight;
+                        if (rand <= cumulative)
                         {
-                            var chosen = shortlist[i];
-
-                            if (chosen.RemainingCapacity > 0)
-                            {
-                                chosen.RemainingCapacity--;
-                                agent.Workplace = chosen;
-                                assigned = true;
-                            }
+                            chosen = building;
                             break;
                         }
                     }
 
-                    if (!assigned)
-                        k += spilloverIncrement; // Expand search radius
+                    // Fallback to first available if something goes wrong
+                    chosen ??= availableCandidates[0].building;
+
+                    // Assign and update capacity
+                    agent.Workplace = chosen;
+                    chosen.RemainingCapacity--;
+                    assignedCount++;
+                }
+                else
+                {
+                    unassignedAgents.Add(agent);
                 }
             }
+
+            // Fallback for unassigned agents assign to any building with capacity
+            if (unassignedAgents.Count > 0)
+            {
+                Console.WriteLine($"    ⚠ {unassignedAgents.Count} agents couldn't find nearby capacity, using fallback...");
+
+                // Find all buildings with remaining capacity, sorted by capacity (largest first)
+                var availableBuildings = allBuildings
+                    .Where(b => b.RemainingCapacity > 0)
+                    .OrderByDescending(b => b.RemainingCapacity)
+                    .ToList();
+
+                int fallbackAssigned = 0;
+                int buildingIdx = 0;
+
+                foreach (var agent in unassignedAgents)
+                {
+                    // Find next building with capacity
+                    while (buildingIdx < availableBuildings.Count &&
+                           availableBuildings[buildingIdx].RemainingCapacity <= 0)
+                    {
+                        buildingIdx++;
+                    }
+
+                    if (buildingIdx >= availableBuildings.Count)
+                    {
+                        break;
+                    }
+
+                    var building = availableBuildings[buildingIdx];
+                    agent.Workplace = building;
+                    building.RemainingCapacity--;
+                    fallbackAssigned++;
+                    assignedCount++;
+                }
+
+                if (fallbackAssigned > 0)
+                {
+                    Console.WriteLine($"    ✓ Fallback assigned {fallbackAssigned} agents");
+                }
+
+                if (fallbackAssigned < unassignedAgents.Count)
+                {
+                    Console.WriteLine($"    ⚠ {unassignedAgents.Count - fallbackAssigned} agents remain unassigned (insufficient total capacity)");
+                }
+            }
+
+            return assignedCount;
         }
     }
 
