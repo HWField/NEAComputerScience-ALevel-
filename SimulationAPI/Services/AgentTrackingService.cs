@@ -126,8 +126,6 @@ namespace MySimulationAPI.Services
                             agents = agentPositions,
                             timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                         });
-
-                        Console.WriteLine($"[AgentTracking] Broadcasted {agentPositions.Length} agent positions to client {connectionId.Substring(0, 8)}... for simulation {simulationId}");
                     }
                     else
                     {

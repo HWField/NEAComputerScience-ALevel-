@@ -387,7 +387,7 @@ namespace MySimulationAPI.Controllers
         /// Sets the simulation speed multiplier.
         /// </summary>
         [HttpPost("{id}/speed")]
-        public async Task<IActionResult> SetSpeed(int id, [FromBody] int speedMultiplier)
+        public async Task<IActionResult> SetSpeed(int id, [FromBody] double speedMultiplier)
         {
             var sim = await _db.Simulations.FindAsync(id);
             if (sim == null) return NotFound();
@@ -423,6 +423,46 @@ namespace MySimulationAPI.Controllers
             catch (InvalidOperationException ex)
             {
                 return NotFound(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Seeds initial infection in the simulation by infecting random agents.
+        /// </summary>
+        /// <param name="id">Simulation ID</param>
+        /// <param name="count">Number of agents to initially infect (default: 1)</param>
+        [HttpPost("{id}/infect")]
+        public async Task<IActionResult> SeedInfection(int id, [FromBody] int? count)
+        {
+            var sim = await _db.Simulations.FindAsync(id);
+            if (sim == null) return NotFound();
+            if (sim.UserId != GetUserId() && !IsAdmin())
+                return Forbid();
+
+            if (!_simulationManager.TryGet(id, out var context) || context == null)
+            {
+                return NotFound($"Simulation {id} is not loaded in memory. Load it first.");
+            }
+
+            int infectCount = count ?? 1;
+            if (infectCount < 1 || infectCount > 100)
+            {
+                return BadRequest("Infection count must be between 1 and 100");
+            }
+
+            try
+            {
+                context.InfectionService.SeedInfection(infectCount);
+                return Ok(new
+                {
+                    Message = $"Successfully seeded {infectCount} initial infection(s)",
+                    SimulationId = id,
+                    InfectedCount = infectCount
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to seed infection: {ex.Message}");
             }
         }
     }

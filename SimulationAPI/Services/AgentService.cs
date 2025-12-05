@@ -12,6 +12,10 @@ namespace MySimulationAPI.Services
         private readonly SimulationContext _context;
         private Random _rng;
 
+        // Thread-local Random for parallel routine generation
+        [ThreadStatic]
+        private static Random? _threadRng;
+
         public AgentService(SimulationContext context)
         {
             _context = context;
@@ -21,7 +25,8 @@ namespace MySimulationAPI.Services
         public List<RoutineEvent> GenerateAgentRoutine(Agent agent)
         {
             var events = new List<RoutineEvent>();
-            var rng = _context.Rng;
+            // Use thread-local RNG for parallel safety
+            var rng = _threadRng ??= new Random(Guid.NewGuid().GetHashCode());
             var buildingService = _context.BuildingService;
             var routingService = _context.RoutingService;
 
@@ -44,14 +49,14 @@ namespace MySimulationAPI.Services
                 // Debug: Log the first path generation
                 if (events.Count == 0)
                 {
-                    Console.WriteLine($"[AgentService] First route computed:");
-                    Console.WriteLine($"  - Path nodes: {path?.Count ?? 0}");
+                    // Console.WriteLine($"[AgentService] First route computed:");
+                    // Console.WriteLine($"  - Path nodes: {path?.Count ?? 0}");
                     if (path != null && path.Count > 0)
                     {
-                        Console.WriteLine($"  - First node: ({path[0].Lat}, {path[0].Lon})");
-                        Console.WriteLine($"  - Last node: ({path[^1].Lat}, {path[^1].Lon})");
+                        // Console.WriteLine($"  - First node: ({path[0].Lat}, {path[0].Lon})");
+                        // Console.WriteLine($"  - Last node: ({path[^1].Lat}, {path[^1].Lon})");
                     }
-                    Console.WriteLine($"  - Travel time: {travelTime}s");
+                    // Console.WriteLine($"  - Travel time: {travelTime}s");
                 }
 
                 events.Add(new RoutineEvent
@@ -71,43 +76,78 @@ namespace MySimulationAPI.Services
             }
 
             // ------------------------------
-            // Local helper: random daily leisure location
-            // ------------------------------
-            Building PickLeisureOrHome()
-            {
-                var leisure = buildingService.GetRandomBuilding<LeisureBuilding>(rng);
-                return (Building)leisure ?? agent.House;
-            }
-
-            // ------------------------------
             // STUDENT
             // ------------------------------
             if (agent is StudentAgent)
             {
-                for (int day = 0; day <= 4; day++)
+                for (int day = 0; day <= 4; day++) // Weekdays
                 {
-                    if (agent.Workplace == null) continue;
+                    if (agent.Workplace != null)
+                    {
+                        var schoolStart = new TimeOnly(8, 30).AddMinutes(rng.Next(-15, 16));
+                        AddRoutineEvent(day, schoolStart, TimeSpan.FromHours(7), RoutineEventType.School, agent.Workplace);
 
-                    var schoolStart = new TimeOnly(8, 30).AddMinutes(rng.Next(-15, 16));
-                    AddRoutineEvent(day, schoolStart, TimeSpan.FromHours(7), RoutineEventType.School, agent.Workplace);
+                        // After school activity (40% chance) - leisure or retail
+                        var schoolEnd = schoolStart.AddHours(7);
+                        if (rng.NextDouble() < 0.4)
+                        {
+                            var activityStart = schoolEnd.AddMinutes(rng.Next(15, 46));
+                            var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                agent.Workplace.Latitude, agent.Workplace.Longitude, k: 3);
+                            var target = leisure ?? agent.House;
+                            AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(1, 3)), RoutineEventType.Leisure, target);
+                        }
 
-                    // Return home
-                    var homeStart = schoolStart.AddHours(7).AddMinutes(rng.Next(0, 31));
-                    AddRoutineEvent(day, homeStart, TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                        // Return home for evening
+                        var homeStart = schoolEnd.AddMinutes(rng.Next(30, 121));
+                        AddRoutineEvent(day, homeStart, TimeSpan.FromHours(10), RoutineEventType.Home, agent.House);
+                    }
+                    else
+                    {
+                        // No school - stay home all day
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
+                    }
                 }
 
-                // Weekends
+                // Weekends - more social activities
                 for (int day = 5; day <= 6; day++)
                 {
-                    if (rng.NextDouble() < 0.7)
+                    var morningHome = new TimeOnly(rng.Next(0, 11), 0);
+
+                    // Morning at home
+                    if (morningHome.Hour > 0)
                     {
-                        var leisureStart = new TimeOnly(10, 0).AddMinutes(rng.Next(-60, 61));
-                        var leisureDur = TimeSpan.FromHours(rng.Next(2, 5));
-                        var target = PickLeisureOrHome();
-                        AddRoutineEvent(day, leisureStart, leisureDur, RoutineEventType.Leisure, target);
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningHome.Hour), RoutineEventType.Home, agent.House);
                     }
 
-                    AddRoutineEvent(day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    // Daytime activity (80% chance)
+                    if (rng.NextDouble() < 0.8)
+                    {
+                        var activityStart = new TimeOnly(rng.Next(10, 15), rng.Next(0, 60));
+                        Building dest;
+                        RoutineEventType type;
+
+                        var roll = rng.NextDouble();
+                        if (roll < 0.6) // Leisure (sports, cinema, etc)
+                        {
+                            var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 5);
+                            dest = leisure ?? agent.House;
+                            type = RoutineEventType.Leisure;
+                        }
+                        else // Shopping or food
+                        {
+                            var retail = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 5);
+                            dest = retail ?? agent.House;
+                            type = RoutineEventType.Shopping;
+                        }
+
+                        AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(2, 5)), type, dest);
+                    }
+
+                    // Evening at home
+                    AddRoutineEvent(day, new TimeOnly(19, 0).AddMinutes(rng.Next(-60, 61)), TimeSpan.FromHours(10), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -118,50 +158,111 @@ namespace MySimulationAPI.Services
             // ------------------------------
             if (agent is OfficeWorkerAgent)
             {
-                for (int day = 0; day <= 4; day++)
+                for (int day = 0; day <= 4; day++) // Weekdays
                 {
-                    if (agent.Workplace == null) continue;
-
-                    var workStart = new TimeOnly(8, 0).AddMinutes(rng.Next(-30, 61));
-                    AddRoutineEvent(day, workStart, TimeSpan.FromHours(rng.Next(8, 10)), RoutineEventType.Work, agent.Workplace);
-
-                    // Lunch break (30%)
-                    if (rng.NextDouble() < 0.3)
+                    if (agent.Workplace != null)
                     {
-                        var lunchStart = workStart.AddHours(4);
-                        var restaurant = buildingService.GetRandomBuilding<RetailBuilding>(rng) ?? agent.Workplace;
-                        AddRoutineEvent(day, lunchStart, TimeSpan.FromHours(1), RoutineEventType.Other, restaurant);
-                    }
+                        var workStart = new TimeOnly(rng.Next(7, 10), rng.Next(0, 60));
+                        var workDuration = rng.Next(8, 10);
+                        AddRoutineEvent(day, workStart, TimeSpan.FromHours(workDuration), RoutineEventType.Work, agent.Workplace);
 
-                    // Return home
-                    var endTime = workStart.AddHours(rng.Next(8, 10));
-                    AddRoutineEvent(day, endTime, TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                        // Lunch break (50% chance to leave office)
+                        if (rng.NextDouble() < 0.5)
+                        {
+                            var lunchStart = workStart.AddHours(rng.Next(4, 5));
+                            var restaurant = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.Workplace.Latitude, agent.Workplace.Longitude, k: 3);
+                            if (restaurant != null)
+                            {
+                                AddRoutineEvent(day, lunchStart, TimeSpan.FromMinutes(rng.Next(30, 61)), RoutineEventType.Other, restaurant);
+                            }
+                        }
+
+                        // After work activity (30% chance) - gym, drinks, shopping
+                        var workEnd = workStart.AddHours(workDuration);
+                        if (rng.NextDouble() < 0.3)
+                        {
+                            var activityStart = workEnd.AddMinutes(rng.Next(15, 46));
+                            Building dest;
+                            RoutineEventType type;
+
+                            if (rng.NextDouble() < 0.6) // Leisure (gym, drinks)
+                            {
+                                var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                    agent.Workplace.Latitude, agent.Workplace.Longitude, k: 5);
+                                dest = leisure ?? agent.House;
+                                type = RoutineEventType.Leisure;
+                            }
+                            else // Quick shopping
+                            {
+                                var retail = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                    agent.Workplace.Latitude, agent.Workplace.Longitude, k: 5);
+                                dest = retail ?? agent.House;
+                                type = RoutineEventType.Shopping;
+                            }
+
+                            AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(1, 3)), type, dest);
+                        }
+
+                        // Return home for evening
+                        var homeStart = workEnd.AddMinutes(rng.Next(15, 121));
+                        AddRoutineEvent(day, homeStart, TimeSpan.FromHours(10), RoutineEventType.Home, agent.House);
+                    }
+                    else
+                    {
+                        // No workplace - stay home all day
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
+                    }
                 }
 
-                // Weekends
+                // Weekends - errands and leisure
                 for (int day = 5; day <= 6; day++)
                 {
-                    if (rng.NextDouble() < 0.6)
+                    // Morning at home
+                    var morningEnd = new TimeOnly(rng.Next(8, 12), rng.Next(0, 60));
+                    if (morningEnd.Hour > 0)
                     {
-                        var start = new TimeOnly(10, 0).AddMinutes(rng.Next(-60, 121));
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningEnd.Hour), RoutineEventType.Home, agent.House);
+                    }
+
+                    // Daytime activity (70% chance)
+                    if (rng.NextDouble() < 0.7)
+                    {
+                        var activityStart = new TimeOnly(rng.Next(10, 15), rng.Next(0, 60));
                         Building dest;
                         RoutineEventType type;
 
-                        if (rng.NextDouble() < 0.4)
+                        var roll = rng.NextDouble();
+                        if (roll < 0.4) // Shopping (groceries, errands)
                         {
-                            dest = (Building)buildingService.GetRandomBuilding<RetailBuilding>(rng) ?? agent.House;
+                            var retail = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 5);
+                            dest = retail ?? agent.House;
                             type = RoutineEventType.Shopping;
                         }
-                        else
+                        else // Leisure (sports, dining, entertainment)
                         {
-                            dest = (Building)buildingService.GetRandomBuilding<LeisureBuilding>(rng) ?? agent.House;
+                            var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 5);
+                            dest = leisure ?? agent.House;
                             type = RoutineEventType.Leisure;
                         }
 
-                        AddRoutineEvent(day, start, TimeSpan.FromHours(rng.Next(2, 5)), type, dest);
+                        AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(2, 5)), type, dest);
                     }
 
-                    AddRoutineEvent(day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    // Evening activity on Saturday (40% chance - dinner, nightlife)
+                    if (day == 5 && rng.NextDouble() < 0.4)
+                    {
+                        var eveningStart = new TimeOnly(rng.Next(18, 21), rng.Next(0, 60));
+                        var restaurant = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                            agent.House.Latitude, agent.House.Longitude, k: 5);
+                        var dest = restaurant ?? agent.House;
+                        AddRoutineEvent(day, eveningStart, TimeSpan.FromHours(rng.Next(2, 4)), RoutineEventType.Leisure, dest);
+                    }
+
+                    // Evening at home
+                    AddRoutineEvent(day, new TimeOnly(20, 0).AddMinutes(rng.Next(-120, 61)), TimeSpan.FromHours(8), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -172,18 +273,67 @@ namespace MySimulationAPI.Services
             // ------------------------------
             if (agent is MedicalWorkerAgent)
             {
+                // Medical workers have rotating shifts (day/evening/night)
                 for (int day = 0; day <= 6; day++)
                 {
-                    if (agent.Workplace == null) continue;
-
-                    double roll = rng.NextDouble();
-
-                    if (roll < 0.5)
-                        AddRoutineEvent(day, new TimeOnly(7, 0), TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
-                    else if (roll < 0.8)
-                        AddRoutineEvent(day, new TimeOnly(19, 0), TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
-                    else
+                    if (agent.Workplace == null)
+                    {
                         AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
+                        continue;
+                    }
+
+                    double shiftRoll = rng.NextDouble();
+
+                    if (shiftRoll < 0.5) // Day shift (50%)
+                    {
+                        var shiftStart = new TimeOnly(7, 0).AddMinutes(rng.Next(-30, 31));
+                        AddRoutineEvent(day, shiftStart, TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
+
+                        // Quick meal break during shift (60% chance)
+                        if (rng.NextDouble() < 0.6)
+                        {
+                            var breakTime = shiftStart.AddHours(rng.Next(5, 7));
+                            var nearbyFood = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.Workplace.Latitude, agent.Workplace.Longitude, k: 2);
+                            if (nearbyFood != null)
+                            {
+                                AddRoutineEvent(day, breakTime, TimeSpan.FromMinutes(30), RoutineEventType.Other, nearbyFood);
+                            }
+                        }
+
+                        // Home after shift
+                        var homeTime = shiftStart.AddHours(12).AddMinutes(rng.Next(15, 61));
+                        AddRoutineEvent(day, homeTime, TimeSpan.FromHours(10), RoutineEventType.Home, agent.House);
+                    }
+                    else if (shiftRoll < 0.8) // Evening shift (30%)
+                    {
+                        // Morning at home
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(15), RoutineEventType.Home, agent.House);
+
+                        var shiftStart = new TimeOnly(15, 0).AddMinutes(rng.Next(-30, 31));
+                        AddRoutineEvent(day, shiftStart, TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
+
+                        // Late night home
+                        var homeTime = shiftStart.AddHours(12).AddMinutes(rng.Next(15, 61));
+                        if (homeTime.Hour < 6) // crosses midnight
+                        {
+                            AddRoutineEvent(day, homeTime, TimeSpan.FromHours(24 - homeTime.Hour), RoutineEventType.Home, agent.House);
+                        }
+                    }
+                    else // Day off (20%)
+                    {
+                        // Errands or rest
+                        if (rng.NextDouble() < 0.5)
+                        {
+                            var activityStart = new TimeOnly(rng.Next(10, 14), rng.Next(0, 60));
+                            var retail = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 3);
+                            var dest = retail ?? agent.House;
+                            AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(1, 3)), RoutineEventType.Shopping, dest);
+                        }
+
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
+                    }
                 }
 
                 return events;
@@ -194,18 +344,83 @@ namespace MySimulationAPI.Services
             // ------------------------------
             if (agent is RetailWorkerAgent)
             {
+                // Retail workers typically work 5-6 days with varied shifts
                 for (int day = 0; day <= 6; day++)
                 {
-                    if (agent.Workplace == null) continue;
-
-                    if (rng.NextDouble() < 0.85)
+                    if (agent.Workplace == null)
                     {
-                        var startHour = rng.Next(6, 12);
-                        var dur = TimeSpan.FromHours(rng.Next(6, 9));
-                        AddRoutineEvent(day, new TimeOnly(startHour, 0), dur, RoutineEventType.Work, agent.Workplace);
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
+                        continue;
                     }
 
-                    AddRoutineEvent(day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    // 85% chance of working each day (some days off)
+                    if (rng.NextDouble() < 0.85)
+                    {
+                        var shiftStart = new TimeOnly(rng.Next(6, 14), rng.Next(0, 60));
+                        var shiftDuration = TimeSpan.FromHours(rng.Next(6, 9));
+                        AddRoutineEvent(day, shiftStart, shiftDuration, RoutineEventType.Work, agent.Workplace);
+
+                        // Lunch/break (40% chance to leave workplace)
+                        if (rng.NextDouble() < 0.4)
+                        {
+                            var breakTime = shiftStart.AddHours(shiftDuration.TotalHours / 2);
+                            var nearbyFood = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.Workplace.Latitude, agent.Workplace.Longitude, k: 2);
+                            if (nearbyFood != null && nearbyFood.Id != agent.Workplace.Id)
+                            {
+                                AddRoutineEvent(day, breakTime, TimeSpan.FromMinutes(30), RoutineEventType.Other, nearbyFood);
+                            }
+                        }
+
+                        // After work
+                        var workEnd = shiftStart.Add(shiftDuration);
+
+                        // Occasional after-work activity (20% chance on weekdays, 40% on weekends)
+                        bool isWeekend = day >= 5;
+                        double activityChance = isWeekend ? 0.4 : 0.2;
+
+                        if (rng.NextDouble() < activityChance)
+                        {
+                            var activityStart = workEnd.AddMinutes(rng.Next(30, 91));
+                            var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                agent.Workplace.Latitude, agent.Workplace.Longitude, k: 3);
+                            var dest = leisure ?? agent.House;
+                            AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(1, 3)), RoutineEventType.Leisure, dest);
+                        }
+
+                        // Home for evening
+                        var homeTime = workEnd.AddMinutes(rng.Next(30, 121));
+                        AddRoutineEvent(day, homeTime, TimeSpan.FromHours(10), RoutineEventType.Home, agent.House);
+                    }
+                    else
+                    {
+                        // Day off - errands or leisure
+                        if (rng.NextDouble() < 0.6)
+                        {
+                            var activityStart = new TimeOnly(rng.Next(10, 15), rng.Next(0, 60));
+                            Building dest;
+                            RoutineEventType type;
+
+                            if (rng.NextDouble() < 0.5)
+                            {
+                                var retail = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                    agent.House.Latitude, agent.House.Longitude, k: 3);
+                                dest = retail ?? agent.House;
+                                type = RoutineEventType.Shopping;
+                            }
+                            else
+                            {
+                                var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                    agent.House.Latitude, agent.House.Longitude, k: 3);
+                                dest = leisure ?? agent.House;
+                                type = RoutineEventType.Leisure;
+                            }
+
+                            AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(2, 4)), type, dest);
+                        }
+
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
+                    }
                 }
 
                 return events;
@@ -216,17 +431,91 @@ namespace MySimulationAPI.Services
             // ------------------------------
             if (agent is ServiceWorkerAgent)
             {
+                // Service workers often have evening/night shifts, work weekends
                 for (int day = 0; day <= 6; day++)
                 {
-                    if (agent.Workplace == null) continue;
-
-                    if (rng.NextDouble() < 0.8)
+                    if (agent.Workplace == null)
                     {
-                        var startHour = rng.Next(10, 16); // later shifts
-                        AddRoutineEvent(day, new TimeOnly(startHour, 0), TimeSpan.FromHours(8), RoutineEventType.Work, agent.Workplace);
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
+                        continue;
                     }
 
-                    AddRoutineEvent(day, new TimeOnly(23, 0), TimeSpan.FromHours(8), RoutineEventType.Home, agent.House);
+                    // 80% chance of working (service industry is demanding)
+                    if (rng.NextDouble() < 0.8)
+                    {
+                        // Varied shift times - often later in the day for hospitality
+                        var shiftStart = new TimeOnly(rng.Next(10, 18), rng.Next(0, 60));
+                        var shiftDuration = TimeSpan.FromHours(rng.Next(7, 10));
+                        AddRoutineEvent(day, shiftStart, shiftDuration, RoutineEventType.Work, agent.Workplace);
+
+                        // Break during shift (50% chance)
+                        if (rng.NextDouble() < 0.5)
+                        {
+                            var breakTime = shiftStart.AddHours(rng.Next(3, 5));
+                            var nearbyFood = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.Workplace.Latitude, agent.Workplace.Longitude, k: 2);
+                            if (nearbyFood != null && nearbyFood.Id != agent.Workplace.Id)
+                            {
+                                AddRoutineEvent(day, breakTime, TimeSpan.FromMinutes(30), RoutineEventType.Other, nearbyFood);
+                            }
+                        }
+
+                        // After work - often late
+                        var workEnd = shiftStart.Add(shiftDuration);
+
+                        // Occasional late-night socializing after work (25% chance)
+                        if (rng.NextDouble() < 0.25 && workEnd.Hour >= 20)
+                        {
+                            var socialStart = workEnd.AddMinutes(rng.Next(15, 46));
+                            var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                agent.Workplace.Latitude, agent.Workplace.Longitude, k: 3);
+                            var dest = leisure ?? agent.House;
+                            AddRoutineEvent(day, socialStart, TimeSpan.FromHours(rng.Next(1, 3)), RoutineEventType.Leisure, dest);
+                        }
+
+                        // Home (often late at night)
+                        var homeTime = workEnd.AddMinutes(rng.Next(30, 91));
+                        var hoursUntilMidnight = 24 - homeTime.Hour;
+                        AddRoutineEvent(day, homeTime, TimeSpan.FromHours(hoursUntilMidnight), RoutineEventType.Home, agent.House);
+                    }
+                    else
+                    {
+                        // Day off - rest and errands
+                        // Morning sleep-in
+                        var wakeTime = new TimeOnly(rng.Next(9, 13), rng.Next(0, 60));
+                        if (wakeTime.Hour > 0)
+                        {
+                            AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(wakeTime.Hour), RoutineEventType.Home, agent.House);
+                        }
+
+                        // Afternoon activity (60% chance)
+                        if (rng.NextDouble() < 0.6)
+                        {
+                            var activityStart = new TimeOnly(rng.Next(13, 17), rng.Next(0, 60));
+                            Building dest;
+                            RoutineEventType type;
+
+                            if (rng.NextDouble() < 0.5)
+                            {
+                                var retail = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                    agent.House.Latitude, agent.House.Longitude, k: 3);
+                                dest = retail ?? agent.House;
+                                type = RoutineEventType.Shopping;
+                            }
+                            else
+                            {
+                                var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                    agent.House.Latitude, agent.House.Longitude, k: 3);
+                                dest = leisure ?? agent.House;
+                                type = RoutineEventType.Leisure;
+                            }
+
+                            AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(2, 4)), type, dest);
+                        }
+
+                        // Evening at home
+                        AddRoutineEvent(day, new TimeOnly(20, 0).AddMinutes(rng.Next(-60, 61)), TimeSpan.FromHours(8), RoutineEventType.Home, agent.House);
+                    }
                 }
 
                 return events;
@@ -239,19 +528,74 @@ namespace MySimulationAPI.Services
             {
                 for (int day = 0; day <= 6; day++)
                 {
-                    if (rng.NextDouble() < 0.5)
+                    // Morning at home (wake up later, 7-10am)
+                    var morningEnd = new TimeOnly(rng.Next(7, 11), rng.Next(0, 60));
+                    if (morningEnd.Hour > 0)
                     {
-                        var start = new TimeOnly(9, 0).AddMinutes(rng.Next(-30, 61));
-                        var shop = (Building)buildingService.GetRandomBuilding<RetailBuilding>(rng) ?? agent.House;
-                        AddRoutineEvent(day, start, TimeSpan.FromHours(1.5), RoutineEventType.Shopping, shop);
-                    }
-                    else if (rng.NextDouble() < 0.3)
-                    {
-                        var leisure = PickLeisureOrHome();
-                        AddRoutineEvent(day, new TimeOnly(14, 0), TimeSpan.FromHours(2), RoutineEventType.Leisure, leisure);
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningEnd.Hour), RoutineEventType.Home, agent.House);
                     }
 
-                    AddRoutineEvent(day, new TimeOnly(18, 0), TimeSpan.FromHours(12), RoutineEventType.Home, agent.House);
+                    // Morning activity (60% chance - shopping, errands, socializing)
+                    if (rng.NextDouble() < 0.6)
+                    {
+                        var activityStart = new TimeOnly(rng.Next(9, 12), rng.Next(0, 60));
+                        Building dest;
+                        RoutineEventType type;
+
+                        var roll = rng.NextDouble();
+                        if (roll < 0.6) // Shopping (groceries, pharmacy)
+                        {
+                            var retail = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 3);
+                            dest = retail ?? agent.House;
+                            type = RoutineEventType.Shopping;
+                        }
+                        else if (roll < 0.8) // Medical appointment (occasional)
+                        {
+                            var medical = buildingService.FindNearestBuildingByType<MedicalBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 2);
+                            dest = medical ?? agent.House;
+                            type = RoutineEventType.Medical;
+                        }
+                        else // Leisure (community center, park, cafe)
+                        {
+                            var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 3);
+                            dest = leisure ?? agent.House;
+                            type = RoutineEventType.Leisure;
+                        }
+
+                        AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(1, 3)), type, dest);
+                    }
+
+                    // Afternoon activity (40% chance - less frequent)
+                    if (rng.NextDouble() < 0.4)
+                    {
+                        var afternoonStart = new TimeOnly(rng.Next(14, 16), rng.Next(0, 60));
+                        Building dest;
+                        RoutineEventType type;
+
+                        if (rng.NextDouble() < 0.7) // Leisure (social activities)
+                        {
+                            var leisure = buildingService.FindNearestBuildingByType<LeisureBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 3);
+                            dest = leisure ?? agent.House;
+                            type = RoutineEventType.Leisure;
+                        }
+                        else // Quick shopping
+                        {
+                            var retail = buildingService.FindNearestBuildingByType<RetailBuilding>(
+                                agent.House.Latitude, agent.House.Longitude, k: 2);
+                            dest = retail ?? agent.House;
+                            type = RoutineEventType.Shopping;
+                        }
+
+                        AddRoutineEvent(day, afternoonStart, TimeSpan.FromHours(rng.Next(1, 2)), type, dest);
+                    }
+
+                    // Evening at home (early, 6-8pm)
+                    var eveningStart = new TimeOnly(rng.Next(18, 20), rng.Next(0, 60));
+                    AddRoutineEvent(day, eveningStart, TimeSpan.FromHours(24 - eveningStart.Hour), RoutineEventType.Home, agent.House);
                 }
 
                 return events;
@@ -351,7 +695,7 @@ namespace MySimulationAPI.Services
             var routines = _context.RoutineStates;
             var buildings = _context.BuildingStates;
 
-            // quick map BuildingId -> index in building array (to avoid LINQ .FirstOrDefault inside loop which has O(n) cost)
+            // quick map BuildingId -> index in building array
             var buildingIndexById = new Dictionary<int, int>(buildings.Length);
             for (int bi = 0; bi < buildings.Length; bi++)
                 buildingIndexById[buildings[bi].Id] = bi;
@@ -359,7 +703,7 @@ namespace MySimulationAPI.Services
             // occupancy counters
             short[] occupantCounts = new short[buildings.Length];
 
-            // pre-filter routines to only those for today's day and build a lookup by AgentId for fast retrieval
+            // pre-filter routines to only those for today's day and build a lookup by AgentId
             var routinesToday = routines.Where(r => r.Day == dayIndex).ToArray();
             var routinesLookup = routinesToday.ToLookup(r => r.AgentId);
 
@@ -368,21 +712,22 @@ namespace MySimulationAPI.Services
             {
                 ref var agent = ref agents[i];
 
-                // get todays routines for this agent  
-                var agentRoutines = routinesLookup[agent.Id];
+                // get today's routines for this agent  
+                var agentRoutines = routinesLookup[agent.Id].OrderBy(r => r.StartTick).ToList();
                 if (!agentRoutines.Any())
                 {
+                    // No routines today - agent stays at current position (don't teleport!)
                     continue;
                 }
 
-                // find the first active event for current tickOfDay
+                // Find the active event for current tickOfDay
                 RoutineEventState? activeEvent = null;
                 foreach (var ev in agentRoutines)
                 {
-                    int startTick = ev.StartTick;
+                    int departTick = ev.StartTick - (int)ev.CachedTravelDuration;
                     int endTick = ev.StartTick + ev.DurationTicks;
-                    int departTick = startTick - (int)ev.CachedTravelDuration;
 
+                    // Agent is either traveling to or at this event
                     if (tickOfDay >= departTick && tickOfDay < endTick)
                     {
                         activeEvent = ev;
@@ -392,49 +737,85 @@ namespace MySimulationAPI.Services
 
                 if (!activeEvent.HasValue)
                 {
+                    // No active event - keep agent at their last known position
+                    // This handles gaps between routines (early morning, late night, etc.)
+                    // Agent position remains unchanged from previous tick
                     continue;
                 }
+
                 var evt = activeEvent.Value;
-                int travelStart = evt.StartTick - (int)evt.CachedTravelDuration;
-                int travelEnd = evt.StartTick;
+                int travelStartTick = evt.StartTick - (int)evt.CachedTravelDuration;
+                int arrivalTick = evt.StartTick;
+                int eventEndTick = evt.StartTick + evt.DurationTicks;
 
-                if (tickOfDay >= travelStart && tickOfDay < travelEnd && evt.Path != null && evt.Path.Length > 1 && evt.CachedTravelDuration > 0)
+                // ========================================
+                // PHASE 1: TRAVELING TO THE DESTINATION
+                // ========================================
+                if (tickOfDay >= travelStartTick && tickOfDay < arrivalTick)
                 {
-                    // progress [0..1] through travel in ticks
-                    float progress = (float)(tickOfDay - travelStart) / evt.CachedTravelDuration;
-                    progress = Math.Clamp(progress, 0f, 1f);
-
-                    int segCount = evt.Path.Length - 1;
-                    float segPos = progress * segCount;
-                    int segIndex = (int)MathF.Floor(segPos);
-                    float frac = segPos - segIndex;
-
-                    if (segIndex < 0) segIndex = 0;
-                    if (segIndex >= segCount) segIndex = segCount - 1;
-
-                    var p1 = evt.Path[segIndex];
-                    var p2 = evt.Path[segIndex + 1];
-
-                    agent.Lat = p1.Lat + (p2.Lat - p1.Lat) * frac;
-                    agent.Lon = p1.Lon + (p2.Lon - p1.Lon) * frac;
-                    agent.CurrentBuildingId = 0; // in transit
-                }
-                else
-                {
-                    // agent is at the event building location
-                    agent.CurrentBuildingId = evt.BuildingId;
-
-                    // update agent position to building coordinates (fast lookup by index)
-                    if (evt.BuildingId != 0 && buildingIndexById.TryGetValue(evt.BuildingId, out var bidx))
+                    // Agent is currently traveling
+                    if (evt.Path != null && evt.Path.Length > 1 && evt.CachedTravelDuration > 0)
                     {
-                        agent.Lat = buildings[bidx].X;
-                        agent.Lon = buildings[bidx].Y;
+                        // Calculate progress through journey [0..1]
+                        float progress = (float)(tickOfDay - travelStartTick) / evt.CachedTravelDuration;
+                        progress = Math.Clamp(progress, 0f, 1f);
 
-                        // count occupancy
-                        occupantCounts[bidx]++;
+                        // Interpolate along the path segments
+                        int segCount = evt.Path.Length - 1;
+                        float segPos = progress * segCount;
+                        int segIndex = (int)MathF.Floor(segPos);
+                        float frac = segPos - segIndex;
+
+                        // Clamp to valid range
+                        segIndex = Math.Clamp(segIndex, 0, segCount - 1);
+
+                        var p1 = evt.Path[segIndex];
+                        var p2 = evt.Path[segIndex + 1];
+
+                        // Smooth interpolation between path nodes
+                        agent.Lat = p1.Lat + (p2.Lat - p1.Lat) * frac;
+                        agent.Lon = p1.Lon + (p2.Lon - p1.Lon) * frac;
+                        agent.CurrentBuildingId = 0; // in transit
                     }
                     else
                     {
+                        // No path or single-node path - direct interpolation
+                        // This handles cases where start == end or path failed
+                        if (evt.BuildingId != 0 && buildingIndexById.TryGetValue(evt.BuildingId, out var bidx))
+                        {
+                            agent.Lat = buildings[bidx].X;
+                            agent.Lon = buildings[bidx].Y;
+                        }
+                        agent.CurrentBuildingId = 0;
+                    }
+                }
+                // ========================================
+                // PHASE 2: AT THE DESTINATION
+                // ========================================
+                else if (tickOfDay >= arrivalTick && tickOfDay < eventEndTick)
+                {
+                    // Agent has arrived and is at the building
+                    agent.CurrentBuildingId = evt.BuildingId;
+
+                    // Position agent at building coordinates
+                    if (evt.BuildingId != 0 && buildingIndexById.TryGetValue(evt.BuildingId, out var bidx))
+                    {
+                        // If we have a path, place agent at the final path node (entrance)
+                        // Otherwise use building center
+                        if (evt.Path != null && evt.Path.Length > 0)
+                        {
+                            var finalNode = evt.Path[^1];
+                            agent.Lat = finalNode.Lat;
+                            agent.Lon = finalNode.Lon;
+                        }
+                        else
+                        {
+                            agent.Lat = buildings[bidx].X;
+                            agent.Lon = buildings[bidx].Y;
+                        }
+
+                        // count occupancy
+                        occupantCounts[bidx]++;
                     }
                 }
             }

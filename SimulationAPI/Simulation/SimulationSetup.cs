@@ -440,8 +440,18 @@ namespace MySimulationAPI.SimulationConfiguration
             context.ReloadEntities();
 
             // Assign housing & workplaces deterministically
+            Console.Write($"[Assignment] Assigning housing for {agents.Count} agents... ");
+            var assignStart = DateTime.Now;
             context.BuildingService.AssignHousing();
+            var assignTime = (DateTime.Now - assignStart).TotalSeconds;
+            Console.WriteLine($"✓ Done in {assignTime:F1}s");
+
+            Console.Write($"[Assignment] Assigning workplaces... ");
+            assignStart = DateTime.Now;
             context.BuildingService.AssignWorkplaces();
+            assignTime = (DateTime.Now - assignStart).TotalSeconds;
+            Console.WriteLine($"✓ Done in {assignTime:F1}s");
+
             agents = context.Agents; // reload agents with assigned buildings and Ids
             // Set the FK IDs explicitly
             foreach (var agent in agents)
@@ -458,55 +468,125 @@ namespace MySimulationAPI.SimulationConfiguration
             };
             await _db.BulkUpdateAsync(agents, bulkUpdateConfig);
 
-            // Generate routines for all agents
-            foreach (var agent in agents)
+            // Generate routines for all agents WITH PARALLEL PROCESSING
+            Console.WriteLine($"[Routine Generation] Starting for {agents.Count} agents...");
+            var progressLock = new object();
+            var completed = 0;
+            var errors = 0;
+            var startTime = DateTime.Now;
+            var lastProgressUpdate = DateTime.Now;
+
+            // Use Parallel.ForEach for multi-threaded processing
+            var parallelOptions = new ParallelOptions
             {
+                MaxDegreeOfParallelism = Environment.ProcessorCount
+            };
+
+            Parallel.ForEach(agents, parallelOptions, agent =>
+            {
+                try
                 {
-                    try
+                    // Generate routine events
+                    agent.RoutineEvents = context.AgentService.GenerateAgentRoutine(agent);
+                    foreach (var routineEvent in agent.RoutineEvents)
                     {
-                        // Generate routine events
-                        agent.RoutineEvents = context.AgentService.GenerateAgentRoutine(agent);
-                        foreach (var routineEvent in agent.RoutineEvents)
+                        routineEvent.AgentId = agent.Id;
+                        routineEvent.BuildingId = routineEvent.Building.Id;
+                    }
+
+                    // Update progress (thread-safe)
+                    lock (progressLock)
+                    {
+                        completed++;
+                        var now = DateTime.Now;
+                        // Update progress bar every 0.5 seconds or every 100 agents
+                        if ((now - lastProgressUpdate).TotalMilliseconds >= 500 || completed % 100 == 0)
                         {
-                            routineEvent.AgentId = agent.Id;
-                            routineEvent.BuildingId = routineEvent.Building.Id;
+                            lastProgressUpdate = now;
+                            var percent = (completed * 100.0) / agents.Count;
+                            var elapsed = (now - startTime).TotalSeconds;
+                            var rate = completed / elapsed;
+                            var eta = (agents.Count - completed) / rate;
+
+                            // Create progress bar
+                            var barWidth = 40;
+                            var filledWidth = (int)(barWidth * completed / agents.Count);
+                            var bar = new string('█', filledWidth) + new string('░', barWidth - filledWidth);
+
+                            Console.Write($"\r[{bar}] {percent:F1}% ({completed}/{agents.Count}) | {rate:F0} agents/s | ETA: {eta:F0}s ");
                         }
                     }
-                    catch (Exception ex)
+                }
+                catch (Exception ex)
+                {
+                    lock (progressLock)
                     {
-                        Console.WriteLine($"Error generating routine for agent {agent.Id}: {ex.Message}");
+                        errors++;
+                        if (errors <= 5) // Only show first 5 errors to avoid spam
+                        {
+                            Console.WriteLine($"\n[ERROR] Agent {agent.Id}: {ex.Message}");
+                        }
                     }
                 }
+            });
+
+            // Final progress update
+            var totalTime = (DateTime.Now - startTime).TotalSeconds;
+            Console.WriteLine($"\n[Routine Generation] ✓ Completed in {totalTime:F1}s ({agents.Count / totalTime:F0} agents/s)");
+            if (errors > 0)
+            {
+                Console.WriteLine($"[Routine Generation] ⚠ {errors} errors occurred");
             }
 
             // Save all routine events to the database
+            Console.WriteLine($"[Database] Preparing {agents.Count} agents' routine events...");
             var routineEvents = agents.SelectMany(a => a.RoutineEvents).ToList();
-            Console.WriteLine($"Generated routine events for {agents.Count} agents");
-            Console.WriteLine($"Total routine events: {routineEvents.Count}");
+            Console.WriteLine($"[Database] Total routine events: {routineEvents.Count}");
 
             // Debug: Check first event's path
             if (routineEvents.Count > 0 && routineEvents[0].CachedPath != null)
             {
                 var firstPath = routineEvents[0].CachedPath;
-                Console.WriteLine($"[DEBUG] First routine event path has {firstPath.Count} nodes");
-                if (firstPath.Count > 0)
+                if (firstPath != null)
                 {
-                    Console.WriteLine($"[DEBUG] First node: ({firstPath[0].Lat}, {firstPath[0].Lon})");
+                    Console.WriteLine($"[DEBUG] First routine event path has {firstPath.Count} nodes");
+                    if (firstPath.Count > 0)
+                    {
+                        Console.WriteLine($"[DEBUG] First node: ({firstPath[0].Lat}, {firstPath[0].Lon})");
+                    }
                 }
             }
 
             // Set up bulk config for routine events
             var routineEventConfig = new BulkConfig
             {
-                PreserveInsertOrder = true,
-                SetOutputIdentity = true
+                PreserveInsertOrder = false, // Don't need order for routine events
+                SetOutputIdentity = false, // Don't need IDs back, saves time
+                BatchSize = 5000, // Insert in batches to avoid timeouts
+                BulkCopyTimeout = 300 // 5 minutes timeout
             };
 
-            // Bulk insert routine events
-            await _db.BulkInsertAsync(routineEvents, routineEventConfig);
-            Console.WriteLine($"Saved {routineEvents.Count} routine events to database");
+            // Bulk insert routine events in batches with progress tracking
+            Console.WriteLine($"[Database] Inserting {routineEvents.Count} routine events in batches...");
+            var dbStart = DateTime.Now;
+            var batchSize = 50000; // Process 50k events at a time
+            var batches = (int)Math.Ceiling(routineEvents.Count / (double)batchSize);
+
+            for (int i = 0; i < batches; i++)
+            {
+                var batch = routineEvents.Skip(i * batchSize).Take(batchSize).ToList();
+                await _db.BulkInsertAsync(batch, routineEventConfig);
+
+                var batchPercent = ((i + 1) * 100.0) / batches;
+                var inserted = Math.Min((i + 1) * batchSize, routineEvents.Count);
+                Console.Write($"\r[Database] Progress: {batchPercent:F0}% ({inserted:N0}/{routineEvents.Count:N0}) ");
+            }
+
+            var dbTime = (DateTime.Now - dbStart).TotalSeconds;
+            Console.WriteLine($"\n[Database] ✓ Done in {dbTime:F1}s");
 
             // generate and insert medical profiles for each agent
+            Console.Write($"[Database] Generating {agents.Count} medical profiles... ");
             var medicalProfiles = new List<MedicalProfile>(agents.Count);
             foreach (var agent in agents)
             {
@@ -514,19 +594,30 @@ namespace MySimulationAPI.SimulationConfiguration
                 profile.AgentId = agent.Id; // Set FK explicitly
                 medicalProfiles.Add(profile);
             }
+            Console.WriteLine("✓ Done");
 
             // Bulk insert medical profiles
-            var profileBulkConfig = new BulkConfig { PreserveInsertOrder = true };
+            Console.Write($"[Database] Inserting {medicalProfiles.Count} medical profiles... ");
+            var profileBulkConfig = new BulkConfig
+            {
+                PreserveInsertOrder = false,
+                BatchSize = 5000,
+                BulkCopyTimeout = 120 // 2 minutes timeout
+            };
             try
             {
+                dbStart = DateTime.Now;
                 await _db.BulkInsertAsync(medicalProfiles, profileBulkConfig);
+                dbTime = (DateTime.Now - dbStart).TotalSeconds;
+                Console.WriteLine($"✓ Done in {dbTime:F1}s");
             }
             catch
             {
                 throw;
             }
+            Console.WriteLine($"[Cleanup] Unloading simulation {simulationId} from memory...");
             await _simulationManager.RemoveAsync(simulationId);
-            Console.WriteLine($"Unloaded simulation {simulationId} from memory after population setup");
+            Console.WriteLine($"✓ Setup complete!");
         }
 
 

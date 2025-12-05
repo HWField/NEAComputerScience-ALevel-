@@ -539,8 +539,8 @@
               </div>
               <input
                 type="range"
-                min="0"
-                max="10"
+                min="1"
+                max="100"
                 :value="currentSpeed"
                 @input="handleSpeedChange"
                 class="range range-primary range-sm"
@@ -550,9 +550,9 @@
               <div
                 class="flex justify-between text-xs text-base-content/60 mt-1"
               >
-                <span>0x</span>
-                <span>5x</span>
-                <span>10x</span>
+                <span>1x</span>
+                <span>50x</span>
+                <span>100x</span>
               </div>
             </div>
           </div>

@@ -299,7 +299,6 @@ export function useSimulationHub(simulationId: number) {
         for (const agent of data.agents) {
           agentPositions.value.set(agent.id, agent);
         }
-        console.log(data);
       });
 
       hubConnection.on(

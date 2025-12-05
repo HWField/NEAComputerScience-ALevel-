@@ -25,11 +25,17 @@ namespace MySimulationAPI.SimulationConfiguration
         {
             using var _db = _context.DbFactory.CreateDbContext();
 
+            // Configure longer timeout for large datasets
+            _db.Database.SetCommandTimeout(300); // 5 minutes
+
+            Console.WriteLine($"[SaveSnapshot] Starting snapshot save for tick {_context.CurrentTick}...");
+
             // --- Delete existing snapshot (if any) ---
             var existing = await _db.SimulationSnapshots
                 .FirstOrDefaultAsync(s => s.SimulationId == _context.Simulation.Id && s.Tick == _context.CurrentTick);
             if (existing != null)
             {
+                Console.WriteLine($"[SaveSnapshot] Deleting existing snapshot at tick {_context.CurrentTick}...");
                 _db.SimulationSnapshots.Remove(existing);
                 await _db.SaveChangesAsync(); // cascades to AgentSnapshots + BuildingSnapshots
             }
@@ -43,8 +49,12 @@ namespace MySimulationAPI.SimulationConfiguration
 
             await _db.SimulationSnapshots.AddAsync(snapshot);
             await _db.SaveChangesAsync();
+
+            Console.WriteLine($"[SaveSnapshot] Created snapshot {snapshot.Id}");
+
             // --- AGENTS ---
             var agents = _context.AgentStates;
+            Console.Write($"[SaveSnapshot] Preparing {agents.Length} agent snapshots... ");
             var agentSnaps = agents.Select(a => new AgentSnapshot
             {
                 SimulationSnapshotId = snapshot.Id,
@@ -56,20 +66,42 @@ namespace MySimulationAPI.SimulationConfiguration
                 CurrentBuildingId = a.CurrentBuildingId > 0 ? a.CurrentBuildingId : null,
                 HealthState = ConvertHealthStateToString((AgentHealthState)a.HealthState)
             }).ToList();
+            Console.WriteLine("✓");
 
             // --- BUILDINGS ---
             var buildings = _context.BuildingStates;
+            Console.Write($"[SaveSnapshot] Preparing {buildings.Length} building snapshots... ");
             var buildingSnaps = buildings.Select(b => new BuildingSnapshot
             {
                 SimulationSnapshotId = snapshot.Id,
                 BuildingId = b.Id,
                 CurrentOccupancy = b.Occupants
             }).ToList();
+            Console.WriteLine("✓");
 
             // --- SAVE TO DATABASE ---
-            await _db.BulkInsertAsync(agentSnaps, new BulkConfig { BatchSize = 5000 });
-            await _db.BulkInsertAsync(buildingSnaps, new BulkConfig { BatchSize = 5000 });
+            Console.Write($"[SaveSnapshot] Saving {agentSnaps.Count} agent snapshots... ");
+            var startTime = DateTime.Now;
+            await _db.BulkInsertAsync(agentSnaps, new BulkConfig
+            {
+                BatchSize = 5000,
+                BulkCopyTimeout = 300
+            });
+            var elapsed = (DateTime.Now - startTime).TotalSeconds;
+            Console.WriteLine($"✓ Done in {elapsed:F1}s");
+
+            Console.Write($"[SaveSnapshot] Saving {buildingSnaps.Count} building snapshots... ");
+            startTime = DateTime.Now;
+            await _db.BulkInsertAsync(buildingSnaps, new BulkConfig
+            {
+                BatchSize = 5000,
+                BulkCopyTimeout = 120
+            });
+            elapsed = (DateTime.Now - startTime).TotalSeconds;
+            Console.WriteLine($"✓ Done in {elapsed:F1}s");
+
             _context.MaxComputedTick = Math.Max(_context.MaxComputedTick, _context.CurrentTick);
+            Console.WriteLine($"[SaveSnapshot] Snapshot save complete!");
         }
 
         /// <summary>
@@ -93,10 +125,14 @@ namespace MySimulationAPI.SimulationConfiguration
         public async Task<bool> LoadTargetTick(long targetTick)
         {
             using var _db = _context.DbFactory.CreateDbContext();
+
+            // Configure longer timeout for large datasets
+            _db.Database.SetCommandTimeout(120); // 2 minutes
+
             _context.Engine.Stop();
+
+            // Step 1: Find the snapshot (WITHOUT eager loading)
             var snapshot = await _db.SimulationSnapshots
-                .Include(s => s.Agents)
-                .Include(s => s.Buildings)
                 .Where(s => s.SimulationId == _context.Simulation.Id && s.Tick <= targetTick)
                 .OrderByDescending(s => s.Tick)
                 .FirstOrDefaultAsync();
@@ -107,8 +143,72 @@ namespace MySimulationAPI.SimulationConfiguration
                 return false;
             }
 
+            Console.WriteLine($"[LoadTargetTick] Loading snapshot {snapshot.Id} at tick {snapshot.Tick}...");
+
+            // Step 2: Load agent snapshots in batches
+            var agentSnaps = new List<AgentSnapshot>();
+            var batchSize = 5000;
+            var offset = 0;
+            var loadedCount = 0;
+
+            while (true)
+            {
+                var batch = await _db.Set<AgentSnapshot>()
+                    .Where(a => a.SimulationSnapshotId == snapshot.Id)
+                    .OrderBy(a => a.AgentId)
+                    .Skip(offset)
+                    .Take(batchSize)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                if (batch.Count == 0) break;
+
+                agentSnaps.AddRange(batch);
+                loadedCount += batch.Count;
+                offset += batchSize;
+
+                if (loadedCount % 10000 == 0)
+                {
+                    Console.WriteLine($"[LoadTargetTick] Loaded {loadedCount} agent snapshots...");
+                }
+            }
+
+            Console.WriteLine($"[LoadTargetTick] Loaded {agentSnaps.Count} total agent snapshots");
+
+            // Step 3: Load building snapshots in batches
+            var buildingSnaps = new List<BuildingSnapshot>();
+            offset = 0;
+            loadedCount = 0;
+
+            while (true)
+            {
+                var batch = await _db.Set<BuildingSnapshot>()
+                    .Where(b => b.SimulationSnapshotId == snapshot.Id)
+                    .OrderBy(b => b.BuildingId)
+                    .Skip(offset)
+                    .Take(batchSize)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                if (batch.Count == 0) break;
+
+                buildingSnaps.AddRange(batch);
+                loadedCount += batch.Count;
+                offset += batchSize;
+            }
+
+            Console.WriteLine($"[LoadTargetTick] Loaded {buildingSnaps.Count} building snapshots");
+
+            // Assign to snapshot for RestoreSnapshot method
+            snapshot.Agents = agentSnaps;
+            snapshot.Buildings = buildingSnaps;
+
+            Console.WriteLine($"[LoadTargetTick] Restoring snapshot state...");
             RestoreSnapshot(snapshot);
+
+            Console.WriteLine($"[LoadTargetTick] Starting engine to compute forward to tick {targetTick}...");
             _context.Engine.Start(targetTick); //compute forward to target tick
+
             return true;
         }
 

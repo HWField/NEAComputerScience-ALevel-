@@ -61,6 +61,10 @@ namespace MySimulationAPI.SimulationRuntime
                 // Save a snapshot of the initial state
                 await _context.SnapshotManager.SaveSnapshotAsync();
             }
+
+            // Calculate 1 year limit in ticks (365 days)
+            long oneYearTicks = (long)(TimeSpan.FromDays(365).TotalSeconds / _context.TickLength);
+
             var sw = new Stopwatch();
             while (!token.IsCancellationRequested)
             {
@@ -76,6 +80,16 @@ namespace MySimulationAPI.SimulationRuntime
                 {
                     await _context.MetricsManager.RecordAsync();
                 }
+
+                // auto pause on 1 year limit
+                if (_context.CurrentTick >= oneYearTicks)
+                {
+                    _context.Status = "Paused";
+                    await SimulationHub.BroadcastState(_hubContext, _context.Simulation.Id, _context);
+                    Stop();
+                    break;
+                }
+
                 // auto pause on target tick
                 if (targetTick.HasValue && _context.CurrentTick >= targetTick.Value)
                 {
@@ -93,7 +107,7 @@ namespace MySimulationAPI.SimulationRuntime
                 if (!targetTick.HasValue)
                 {
                     double ticksPerDay = 86400.0 / _context.TickLength;
-                    double ticksPerSecond = _context.SimulationSpeed * ticksPerDay;
+                    double ticksPerSecond = _context.SimulationSpeed;
 
                     double targetDelaySeconds = (_context.SimulationSpeed == 0)
                         ? 0

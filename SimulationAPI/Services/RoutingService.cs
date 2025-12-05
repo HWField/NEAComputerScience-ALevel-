@@ -204,10 +204,19 @@ namespace MySimulationAPI.Services
                     }
                 }
             }
-            Console.WriteLine($"[Routing] Loaded {nodes.Count} unique nodes");
-            Console.WriteLine($"[Routing] Graph has {graph.Sum(kvp => kvp.Value.Count)} directed edges");
+            // Console.WriteLine($"[Routing] Loaded {nodes.Count} unique nodes");
+            // Console.WriteLine($"[Routing] Graph has {graph.Sum(kvp => kvp.Value.Count)} directed edges");
             var disconnected = nodes.Keys.Where(id => !graph.ContainsKey(id) || graph[id].Count == 0).Count();
-            Console.WriteLine($"[Routing] {disconnected} disconnected nodes");
+            // Console.WriteLine($"[Routing] {disconnected} disconnected nodes");
+
+            // Analyze graph connectivity
+            var (componentCount, largestComponent) = AnalyzeConnectivity(graph, nodes);
+            if (componentCount > 1)
+            {
+                // Console.WriteLine($"[Routing] WARNING: Graph has {componentCount} disconnected components!");
+                // Console.WriteLine($"[Routing] Largest component has {largestComponent} nodes ({100.0 * largestComponent / nodes.Count:F1}% of total)");
+                // Console.WriteLine($"[Routing] Routes between components will use direct paths as fallback");
+            }
 
             return graph;
         }
@@ -226,6 +235,54 @@ namespace MySimulationAPI.Services
             return new NodeGridIndex(nodes, minLon, minLat, cellSizeDeg, cols, rows);
         }
 
+        // Analyze graph connectivity using BFS to find connected components
+        private static (int componentCount, int largestComponentSize) AnalyzeConnectivity(
+            Dictionary<long, List<Edge>> graph,
+            Dictionary<long, Node> nodes)
+        {
+            var visited = new HashSet<long>();
+            int componentCount = 0;
+            int largestComponentSize = 0;
+
+            foreach (var nodeId in nodes.Keys)
+            {
+                if (visited.Contains(nodeId)) continue;
+                if (!graph.ContainsKey(nodeId) || graph[nodeId].Count == 0) continue;
+
+                // BFS to find all nodes in this component
+                var queue = new Queue<long>();
+                queue.Enqueue(nodeId);
+                visited.Add(nodeId);
+                int componentSize = 0;
+
+                while (queue.Count > 0)
+                {
+                    var current = queue.Dequeue();
+                    componentSize++;
+
+                    if (graph.TryGetValue(current, out var edges))
+                    {
+                        foreach (var edge in edges)
+                        {
+                            if (!visited.Contains(edge.ToId))
+                            {
+                                visited.Add(edge.ToId);
+                                queue.Enqueue(edge.ToId);
+                            }
+                        }
+                    }
+                }
+
+                componentCount++;
+                if (componentSize > largestComponentSize)
+                {
+                    largestComponentSize = componentSize;
+                }
+            }
+
+            return (componentCount, largestComponentSize);
+        }
+
         // -----------------------------
         // Public Route Computation
         // -----------------------------
@@ -234,18 +291,29 @@ namespace MySimulationAPI.Services
             double endLat, double endLon,
             double avgSpeedMph = 3.0)
         {
-            long startId = _grid.FindNearestNodeId(startLat, startLon);  // Changed from int to long
-            long endId = _grid.FindNearestNodeId(endLat, endLon);  // Changed from int to long
+            long startId = _grid.FindNearestNodeId(startLat, startLon);
+            long endId = _grid.FindNearestNodeId(endLat, endLon);
 
-            if (startId == -1L || endId == -1L)  // Changed from -1 to -1L
+            if (startId == -1L || endId == -1L)
             {
-                // Fallback: create direct path. should rarely happen
+                // Console.WriteLine($"[RoutingService] WARNING: Could not find nearest node for route ({startLat:F6}, {startLon:F6}) -> ({endLat:F6}, {endLon:F6}). StartId={startId}, EndId={endId}. Using direct path.");
                 return CreateDirectPath(startLat, startLon, endLat, endLon, avgSpeedMph);
+            }
+
+            // Handle case where start and end are the same node (or very close)
+            if (startId == endId)
+            {
+                var node = _nodes[startId];
+                var path = new List<(double Lat, double Lon)> { (node.Lat, node.Lon) };
+                return (path, 0); // No travel time needed
             }
 
             var pathNodeIds = FindPathAStar(startId, endId);
             if (pathNodeIds == null || pathNodeIds.Count < 2)
             {
+                // Graph is disconnected - these nodes cannot reach each other
+                // Use direct path as fallback (agent will "teleport" but at realistic speed)
+                // Console.WriteLine($"[RoutingService] WARNING: A* failed to find route between nodes {startId} and {endId} (disconnected graph components). Using direct path.");
                 return CreateDirectPath(startLat, startLon, endLat, endLon, avgSpeedMph);
             }
 
@@ -295,23 +363,34 @@ namespace MySimulationAPI.Services
         // -----------------------------
         // A* Search Implementation
         // -----------------------------
-        private List<long>? FindPathAStar(long startId, long endId)  // Changed from int to long
+        private List<long>? FindPathAStar(long startId, long endId)
         {
             var key = (startId, endId);
             if (_routeCache.TryGetValue(key, out var cached))
                 return cached;
 
-            if (!_graph.TryGetValue(startId, out _)) return null;
+            if (!_graph.TryGetValue(startId, out var startEdges))
+            {
+                return null;
+            }
 
-            var open = new PriorityQueue<long, double>();  // Changed from int to long
-            var gScore = new Dictionary<long, double> { [startId] = 0 };  // Changed from int to long
-            var fScore = new Dictionary<long, double> { [startId] = HeuristicMeters(_nodes[startId], _nodes[endId]) };  // Changed from int to long
-            var cameFrom = new Dictionary<long, long>();  // Changed from int to long
+            if (!_graph.TryGetValue(endId, out _))
+            {
+                return null;
+            }
+
+            var open = new PriorityQueue<long, double>();
+            var gScore = new Dictionary<long, double> { [startId] = 0 };
+            var fScore = new Dictionary<long, double> { [startId] = HeuristicMeters(_nodes[startId], _nodes[endId]) };
+            var cameFrom = new Dictionary<long, long>();
 
             open.Enqueue(startId, fScore[startId]);
+            int iterations = 0;
+            int maxIterations = 10000; // Prevent infinite loops
 
-            while (open.Count > 0)
+            while (open.Count > 0 && iterations < maxIterations)
             {
+                iterations++;
                 var current = open.Dequeue();
                 if (current == endId)
                 {
@@ -335,6 +414,8 @@ namespace MySimulationAPI.Services
                 }
             }
 
+            // Cache the failed result to avoid recomputing
+            _routeCache[key] = null!;
             return null;
         }
 

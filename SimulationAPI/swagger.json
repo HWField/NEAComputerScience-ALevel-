@@ -942,20 +942,20 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "integer",
-                "format": "int32"
+                "type": "number",
+                "format": "double"
               }
             },
             "text/json": {
               "schema": {
-                "type": "integer",
-                "format": "int32"
+                "type": "number",
+                "format": "double"
               }
             },
             "application/*+json": {
               "schema": {
-                "type": "integer",
-                "format": "int32"
+                "type": "number",
+                "format": "double"
               }
             }
           }
@@ -985,6 +985,54 @@
           }
         ],
         "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Simulation/{id}/infect": {
+      "post": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Seeds initial infection in the simulation by infecting random agents.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Simulation ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Number of agents to initially infect (default: 1)",
           "content": {
             "application/json": {
               "schema": {

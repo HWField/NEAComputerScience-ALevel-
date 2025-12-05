@@ -80,6 +80,8 @@ const createNewSimulation = async () => {
       mortalityRate: 0.0,
       savePreset: false,
     },
+    // step 5 initial infection
+    initialInfectionCount: 1,
   };
   step.value = 1;
   show.value = true;
@@ -469,9 +471,66 @@ const handleNextStep = async () => {
       loadingMessage.value = "";
     }
 
-    if (step.value < 5) step.value++;
+    if (step.value === 5) {
+      // Validate infection count
+      const totalAgents = Object.values(newSimDetails.value.population).reduce(
+        (a, b) => a + b,
+        0
+      );
 
-    if (step.value == 5) {
+      if (newSimDetails.value.initialInfectionCount < 1) {
+        toast.show(
+          "Must infect at least 1 agent to start the outbreak.",
+          "error"
+        );
+        return;
+      }
+
+      if (newSimDetails.value.initialInfectionCount > totalAgents) {
+        toast.show(
+          `Cannot infect more agents (${newSimDetails.value.initialInfectionCount}) than total population (${totalAgents})`,
+          "error"
+        );
+        return;
+      }
+
+      if (newSimDetails.value.initialInfectionCount > 100) {
+        toast.show(
+          "Maximum initial infection count is 100 agents for performance reasons.",
+          "error"
+        );
+        return;
+      }
+
+      // Load simulation and seed infection
+      loadingMessage.value = "Loading simulation and seeding infection...";
+      try {
+        // Load simulation into memory
+        await axios.post(`/Simulation/${newSimDetails.value.id}/load`);
+
+        // Seed initial infection
+        await axios.post(
+          `/Simulation/${newSimDetails.value.id}/infect`,
+          newSimDetails.value.initialInfectionCount
+        );
+
+        toast.show(
+          `Simulation created successfully with ${newSimDetails.value.initialInfectionCount} initially infected agent(s)!`,
+          "success"
+        );
+      } catch (err) {
+        console.error("Failed to seed infection:", err);
+        toast.show(
+          "Failed to initialize infection. You can manually infect agents later.",
+          "warning"
+        );
+      }
+      loadingMessage.value = "";
+    }
+
+    if (step.value < 6) step.value++;
+
+    if (step.value == 6) {
       show.value = false;
       emit("created");
     }
@@ -501,7 +560,7 @@ const handleNextStep = async () => {
         <!-- Step Indicators -->
         <div class="flex justify-between mb-6">
           <div
-            v-for="n in 4"
+            v-for="n in 5"
             :key="n"
             class="flex-1 h-2 mx-1 rounded-full"
             :class="{
@@ -933,6 +992,137 @@ const handleNextStep = async () => {
           </div>
         </div>
 
+        <!-- Step 5: Initial Infection Setup -->
+        <div v-if="step === 5" class="space-y-4">
+          <div class="alert alert-warning mb-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="stroke-current shrink-0 h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span>
+              <strong>Outbreak Configuration:</strong> Choose how many agents to
+              initially infect to start the disease spread.
+            </span>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold"
+                >Initial Infected Agents</span
+              >
+              <span class="label-text-alt">
+                Total Population:
+                {{
+                  Object.values(newSimDetails.population).reduce(
+                    (a, b) => a + b,
+                    0
+                  )
+                }}
+              </span>
+            </label>
+
+            <input
+              type="number"
+              min="1"
+              max="100"
+              v-model.number="newSimDetails.initialInfectionCount"
+              class="input input-bordered w-full"
+              placeholder="Number of initially infected agents"
+            />
+
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                Recommended: 1-5 for realistic outbreak simulation
+              </span>
+              <span class="label-text-alt text-xs">Maximum: 100</span>
+            </label>
+          </div>
+
+          <div class="bg-base-200 rounded-lg p-4 mt-4">
+            <h4 class="font-semibold mb-3 flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              How It Works
+            </h4>
+            <ul class="text-sm space-y-2 opacity-80">
+              <li>
+                • <strong>Random Selection:</strong> Agents are randomly chosen
+                from the entire population
+              </li>
+              <li>
+                • <strong>Patient Zero(s):</strong> These agents will be marked
+                as "Infected" at simulation start
+              </li>
+              <li>
+                • <strong>Spread Dynamics:</strong> The disease will spread
+                based on your configured parameters (infection rate, proximity,
+                indoor/outdoor contact)
+              </li>
+              <li>
+                • <strong>Realistic Modeling:</strong> Fewer initial infections
+                create more realistic epidemic curves
+              </li>
+            </ul>
+          </div>
+
+          <div
+            class="stats stats-vertical lg:stats-horizontal shadow w-full mt-4"
+          >
+            <div class="stat">
+              <div class="stat-title">Initial Infected</div>
+              <div class="stat-value text-error">
+                {{ newSimDetails.initialInfectionCount }}
+              </div>
+              <div class="stat-desc">
+                {{
+                  (
+                    (newSimDetails.initialInfectionCount /
+                      Object.values(newSimDetails.population).reduce(
+                        (a, b) => a + b,
+                        0
+                      )) *
+                    100
+                  ).toFixed(3)
+                }}% of population
+              </div>
+            </div>
+
+            <div class="stat">
+              <div class="stat-title">Susceptible</div>
+              <div class="stat-value text-success">
+                {{
+                  Object.values(newSimDetails.population).reduce(
+                    (a, b) => a + b,
+                    0
+                  ) - newSimDetails.initialInfectionCount
+                }}
+              </div>
+              <div class="stat-desc">Healthy agents at risk</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Navigation Buttons -->
         <div class="modal-action flex justify-between mt-6">
           <div></div>
@@ -947,14 +1137,14 @@ const handleNextStep = async () => {
             <!-- Buttons when not loading -->
             <div v-else>
               <button
-                v-if="step < 4"
+                v-if="step < 5"
                 class="btn btn-primary"
                 @click="handleNextStep"
               >
                 Next
               </button>
               <button v-else class="btn btn-success" @click="handleNextStep">
-                Finish
+                Finish & Start Outbreak
               </button>
             </div>
           </div>
