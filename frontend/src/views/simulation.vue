@@ -241,6 +241,9 @@
                   :mapArea="simulationData.mapArea"
                   :agents="Array.from(agentPositions.values())"
                   :maxDisplayedAgents="2000"
+                  :totalAgents="
+                    metrics?.totalAgents || simulationData?.agentCount || 0
+                  "
                 />
               </div>
               <div

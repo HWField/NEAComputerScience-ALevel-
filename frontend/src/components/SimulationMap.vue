@@ -31,7 +31,7 @@
       <div
         class="mt-2 pt-2 border-t border-base-300 text-xs text-base-content/60"
       >
-        Showing {{ displayedAgentCount }} of {{ totalAgentCount }} agents
+        Showing {{ displayedAgentCount }} of {{ props.totalAgents }} agents
       </div>
     </div>
   </div>
@@ -61,6 +61,7 @@ const props = defineProps<{
   mapArea: MapArea;
   agents?: AgentPosition[];
   maxDisplayedAgents?: number; // Limit for performance
+  totalAgents?: number; // Total agent count from metrics
 }>();
 
 const mapContainer = ref<HTMLElement | null>(null);
@@ -68,7 +69,6 @@ let map: L.Map | null = null;
 let radiusCircle: L.Circle | null = null;
 let agentMarkers: Map<number, L.CircleMarker> = new Map();
 
-const totalAgentCount = ref(0);
 const displayedAgentCount = ref(0);
 
 // Agent status colors
@@ -105,8 +105,6 @@ function initializeMap() {
 
 function updateAgents(agents: AgentPosition[]) {
   if (!map) return;
-
-  totalAgentCount.value = agents.length;
 
   const maxAgents = props.maxDisplayedAgents || 2000;
   const agentsToDisplay =
@@ -178,7 +176,6 @@ watch(
       agentMarkers.forEach((marker) => marker.remove());
       agentMarkers.clear();
       displayedAgentCount.value = 0;
-      totalAgentCount.value = 0;
     }
   },
   { deep: true, immediate: true }
