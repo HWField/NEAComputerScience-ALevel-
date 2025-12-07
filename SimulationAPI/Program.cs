@@ -10,6 +10,22 @@ using MySimulationAPI.Hubs;
 using DotNetEnv;
 using Swashbuckle.AspNetCore.Swagger;
 using Microsoft.OpenApi.Writers;
+using System.Diagnostics;
+
+// Set process priority to High for maximum CPU allocation
+// Note: Requires running with 'sudo dotnet run' on macOS/Linux
+try
+{
+    using var currentProcess = Process.GetCurrentProcess();
+    currentProcess.PriorityClass = ProcessPriorityClass.High;
+    Console.WriteLine("[Startup] ✓ Process priority set to HIGH");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Startup] ⚠ Could not set HIGH priority: {ex.Message}");
+    Console.WriteLine("[Startup] → Run with 'sudo dotnet run' for HIGH priority");
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel to allow longer request timeouts for large map downloads

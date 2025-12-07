@@ -169,5 +169,18 @@ namespace MySimulationAPI.Hubs
                 TickLength = context.TickLength
             });
         }
+
+        public static async Task BroadcastSetupProgress(IHubContext<SimulationHub> hubContext, int simulationId, string step, string message, int percentage, int current, int total)
+        {
+            await hubContext.Clients.Group($"Simulation_{simulationId}").SendAsync("SetupProgress", new
+            {
+                step,
+                message,
+                percentage,
+                current,
+                total,
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+        }
     }
 }

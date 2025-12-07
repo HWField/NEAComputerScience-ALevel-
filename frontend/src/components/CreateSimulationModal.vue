@@ -1,16 +1,30 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick } from "vue";
+import { ref, watch, onMounted, nextTick, onUnmounted } from "vue";
 import axios from "../api/axios";
 import { useToastStore } from "@/stores/useToastStore";
 import L from "leaflet";
 import { GeoSearchControl, OpenStreetMapProvider } from "leaflet-geosearch";
+import * as signalR from "@microsoft/signalr";
+import { useUserStore } from "@/stores/useUserStore";
+
 const toast = useToastStore();
+const userStore = useUserStore();
 const emit = defineEmits(["created"]);
 
 const show = defineModel<boolean>({ required: true });
 const step = ref(1);
 const loading = ref(false);
 const loadingMessage = ref("");
+
+// Progress tracking
+const progressStep = ref("");
+const progressMessage = ref("");
+const progressPercentage = ref(0);
+const progressCurrent = ref(0);
+const progressTotal = ref(0);
+
+// SignalR connection
+let hubConnection: signalR.HubConnection | null = null;
 
 interface Preset {
   id: number;
@@ -24,6 +38,66 @@ const newSimDetails = ref({});
 const map = ref<L.Map | null>(null);
 const circle = ref<L.Circle | null>(null);
 const radiusKm = ref(1.0); // Fixed radius in kilometers (real-world distance)
+
+// Initialize SignalR connection for progress updates
+const initializeSignalR = async (simulationId: number) => {
+  if (hubConnection) {
+    await hubConnection.stop();
+  }
+
+  hubConnection = new signalR.HubConnectionBuilder()
+    .withUrl("http://127.0.0.1:5081/hubs/simulation", {
+      accessTokenFactory: () => userStore.token || "",
+    })
+    .withAutomaticReconnect()
+    .configureLogging(signalR.LogLevel.Information)
+    .build();
+
+  // Listen for setup progress
+  hubConnection.on(
+    "SetupProgress",
+    (data: {
+      step: string;
+      message: string;
+      percentage: number;
+      current: number;
+      total: number;
+    }) => {
+      progressStep.value = data.step;
+      progressMessage.value = data.message;
+      progressPercentage.value = data.percentage;
+      progressCurrent.value = data.current;
+      progressTotal.value = data.total;
+      loadingMessage.value = `${data.step}: ${data.message}`;
+    }
+  );
+
+  try {
+    await hubConnection.start();
+    console.log("SignalR connected for simulation setup");
+
+    // Join the simulation group to receive progress updates
+    await hubConnection.invoke("JoinSimulation", simulationId);
+  } catch (err) {
+    console.error("Failed to connect SignalR:", err);
+  }
+};
+
+// Cleanup SignalR connection
+const cleanupSignalR = async () => {
+  if (hubConnection) {
+    try {
+      await hubConnection.stop();
+    } catch (err) {
+      console.error("Failed to stop SignalR:", err);
+    }
+    hubConnection = null;
+  }
+};
+
+onUnmounted(() => {
+  cleanupSignalR();
+});
 
 const createNewSimulation = async () => {
   const response = await axios.get("/Preset/mapareas");
@@ -90,6 +164,9 @@ const createNewSimulation = async () => {
 watch(show, (val) => {
   if (val) {
     createNewSimulation();
+  } else {
+    // Clean up SignalR when modal closes
+    cleanupSignalR();
   }
 });
 
@@ -426,6 +503,16 @@ const handleNextStep = async () => {
         return;
       }
 
+      // Initialize SignalR connection before starting population generation
+      await initializeSignalR(newSimDetails.value.id);
+
+      // Reset progress tracking
+      progressStep.value = "";
+      progressMessage.value = "";
+      progressPercentage.value = 0;
+      progressCurrent.value = 0;
+      progressTotal.value = 0;
+
       // Send population configuration to API
       loadingMessage.value = "Generating population...";
       const response = await axios.post(
@@ -440,9 +527,19 @@ const handleNextStep = async () => {
           serviceWorker: newSimDetails.value.population.ServiceWorker,
         }
       );
+
+      // Cleanup SignalR connection after population setup completes
+      await cleanupSignalR();
+
+      // Reset progress tracking so it doesn't show on other steps
+      progressStep.value = "";
+      progressMessage.value = "";
+      progressPercentage.value = 0;
+      progressCurrent.value = 0;
+      progressTotal.value = 0;
+
       loadingMessage.value = "";
     }
-
     if (step.value === 4) {
       loadingMessage.value = "Configuring disease parameters...";
       if (newSimDetails.value.diseaseType === "preset") {
@@ -1126,14 +1223,39 @@ const handleNextStep = async () => {
         <!-- Navigation Buttons -->
         <div class="modal-action flex justify-between mt-6">
           <div></div>
-          <div>
+          <div class="flex flex-col items-end gap-2">
             <!-- Loading State -->
             <div v-if="loading" class="flex items-center gap-3">
               <span class="loading loading-spinner loading-md"></span>
-              <span v-if="loadingMessage" class="text-sm">{{
-                loadingMessage
-              }}</span>
+
+              <div v-if="progressPercentage > 0" class="min-w-[350px]">
+                <div class="text-sm font-semibold mb-1">
+                  {{ progressStep }}
+                </div>
+                <div class="text-xs opacity-70 mb-2">
+                  {{ progressMessage }}
+                </div>
+
+                <!-- Progress bar -->
+                <div class="w-full bg-base-300 rounded-full h-2.5">
+                  <div
+                    class="bg-primary h-2.5 rounded-full transition-all duration-300"
+                    :style="{ width: progressPercentage + '%' }"
+                  ></div>
+                </div>
+
+                <!-- Progress details -->
+                <div class="flex justify-between text-xs mt-1 opacity-60">
+                  <span>{{ progressPercentage }}%</span>
+                  <span v-if="progressTotal > 0">
+                    {{ progressCurrent.toLocaleString() }} /
+                    {{ progressTotal.toLocaleString() }}
+                  </span>
+                </div>
+              </div>
+              <span v-else class="text-sm">{{ loadingMessage }}</span>
             </div>
+
             <!-- Buttons when not loading -->
             <div v-else>
               <button

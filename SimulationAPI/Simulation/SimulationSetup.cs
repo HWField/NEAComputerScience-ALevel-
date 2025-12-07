@@ -6,6 +6,8 @@ using EFCore.BulkExtensions;
 using System.Collections.Concurrent;
 using SQLitePCL;
 using MySimulationAPI.DTOs;
+using Microsoft.AspNetCore.SignalR;
+using MySimulationAPI.Hubs;
 
 namespace MySimulationAPI.SimulationConfiguration
 {
@@ -14,13 +16,15 @@ namespace MySimulationAPI.SimulationConfiguration
         private readonly IDbContextFactory<SimDbContext> _dbFactory;
         private readonly PresetService _presetService;
         private readonly SimulationManager _simulationManager;
+        private readonly IHubContext<SimulationHub> _hubContext;
         private readonly Random _rng = new();
 
-        public SimulationSetup(IDbContextFactory<SimDbContext> dbFactory, PresetService presetService, SimulationManager simulationManager)
+        public SimulationSetup(IDbContextFactory<SimDbContext> dbFactory, PresetService presetService, SimulationManager simulationManager, IHubContext<SimulationHub> hubContext)
         {
             _dbFactory = dbFactory;
             _presetService = presetService;
             _simulationManager = simulationManager;
+            _hubContext = hubContext;
         }
 
         // Create initial simulation with just name (will later add input for parameters such as seed, tick rate etc)
@@ -314,8 +318,14 @@ namespace MySimulationAPI.SimulationConfiguration
                 .FirstOrDefaultAsync(s => s.Id == simulationId && s.UserId == userId)
                 ?? throw new Exception("Simulation not found or access denied");
 
-            // Create the SimulationContext
             var context = await _simulationManager.GetOrCreateAsync(simulationId);
+
+            var totalAgentCount = agentCounts.StudentCount + agentCounts.OfficeWorker +
+                                  agentCounts.MedicalWorker + agentCounts.RetailWorker +
+                                  agentCounts.ElderlyRetiredAgent + agentCounts.ServiceWorker;
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Creating Agents", $"Generating {totalAgentCount} agents...", 0, 0, totalAgentCount);
 
             // Generate agents based on the specified counts for each type
             var agents = new List<Agent>();
@@ -375,6 +385,8 @@ namespace MySimulationAPI.SimulationConfiguration
                 agents.Add(agent);
             }
 
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Creating Agents", $"Created {totalAgentCount} agents", 5, totalAgentCount, totalAgentCount);
             // Group agents by their concrete type
             var studentAgents = agents.OfType<StudentAgent>().ToList();
             var officeWorkerAgents = agents.OfType<OfficeWorkerAgent>().ToList();
@@ -405,52 +417,87 @@ namespace MySimulationAPI.SimulationConfiguration
                 PreserveInsertOrder = true,
             };
 
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Agents", "Inserting agents into database...", 10, 0, 6);
+
             Console.WriteLine($"Inserting {studentAgents.Count} student agents...");
             if (studentAgents.Any())
             {
                 await _db.BulkInsertAsync(studentAgents, agentBulkConfig);
             }
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Agents", "Students saved", 12, 1, 6);
+
             Console.WriteLine($"Inserting {officeWorkerAgents.Count} office worker agents...");
             if (officeWorkerAgents.Any())
             {
                 await _db.BulkInsertAsync(officeWorkerAgents, agentBulkConfig);
             }
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Agents", "Office workers saved", 14, 2, 6);
+
             Console.WriteLine($"Inserting {medicalWorkerAgents.Count} medical worker agents...");
             if (medicalWorkerAgents.Any())
             {
                 await _db.BulkInsertAsync(medicalWorkerAgents, agentBulkConfig);
             }
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Agents", "Medical workers saved", 16, 3, 6);
+
             Console.WriteLine($"Inserting {retailWorkerAgents.Count} retail worker agents...");
             if (retailWorkerAgents.Any())
             {
                 await _db.BulkInsertAsync(retailWorkerAgents, agentBulkConfig);
             }
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Agents", "Retail workers saved", 18, 4, 6);
+
             Console.WriteLine($"Inserting {elderlyRetiredAgents.Count} elderly retired agents...");
             if (elderlyRetiredAgents.Any())
             {
                 await _db.BulkInsertAsync(elderlyRetiredAgents, agentBulkConfig);
             }
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Agents", "Elderly/retired saved", 20, 5, 6);
+
             Console.WriteLine($"Inserting {serviceWorkerAgents.Count} service worker agents...");
             if (serviceWorkerAgents.Any())
             {
                 await _db.BulkInsertAsync(serviceWorkerAgents, agentBulkConfig);
             }
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Agents", "All agents saved", 22, 6, 6);
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Agents", "All agents saved", 22, 6, 6);
 
             // Rehydrate the context so it has all loaded entities
             context.ReloadEntities();
 
             // Assign housing & workplaces deterministically
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Assigning Housing", $"Assigning homes for {agents.Count} agents...", 25, 0, agents.Count);
+
             Console.Write($"[Assignment] Assigning housing for {agents.Count} agents... ");
             var assignStart = DateTime.Now;
             context.BuildingService.AssignHousing();
             var assignTime = (DateTime.Now - assignStart).TotalSeconds;
             Console.WriteLine($"✓ Done in {assignTime:F1}s");
 
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Assigning Workplaces", $"Assigning workplaces...", 30, 0, agents.Count);
+
             Console.Write($"[Assignment] Assigning workplaces... ");
             assignStart = DateTime.Now;
             context.BuildingService.AssignWorkplaces();
             assignTime = (DateTime.Now - assignStart).TotalSeconds;
             Console.WriteLine($"✓ Done in {assignTime:F1}s");
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Assignments", "Saving building assignments...", 35, 0, agents.Count);
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Assignments", "Saving building assignments...", 35, 0, agents.Count);
 
             agents = context.Agents; // reload agents with assigned buildings and Ids
             // Set the FK IDs explicitly
@@ -468,6 +515,9 @@ namespace MySimulationAPI.SimulationConfiguration
             };
             await _db.BulkUpdateAsync(agents, bulkUpdateConfig);
 
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Generating Routines", $"Starting routine generation for {agents.Count} agents...", 40, 0, agents.Count);
+
             // Generate routines for all agents WITH PARALLEL PROCESSING
             Console.WriteLine($"[Routine Generation] Starting for {agents.Count} agents...");
             var progressLock = new object();
@@ -475,6 +525,7 @@ namespace MySimulationAPI.SimulationConfiguration
             var errors = 0;
             var startTime = DateTime.Now;
             var lastProgressUpdate = DateTime.Now;
+            var lastBroadcastUpdate = DateTime.Now;
 
             // Use Parallel.ForEach for multi-threaded processing
             var parallelOptions = new ParallelOptions
@@ -514,6 +565,17 @@ namespace MySimulationAPI.SimulationConfiguration
                             var bar = new string('█', filledWidth) + new string('░', barWidth - filledWidth);
 
                             Console.Write($"\r[{bar}] {percent:F1}% ({completed}/{agents.Count}) | {rate:F0} agents/s | ETA: {eta:F0}s ");
+
+                            // Broadcast to frontend every second
+                            if ((now - lastBroadcastUpdate).TotalMilliseconds >= 1000)
+                            {
+                                lastBroadcastUpdate = now;
+                                var progressPercent = 40 + (int)(percent * 0.4); // 40-80% range
+                                _ = SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                                    "Generating Routines",
+                                    $"Generating routines... {completed}/{agents.Count} agents ({rate:F0}/s, ETA: {eta:F0}s)",
+                                    progressPercent, completed, agents.Count);
+                            }
                         }
                     }
                 }
@@ -537,6 +599,9 @@ namespace MySimulationAPI.SimulationConfiguration
             {
                 Console.WriteLine($"[Routine Generation] ⚠ {errors} errors occurred");
             }
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Routines", "Preparing routine events...", 80, 0, agents.Count);
 
             // Save all routine events to the database
             Console.WriteLine($"[Database] Preparing {agents.Count} agents' routine events...");
@@ -580,10 +645,19 @@ namespace MySimulationAPI.SimulationConfiguration
                 var batchPercent = ((i + 1) * 100.0) / batches;
                 var inserted = Math.Min((i + 1) * batchSize, routineEvents.Count);
                 Console.Write($"\r[Database] Progress: {batchPercent:F0}% ({inserted:N0}/{routineEvents.Count:N0}) ");
+
+                // Broadcast progress to frontend
+                var progressPercent = 80 + (int)(batchPercent * 0.1); // 80-90% range
+                await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                    "Saving Routines", $"Saving routines... {inserted:N0}/{routineEvents.Count:N0}",
+                    progressPercent, inserted, routineEvents.Count);
             }
 
             var dbTime = (DateTime.Now - dbStart).TotalSeconds;
             Console.WriteLine($"\n[Database] ✓ Done in {dbTime:F1}s");
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Generating Profiles", $"Creating medical profiles...", 90, 0, agents.Count);
 
             // generate and insert medical profiles for each agent
             Console.Write($"[Database] Generating {agents.Count} medical profiles... ");
@@ -595,6 +669,9 @@ namespace MySimulationAPI.SimulationConfiguration
                 medicalProfiles.Add(profile);
             }
             Console.WriteLine("✓ Done");
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Saving Profiles", "Saving medical profiles...", 92, 0, medicalProfiles.Count);
 
             // Bulk insert medical profiles
             Console.Write($"[Database] Inserting {medicalProfiles.Count} medical profiles... ");
@@ -615,8 +692,16 @@ namespace MySimulationAPI.SimulationConfiguration
             {
                 throw;
             }
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Finalizing", "Cleaning up...", 95, 0, 1);
+
             Console.WriteLine($"[Cleanup] Unloading simulation {simulationId} from memory...");
             await _simulationManager.RemoveAsync(simulationId);
+
+            await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
+                "Complete", "Population setup complete!", 100, 1, 1);
+
             Console.WriteLine($"✓ Setup complete!");
         }
 

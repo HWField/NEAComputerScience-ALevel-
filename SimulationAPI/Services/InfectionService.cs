@@ -54,8 +54,6 @@ namespace MySimulationAPI.Services
             TotalDeaths = totalDeaths;
             TotalRecoveries = totalRecoveries;
 
-            Console.WriteLine($"[InfectionService] Restored metrics - Infections: {totalInfections}, Deaths: {totalDeaths}, Recoveries: {totalRecoveries}");
-
             // Recalculate current state metrics from agent states
             RecalculateActiveMetrics();
         }
@@ -85,8 +83,6 @@ namespace MySimulationAPI.Services
                     }
                 }
             }
-
-            Console.WriteLine($"[InfectionService] Recalculated active metrics: {ActiveInfections} active, {SymptomaticCases} symptomatic, {ReportedCases} reported");
         }
 
 
@@ -129,8 +125,6 @@ namespace MySimulationAPI.Services
                 }
                 attempts++;
             }
-
-            Console.WriteLine($"[InfectionService] Seeded {infected} infections");
         }
 
         public void UpdateInfectionTick()
@@ -313,8 +307,7 @@ namespace MySimulationAPI.Services
                         // Hospital-seeking behavior for severe symptoms
                         if (currentSymptoms > 0.7f && _rng.NextDouble() < _disease.HospitalSeekingRate / ticksPerDay)
                         {
-                            Console.WriteLine($"[InfectionService] Agent {agent.Id} seeks medical care (symptoms: {currentSymptoms:F2})");
-                            // Note: This could be expanded to actually modify agent routines
+                            // later expand to actually modify agent routines
                         }
                     }
 
@@ -337,7 +330,6 @@ namespace MySimulationAPI.Services
                             agent.InfectionProgress = 1f;
                             agent.SymptomSeverity = 0f;
                             TotalDeaths++;
-                            Console.WriteLine($"[InfectionService] Agent {agent.Id} died (infection #{agent.InfectionCount})");
                             return;
                         }
                     }
@@ -361,8 +353,6 @@ namespace MySimulationAPI.Services
 
                         agent.Immunity = Math.Min(1f, agent.Immunity + immunityGain);
                         agent.SymptomSeverity = 0f;
-
-                        Console.WriteLine($"[InfectionService] Agent {agent.Id} recovered (immunity: {agent.Immunity:F2}, infections: {agent.InfectionCount})");
                     }
                     break;
 
