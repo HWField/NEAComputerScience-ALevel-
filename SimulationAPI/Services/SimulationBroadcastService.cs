@@ -147,7 +147,13 @@ namespace MySimulationAPI.Services
                         recovered = metrics.Recovered,
                         dead = metrics.Dead,
                         quarantined = metrics.Quarantined,
-                        healthy = metrics.Healthy
+                        healthy = metrics.Healthy,
+                        totalInfections = context.InfectionService.TotalInfections,
+                        activeInfections = context.InfectionService.ActiveInfections,
+                        symptomaticCases = context.InfectionService.SymptomaticCases,
+                        reportedCases = context.InfectionService.ReportedCases,
+                        totalDeaths = context.InfectionService.TotalDeaths,
+                        totalRecoveries = context.InfectionService.TotalRecoveries
                     });
                 }
                 catch (Exception ex)
@@ -163,6 +169,10 @@ namespace MySimulationAPI.Services
         private HealthMetrics CalculateHealthMetrics(SimulationContext context)
         {
             var agents = context.AgentStates;
+            if (agents == null || agents.Length == 0)
+            {
+                return new HealthMetrics { Total = 0 };
+            }
             int total = agents.Length;
             int infected = 0;
             int recovered = 0;

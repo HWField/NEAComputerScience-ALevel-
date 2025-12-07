@@ -149,9 +149,18 @@ namespace MySimulationAPI.Services
                 _db.DiseasePresets.Add(new DiseasePreset
                 {
                     Name = "Covid-19",
-                    InfectionRate = 0.3,
-                    RecoveryRate = 0.1,
-                    MortalityRate = 0.015,
+                    InfectionRate = 0.02,              // 2% per hour of close contact
+                    RecoveryRate = 0.07,               // ~14 days to recover
+                    MortalityRate = 0.015,             // 1.5% case fatality rate
+                    IncubationPeriod = 3.0,            // 3 days incubation (presymptomatic but infectious after day 2)
+                    InfectiousPeriod = 10.0,           // 10 days of peak infectiousness
+                    SymptomaticRate = 0.7,             // 70% develop noticeable symptoms
+                    SevereSymptomsRate = 0.15,         // 15% develop severe symptoms
+                    HospitalSeekingRate = 0.6,         // 60% of severe cases seek medical help
+                    ImmunityDuration = 180,            // ~6 months immunity
+                    ReinfectionResistance = 0.7,       // 70% protection from reinfection
+                    MaskEffectiveness = 0.5,           // 50% reduction with masks
+                    VaccineEffectiveness = 0.8         // 80% efficacy
                 });
             }
 
@@ -160,9 +169,18 @@ namespace MySimulationAPI.Services
                 _db.DiseasePresets.Add(new DiseasePreset
                 {
                     Name = "Influenza",
-                    InfectionRate = 0.15,
-                    RecoveryRate = 0.12,
-                    MortalityRate = 0.005,
+                    InfectionRate = 0.015,             // Slightly lower than COVID
+                    RecoveryRate = 0.14,               // ~7 days recovery
+                    MortalityRate = 0.005,             // 0.5% CFR
+                    IncubationPeriod = 1.5,            // 1.5 days incubation (faster)
+                    InfectiousPeriod = 7.0,            // 7 days infectious
+                    SymptomaticRate = 0.85,            // 85% develop symptoms
+                    SevereSymptomsRate = 0.1,          // 10% severe
+                    HospitalSeekingRate = 0.4,         // 40% of severe seek help
+                    ImmunityDuration = 90,             // ~3 months (seasonal)
+                    ReinfectionResistance = 0.5,       // 50% protection (strain variation)
+                    MaskEffectiveness = 0.4,           // 40% reduction
+                    VaccineEffectiveness = 0.6         // 60% efficacy (varies by strain)
                 });
             }
 
@@ -170,6 +188,10 @@ namespace MySimulationAPI.Services
             if (!await _db.MapAreaPresets.AnyAsync(m => m.Name == "CambridgeCity"))
             {
                 await FetchAndCreateMapPresetAsync("CambridgeCity", 52.1951, 0.1313, 1);
+            }
+            if (!await _db.MapAreaPresets.AnyAsync(m => m.Name == "SaffronWalden"))
+            {
+                await FetchAndCreateMapPresetAsync("SaffronWalden", 52.0174, 0.2438, 1);
             }
             await _db.SaveChangesAsync();
         }

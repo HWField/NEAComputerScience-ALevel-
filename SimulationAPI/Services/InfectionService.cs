@@ -13,12 +13,20 @@ namespace MySimulationAPI.Services
         private readonly Disease? _disease;
 
         // Realistic airborne transmission parameters
-        private const float INFECTION_RADIUS_METERS = 2.0f; // WHO guidelines: 1-2m for airborne
-        private const float INDOOR_MULTIPLIER = 8.0f; // Indoor air recirculation dramatically increases risk
-        private const float OUTDOOR_DECAY = 0.3f; // UV light and air dispersion reduce outdoor transmission
+        private const float INFECTION_RADIUS_METERS = 2.0f;
+        private const float INDOOR_MULTIPLIER = 2.5f;
+        private const float OUTDOOR_DECAY = 0.15f;
 
         // Time-based transmission (per tick exposure)
         private float _transmissionPerTick;
+
+        // Tracking metrics
+        public int TotalInfections { get; private set; }
+        public int ActiveInfections { get; private set; }
+        public int SymptomaticCases { get; private set; }
+        public int ReportedCases { get; private set; }
+        public int TotalDeaths { get; private set; }
+        public int TotalRecoveries { get; private set; }
 
         public InfectionService(SimulationContext context)
         {
@@ -27,7 +35,7 @@ namespace MySimulationAPI.Services
             _disease = context.Simulation.Disease;
 
             // Calculate per-tick transmission probability if disease is configured
-            // InfectionRate is probability per hour of exposure
+            // InfectionRate is probability per HOUR of close contact exposure
             // Convert to per-tick based on tick length
             if (_disease != null)
             {
@@ -40,9 +48,49 @@ namespace MySimulationAPI.Services
             }
         }
 
-        /// <summary>
-        /// Infects a specified number of random agents to seed the outbreak
-        /// </summary>
+        public void RestoreMetricsFromSnapshot(int totalInfections, int totalDeaths, int totalRecoveries)
+        {
+            TotalInfections = totalInfections;
+            TotalDeaths = totalDeaths;
+            TotalRecoveries = totalRecoveries;
+
+            Console.WriteLine($"[InfectionService] Restored metrics - Infections: {totalInfections}, Deaths: {totalDeaths}, Recoveries: {totalRecoveries}");
+
+            // Recalculate current state metrics from agent states
+            RecalculateActiveMetrics();
+        }
+
+        public void RecalculateActiveMetrics()
+        {
+            Span<AgentState> agents = _context.AgentStates.AsSpan();
+
+            ActiveInfections = 0;
+            SymptomaticCases = 0;
+            ReportedCases = 0;
+
+            for (int i = 0; i < agents.Length; i++)
+            {
+                ref var agent = ref agents[i];
+
+                if ((AgentHealthState)agent.HealthState == AgentHealthState.Infected)
+                {
+                    ActiveInfections++;
+
+                    if (agent.SymptomSeverity > 0.1f)
+                    {
+                        SymptomaticCases++;
+
+                        if (agent.SymptomSeverity > 0.3f)
+                            ReportedCases++;
+                    }
+                }
+            }
+
+            Console.WriteLine($"[InfectionService] Recalculated active metrics: {ActiveInfections} active, {SymptomaticCases} symptomatic, {ReportedCases} reported");
+        }
+
+
+        // Infects a specified number of random agents to seed the outbreak
         public void SeedInfection(int count = 1)
         {
             Span<AgentState> agents = _context.AgentStates.AsSpan();
@@ -61,12 +109,28 @@ namespace MySimulationAPI.Services
                 {
                     agent.HealthState = (byte)AgentHealthState.Infected;
                     agent.InfectionProgress = 0f;
+                    agent.InfectionCount++;
+
+                    // Determine if symptomatic
+                    if (_disease != null && _rng.NextDouble() < _disease.SymptomaticRate)
+                    {
+                        // Severity varies (0.1 = mild, 1.0 = severe)
+                        agent.SymptomSeverity = _rng.NextDouble() < _disease.SevereSymptomsRate
+                            ? (float)(_rng.NextDouble() * 0.5 + 0.5)  // 0.5-1.0 (severe)
+                            : (float)(_rng.NextDouble() * 0.4 + 0.1); // 0.1-0.5 (mild)
+                    }
+                    else
+                    {
+                        agent.SymptomSeverity = 0f; // Asymptomatic
+                    }
+
                     infected++;
+                    TotalInfections++;
                 }
                 attempts++;
             }
 
-            Console.WriteLine($"[InfectionService] Successfully infected {infected} agents");
+            Console.WriteLine($"[InfectionService] Seeded {infected} infections");
         }
 
         public void UpdateInfectionTick()
@@ -74,6 +138,11 @@ namespace MySimulationAPI.Services
             Span<AgentState> agents = _context.AgentStates.AsSpan();
             if (agents.Length == 0)
                 return;
+
+            // Reset metrics for this tick
+            ActiveInfections = 0;
+            SymptomaticCases = 0;
+            ReportedCases = 0;
 
             // --- Build spatial index for proximity queries ---
             var spatialIndex = BuildSpatialIndex(agents);
@@ -83,6 +152,27 @@ namespace MySimulationAPI.Services
             {
                 ref var infectious = ref agents[i];
                 if ((AgentHealthState)infectious.HealthState != AgentHealthState.Infected)
+                    continue;
+
+                ActiveInfections++;
+
+                // Calculate days since infection
+                float daysSinceInfection = _disease != null ? infectious.InfectionProgress / (float)_disease.RecoveryRate : 0;
+
+                // Check if agent is past incubation period (infectious)
+                bool isInfectious = _disease != null && daysSinceInfection >= _disease.IncubationPeriod;
+
+                if (infectious.SymptomSeverity > 0.1f)
+                {
+                    SymptomaticCases++;
+
+                    // Reported if symptoms are severe enough to test/notice
+                    if (infectious.SymptomSeverity > 0.3f)
+                        ReportedCases++;
+                }
+
+                // Only spread infection if past incubation period
+                if (!isInfectious)
                     continue;
 
                 // Find nearby agents within transmission radius
@@ -115,48 +205,62 @@ namespace MySimulationAPI.Services
 
             // --- Progress disease state for all infected/recovered agents ---
             for (int i = 0; i < agents.Length; i++)
-                ProgressDisease(ref agents[i]);
+            {
+                ref var agent = ref agents[i];
+                ProgressDisease(ref agent);
+                DecayImmunity(ref agent);
+            }
         }
 
         private void TryInfect(ref AgentState infectious, ref AgentState susceptible, bool isIndoors)
         {
+            if (_disease == null) return;
             // Base transmission probability per tick (time-scaled)
             float transmissionProb = _transmissionPerTick;
 
             // --- Environmental Modifiers ---
             if (isIndoors)
-            {
-                // Indoors: poor ventilation, virus concentration builds up
                 transmissionProb *= INDOOR_MULTIPLIER;
-            }
             else
-            {
-                // Outdoors: UV degradation, wind dispersion
                 transmissionProb *= OUTDOOR_DECAY;
-            }
 
-            // --- Host Susceptibility Factors ---
-            // Individual susceptibility (age, immune system, etc.)
-            transmissionProb *= susceptible.Susceptibility;
+            // --- Intervention: Masks ---
+            if (infectious.WearsMask)
+                transmissionProb *= (1f - (float)_disease.MaskEffectiveness);
 
-            // Immunity from previous infection/recovery
+            if (susceptible.WearsMask)
+                transmissionProb *= (1f - (float)_disease.MaskEffectiveness * 0.5f); // Masks protect wearer less
+
+            // --- Host Susceptibility ---
+            float effectiveSusceptibility = susceptible.Susceptibility;
+
+            // Intervention: Vaccination
+            if (susceptible.IsVaccinated)
+                effectiveSusceptibility *= (1f - (float)_disease.VaccineEffectiveness);
+
+            // Natural immunity from previous infections
             if (susceptible.Immunity > 0)
-            {
-                transmissionProb *= (1f - susceptible.Immunity);
-            }
+                effectiveSusceptibility *= (1f - susceptible.Immunity);
+
+            transmissionProb *= effectiveSusceptibility;
 
             // Chronic conditions increase risk
             if (susceptible.HasChronicCondition)
-            {
-                transmissionProb *= 1.8f; // Compromised immune system
-            }
+                transmissionProb *= 1.5f;
 
-            // --- Infectious Agent Viral Load (disease progression) ---
-            // Peak infectiousness around 20-60% disease progression
+            // --- Viral Load (infection stage) ---
             float viralLoadMultiplier = infectious.InfectionProgress < 0.5f
-                ? 0.5f + infectious.InfectionProgress // Ramping up
-                : 1.5f - infectious.InfectionProgress; // Declining
+                ? 0.5f + infectious.InfectionProgress
+                : 1.5f - infectious.InfectionProgress;
             transmissionProb *= Math.Max(0.3f, viralLoadMultiplier);
+
+            // --- Behavioral Factor: Symptomatic agents may reduce contacts ---
+            // If infectious agent has moderate/severe symptoms, they're less likely to be in public
+            if (infectious.SymptomSeverity > 0.4f && !isIndoors)
+            {
+                // Symptomatic people avoid going out (reduces outdoor transmission)
+                transmissionProb *= 0.3f; // 70% reduction when symptomatic and outdoors
+            }
 
             // Clamp probability to valid range
             transmissionProb = Math.Clamp(transmissionProb, 0f, 1f);
@@ -166,9 +270,20 @@ namespace MySimulationAPI.Services
             {
                 susceptible.HealthState = (byte)AgentHealthState.Infected;
                 susceptible.InfectionProgress = 0f;
+                susceptible.InfectionCount++;
+                TotalInfections++;
 
-                // Random incubation variation (±20%)
-                susceptible.InfectionProgress -= (float)(_rng.NextDouble() * 0.2 - 0.1);
+                // Determine symptoms
+                if (_rng.NextDouble() < _disease.SymptomaticRate)
+                {
+                    susceptible.SymptomSeverity = _rng.NextDouble() < _disease.SevereSymptomsRate
+                        ? (float)(_rng.NextDouble() * 0.5 + 0.5)  // 0.5-1.0 (severe)
+                        : (float)(_rng.NextDouble() * 0.4 + 0.1); // 0.1-0.5 (mild)
+                }
+                else
+                {
+                    susceptible.SymptomSeverity = 0f; // Asymptomatic
+                }
             }
         }
 
@@ -181,52 +296,97 @@ namespace MySimulationAPI.Services
             switch ((AgentHealthState)agent.HealthState)
             {
                 case AgentHealthState.Infected:
-                    // Progress infection based on recovery rate (time-scaled per tick)
+                    // Progress infection
                     float progressPerTick = (float)_disease.RecoveryRate / ticksPerDay;
                     agent.InfectionProgress += progressPerTick;
 
-                    // --- Mortality Check ---
-                    // Risk increases with disease progression (most deaths occur at peak infection)
-                    if (agent.InfectionProgress > 0.3f && agent.InfectionProgress < 0.9f)
+                    // Symptoms develop and peak around 30-60% of infection
+                    if (agent.SymptomSeverity > 0)
                     {
-                        // Base mortality rate adjusted by susceptibility and chronic conditions
+                        // Symptoms worsen then improve
+                        float symptomMultiplier = agent.InfectionProgress < 0.5f
+                            ? agent.InfectionProgress * 2f  // Ramping up
+                            : 2f - agent.InfectionProgress * 2f; // Declining
+
+                        float currentSymptoms = agent.SymptomSeverity * symptomMultiplier;
+
+                        // Hospital-seeking behavior for severe symptoms
+                        if (currentSymptoms > 0.7f && _rng.NextDouble() < _disease.HospitalSeekingRate / ticksPerDay)
+                        {
+                            Console.WriteLine($"[InfectionService] Agent {agent.Id} seeks medical care (symptoms: {currentSymptoms:F2})");
+                            // Note: This could be expanded to actually modify agent routines
+                        }
+                    }
+
+                    // --- Mortality Check (once at peak) ---
+                    float prevProgress = agent.InfectionProgress - progressPerTick;
+                    if (prevProgress < 0.5f && agent.InfectionProgress >= 0.5f)
+                    {
                         float mortalityRisk = (float)_disease.MortalityRate * agent.Susceptibility;
 
                         if (agent.HasChronicCondition)
-                        {
-                            mortalityRisk *= 3.5f; // Significantly higher risk with comorbidities
-                        }
+                            mortalityRisk *= 3.5f;
 
-                        // Scale to per-tick probability
-                        mortalityRisk /= ticksPerDay;
+                        // Severe symptoms correlate with mortality
+                        if (agent.SymptomSeverity > 0.5f)
+                            mortalityRisk *= 2f;
 
                         if (_rng.NextDouble() < mortalityRisk)
                         {
                             agent.HealthState = (byte)AgentHealthState.Dead;
                             agent.InfectionProgress = 1f;
-                            Console.WriteLine($"[InfectionService] Agent {agent.Id} died from infection");
+                            agent.SymptomSeverity = 0f;
+                            TotalDeaths++;
+                            Console.WriteLine($"[InfectionService] Agent {agent.Id} died (infection #{agent.InfectionCount})");
                             return;
                         }
                     }
 
-                    // --- Recovery Check ---
+                    // --- Recovery ---
                     if (agent.InfectionProgress >= 1f)
                     {
                         agent.HealthState = (byte)AgentHealthState.Recovered;
+                        TotalRecoveries++;
 
-                        // Build immunity (stronger if survived severe infection)
-                        float immunityGain = agent.HasChronicCondition ? 0.15f : 0.25f;
+                        // Build immunity based on disease properties
+                        float immunityGain = (float)_disease.ReinfectionResistance;
+
+                        // Vaccination boosts immunity
+                        if (agent.IsVaccinated)
+                            immunityGain *= 1.2f;
+
+                        // Chronic conditions reduce immune response
+                        if (agent.HasChronicCondition)
+                            immunityGain *= 0.7f;
+
                         agent.Immunity = Math.Min(1f, agent.Immunity + immunityGain);
+                        agent.SymptomSeverity = 0f;
 
-                        Console.WriteLine($"[InfectionService] Agent {agent.Id} recovered (immunity: {agent.Immunity:F2})");
+                        Console.WriteLine($"[InfectionService] Agent {agent.Id} recovered (immunity: {agent.Immunity:F2}, infections: {agent.InfectionCount})");
                     }
                     break;
 
                 case AgentHealthState.Recovered:
-                    // Slow immunity decay over time (wanes over ~6 months in simulation)
-                    float immunityDecayPerTick = 0.001f / ticksPerDay;
-                    agent.Immunity = Math.Max(0.05f, agent.Immunity - immunityDecayPerTick);
+                    // Immunity naturally decays (handled in DecayImmunity)
                     break;
+            }
+        }
+
+        private void DecayImmunity(ref AgentState agent)
+        {
+            if (_disease == null || agent.Immunity <= 0) return;
+
+            // Immunity decays based on disease's ImmunityDuration
+            float ticksPerDay = 86400f / _context.TickLength;
+            float decayPerTick = 1f / ((float)_disease.ImmunityDuration * ticksPerDay);
+
+            agent.Immunity = Math.Max(0f, agent.Immunity - decayPerTick);
+
+            // When immunity fully wanes, agent becomes susceptible again (reinfection possible)
+            if (agent.Immunity < 0.05f && (AgentHealthState)agent.HealthState == AgentHealthState.Recovered)
+            {
+                agent.HealthState = (byte)AgentHealthState.Healthy;
+                agent.Immunity = 0f;
             }
         }
 

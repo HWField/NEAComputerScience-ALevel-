@@ -85,6 +85,13 @@ namespace MySimulationAPI.Services
                     if (agent.Workplace != null)
                     {
                         var schoolStart = new TimeOnly(8, 30).AddMinutes(rng.Next(-15, 16));
+
+                        // Morning at home before school
+                        if (schoolStart.Hour > 0)
+                        {
+                            AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(schoolStart.Hour), RoutineEventType.Home, agent.House);
+                        }
+
                         AddRoutineEvent(day, schoolStart, TimeSpan.FromHours(7), RoutineEventType.School, agent.Workplace);
 
                         // After school activity (40% chance) - leisure or retail
@@ -112,13 +119,10 @@ namespace MySimulationAPI.Services
                 // Weekends - more social activities
                 for (int day = 5; day <= 6; day++)
                 {
-                    var morningHome = new TimeOnly(rng.Next(0, 11), 0);
+                    var morningHome = new TimeOnly(rng.Next(8, 11), 0);
 
-                    // Morning at home
-                    if (morningHome.Hour > 0)
-                    {
-                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningHome.Hour), RoutineEventType.Home, agent.House);
-                    }
+                    // Morning at home - always add to ensure agent has a starting position
+                    AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningHome.Hour), RoutineEventType.Home, agent.House);
 
                     // Daytime activity (80% chance)
                     if (rng.NextDouble() < 0.8)
@@ -164,6 +168,13 @@ namespace MySimulationAPI.Services
                     {
                         var workStart = new TimeOnly(rng.Next(7, 10), rng.Next(0, 60));
                         var workDuration = rng.Next(8, 10);
+
+                        // Morning at home before work
+                        if (workStart.Hour > 0)
+                        {
+                            AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(workStart.Hour), RoutineEventType.Home, agent.House);
+                        }
+
                         AddRoutineEvent(day, workStart, TimeSpan.FromHours(workDuration), RoutineEventType.Work, agent.Workplace);
 
                         // Lunch break (50% chance to leave office)
@@ -218,12 +229,9 @@ namespace MySimulationAPI.Services
                 // Weekends - errands and leisure
                 for (int day = 5; day <= 6; day++)
                 {
-                    // Morning at home
+                    // Morning at home - always add to ensure starting position
                     var morningEnd = new TimeOnly(rng.Next(8, 12), rng.Next(0, 60));
-                    if (morningEnd.Hour > 0)
-                    {
-                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningEnd.Hour), RoutineEventType.Home, agent.House);
-                    }
+                    AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningEnd.Hour), RoutineEventType.Home, agent.House);
 
                     // Daytime activity (70% chance)
                     if (rng.NextDouble() < 0.7)
@@ -287,6 +295,13 @@ namespace MySimulationAPI.Services
                     if (shiftRoll < 0.5) // Day shift (50%)
                     {
                         var shiftStart = new TimeOnly(7, 0).AddMinutes(rng.Next(-30, 31));
+
+                        // Morning at home before shift
+                        if (shiftStart.Hour > 0)
+                        {
+                            AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(shiftStart.Hour), RoutineEventType.Home, agent.House);
+                        }
+
                         AddRoutineEvent(day, shiftStart, TimeSpan.FromHours(12), RoutineEventType.Work, agent.Workplace);
 
                         // Quick meal break during shift (60% chance)
@@ -358,6 +373,13 @@ namespace MySimulationAPI.Services
                     {
                         var shiftStart = new TimeOnly(rng.Next(6, 14), rng.Next(0, 60));
                         var shiftDuration = TimeSpan.FromHours(rng.Next(6, 9));
+
+                        // Morning at home before shift
+                        if (shiftStart.Hour > 0)
+                        {
+                            AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(shiftStart.Hour), RoutineEventType.Home, agent.House);
+                        }
+
                         AddRoutineEvent(day, shiftStart, shiftDuration, RoutineEventType.Work, agent.Workplace);
 
                         // Lunch/break (40% chance to leave workplace)
@@ -446,6 +468,13 @@ namespace MySimulationAPI.Services
                         // Varied shift times - often later in the day for hospitality
                         var shiftStart = new TimeOnly(rng.Next(10, 18), rng.Next(0, 60));
                         var shiftDuration = TimeSpan.FromHours(rng.Next(7, 10));
+
+                        // Morning at home before shift
+                        if (shiftStart.Hour > 0)
+                        {
+                            AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(shiftStart.Hour), RoutineEventType.Home, agent.House);
+                        }
+
                         AddRoutineEvent(day, shiftStart, shiftDuration, RoutineEventType.Work, agent.Workplace);
 
                         // Break during shift (50% chance)
@@ -481,12 +510,9 @@ namespace MySimulationAPI.Services
                     else
                     {
                         // Day off - rest and errands
-                        // Morning sleep-in
+                        // Morning sleep-in - always add to ensure starting position
                         var wakeTime = new TimeOnly(rng.Next(9, 13), rng.Next(0, 60));
-                        if (wakeTime.Hour > 0)
-                        {
-                            AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(wakeTime.Hour), RoutineEventType.Home, agent.House);
-                        }
+                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(wakeTime.Hour), RoutineEventType.Home, agent.House);
 
                         // Afternoon activity (60% chance)
                         if (rng.NextDouble() < 0.6)
@@ -528,12 +554,9 @@ namespace MySimulationAPI.Services
             {
                 for (int day = 0; day <= 6; day++)
                 {
-                    // Morning at home (wake up later, 7-10am)
+                    // Morning at home (wake up later, 7-10am), always add to ensure starting position
                     var morningEnd = new TimeOnly(rng.Next(7, 11), rng.Next(0, 60));
-                    if (morningEnd.Hour > 0)
-                    {
-                        AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningEnd.Hour), RoutineEventType.Home, agent.House);
-                    }
+                    AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningEnd.Hour), RoutineEventType.Home, agent.House);
 
                     // Morning activity (60% chance - shopping, errands, socializing)
                     if (rng.NextDouble() < 0.6)
@@ -711,12 +734,21 @@ namespace MySimulationAPI.Services
             for (int i = 0; i < agents.Length; i++)
             {
                 ref var agent = ref agents[i];
+                int agentId = agent.Id; // Capture for lambda use
 
                 // get today's routines for this agent  
-                var agentRoutines = routinesLookup[agent.Id].OrderBy(r => r.StartTick).ToList();
+                var agentRoutines = routinesLookup[agentId].OrderBy(r => r.StartTick).ToList();
                 if (!agentRoutines.Any())
                 {
-                    // No routines today - agent stays at current position (don't teleport!)
+                    // No routines today - find a Home event from any day to get home position
+                    var anyHomeEvent = routines.FirstOrDefault(r => r.AgentId == agentId && r.Type == (byte)RoutineEventType.Home);
+                    if (anyHomeEvent.BuildingId != 0 && buildingIndexById.TryGetValue(anyHomeEvent.BuildingId, out var homeIdx))
+                    {
+                        agent.Lat = buildings[homeIdx].X;
+                        agent.Lon = buildings[homeIdx].Y;
+                        agent.CurrentBuildingId = anyHomeEvent.BuildingId;
+                        occupantCounts[homeIdx]++;
+                    }
                     continue;
                 }
 
@@ -737,9 +769,16 @@ namespace MySimulationAPI.Services
 
                 if (!activeEvent.HasValue)
                 {
-                    // No active event - keep agent at their last known position
+                    // No active event - default to home position
                     // This handles gaps between routines (early morning, late night, etc.)
-                    // Agent position remains unchanged from previous tick
+                    var homeEvent = agentRoutines.FirstOrDefault(r => r.Type == (byte)RoutineEventType.Home);
+                    if (homeEvent.BuildingId != 0 && buildingIndexById.TryGetValue(homeEvent.BuildingId, out var homeIdx))
+                    {
+                        agent.Lat = buildings[homeIdx].X;
+                        agent.Lon = buildings[homeIdx].Y;
+                        agent.CurrentBuildingId = homeEvent.BuildingId;
+                        occupantCounts[homeIdx]++;
+                    }
                     continue;
                 }
 

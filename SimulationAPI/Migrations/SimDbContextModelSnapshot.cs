@@ -81,10 +81,19 @@ namespace SimulationAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<float>("Immunity")
+                        .HasColumnType("real");
+
+                    b.Property<byte>("InfectionCount")
+                        .HasColumnType("smallint");
+
                     b.Property<double>("InfectionProgress")
                         .HasColumnType("double precision");
 
                     b.Property<bool>("IsQuarantined")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsVaccinated")
                         .HasColumnType("boolean");
 
                     b.Property<double>("Latitude")
@@ -95,6 +104,12 @@ namespace SimulationAPI.Migrations
 
                     b.Property<int>("SimulationSnapshotId")
                         .HasColumnType("integer");
+
+                    b.Property<float>("SymptomSeverity")
+                        .HasColumnType("real");
+
+                    b.Property<bool>("WearsMask")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -184,7 +199,22 @@ namespace SimulationAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<double>("HospitalSeekingRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("ImmunityDuration")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("IncubationPeriod")
+                        .HasColumnType("double precision");
+
                     b.Property<double>("InfectionRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("InfectiousPeriod")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("MaskEffectiveness")
                         .HasColumnType("double precision");
 
                     b.Property<double>("MortalityRate")
@@ -197,8 +227,20 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("RecoveryRate")
                         .HasColumnType("double precision");
 
+                    b.Property<double>("ReinfectionResistance")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("SevereSymptomsRate")
+                        .HasColumnType("double precision");
+
                     b.Property<int>("SimulationId")
                         .HasColumnType("integer");
+
+                    b.Property<double>("SymptomaticRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("VaccineEffectiveness")
+                        .HasColumnType("double precision");
 
                     b.HasKey("Id");
 
@@ -216,7 +258,22 @@ namespace SimulationAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<double>("HospitalSeekingRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("ImmunityDuration")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("IncubationPeriod")
+                        .HasColumnType("double precision");
+
                     b.Property<double>("InfectionRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("InfectiousPeriod")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("MaskEffectiveness")
                         .HasColumnType("double precision");
 
                     b.Property<double>("MortalityRate")
@@ -229,8 +286,20 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("RecoveryRate")
                         .HasColumnType("double precision");
 
+                    b.Property<double>("ReinfectionResistance")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("SevereSymptomsRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("SymptomaticRate")
+                        .HasColumnType("double precision");
+
                     b.Property<int?>("UserId")
                         .HasColumnType("integer");
+
+                    b.Property<double>("VaccineEffectiveness")
+                        .HasColumnType("double precision");
 
                     b.HasKey("Id");
 
@@ -683,6 +752,15 @@ namespace SimulationAPI.Migrations
 
                     b.Property<long>("Tick")
                         .HasColumnType("bigint");
+
+                    b.Property<int>("TotalDeaths")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalInfections")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalRecoveries")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 

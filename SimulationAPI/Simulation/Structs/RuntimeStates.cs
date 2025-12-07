@@ -19,8 +19,12 @@ namespace SimulationRuntime
         public float InfectionProgress;
         public float Immunity;
         public float Susceptibility;
+        public float SymptomSeverity;
         public bool HasChronicCondition;
         public bool IsQuarantined;
+        public bool WearsMask;
+        public bool IsVaccinated;
+        public byte InfectionCount;
         public int CurrentBuildingId;
         public byte HealthState;
         public byte AgentType;

@@ -18,6 +18,7 @@ declare module 'vue' {
     IPhArrowClockwise: typeof import('~icons/ph/arrow-clockwise')['default']
     IPhArrowCounterClockwise: typeof import('~icons/ph/arrow-counter-clockwise')['default']
     IPhArrowLeft: typeof import('~icons/ph/arrow-left')['default']
+    IPhCaretDown: typeof import('~icons/ph/caret-down')['default']
     IPhChartLine: typeof import('~icons/ph/chart-line')['default']
     IPhClock: typeof import('~icons/ph/clock')['default']
     IPhDesktop: typeof import('~icons/ph/desktop')['default']

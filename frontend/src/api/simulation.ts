@@ -24,6 +24,15 @@ export interface SimulationDetail {
     infectionRate: number;
     recoveryRate: number;
     mortalityRate: number;
+    incubationPeriod: number;
+    infectiousPeriod: number;
+    symptomaticRate: number;
+    severeSymptomsRate: number;
+    hospitalSeekingRate: number;
+    immunityDuration: number;
+    reinfectionResistance: number;
+    maskEffectiveness: number;
+    vaccineEffectiveness: number;
   } | null;
   mapArea: {
     id: number;
@@ -58,6 +67,12 @@ export interface MetricsUpdate {
   dead: number;
   quarantined: number;
   healthy: number;
+  totalInfections: number;
+  activeInfections: number;
+  symptomaticCases: number;
+  reportedCases: number;
+  totalDeaths: number;
+  totalRecoveries: number;
 }
 
 export interface AgentPosition {

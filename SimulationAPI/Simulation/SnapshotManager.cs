@@ -44,7 +44,10 @@ namespace MySimulationAPI.SimulationConfiguration
             {
                 SimulationId = _context.Simulation.Id,
                 Tick = _context.CurrentTick,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                TotalInfections = _context.InfectionService.TotalInfections,
+                TotalDeaths = _context.InfectionService.TotalDeaths,
+                TotalRecoveries = _context.InfectionService.TotalRecoveries
             };
 
             await _db.SimulationSnapshots.AddAsync(snapshot);
@@ -64,7 +67,12 @@ namespace MySimulationAPI.SimulationConfiguration
                 InfectionProgress = a.InfectionProgress,
                 IsQuarantined = a.IsQuarantined,
                 CurrentBuildingId = a.CurrentBuildingId > 0 ? a.CurrentBuildingId : null,
-                HealthState = ConvertHealthStateToString((AgentHealthState)a.HealthState)
+                HealthState = ConvertHealthStateToString((AgentHealthState)a.HealthState),
+                SymptomSeverity = a.SymptomSeverity,
+                Immunity = a.Immunity,
+                WearsMask = a.WearsMask,
+                IsVaccinated = a.IsVaccinated,
+                InfectionCount = a.InfectionCount
             }).ToList();
             Console.WriteLine("✓");
 
@@ -212,6 +220,75 @@ namespace MySimulationAPI.SimulationConfiguration
             return true;
         }
 
+        public async Task<bool> LoadLatestSnapshotAsync()
+        {
+            using var _db = _context.DbFactory.CreateDbContext();
+            _db.Database.SetCommandTimeout(120);
+
+            // Find the latest snapshot
+            var snapshot = await _db.SimulationSnapshots
+                .Where(s => s.SimulationId == _context.Simulation.Id)
+                .OrderByDescending(s => s.Tick)
+                .FirstOrDefaultAsync();
+
+            if (snapshot == null)
+            {
+                return false;
+            }
+            // Load agent snapshots in batches
+            var agentSnaps = new List<AgentSnapshot>();
+            var batchSize = 5000;
+            var offset = 0;
+
+            while (true)
+            {
+                var batch = await _db.Set<AgentSnapshot>()
+                    .Where(a => a.SimulationSnapshotId == snapshot.Id)
+                    .OrderBy(a => a.AgentId)
+                    .Skip(offset)
+                    .Take(batchSize)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                if (batch.Count == 0) break;
+                agentSnaps.AddRange(batch);
+                offset += batchSize;
+            }
+
+            // Count health states in snapshot data for verification
+            int snapshotInfected = agentSnaps.Count(a => a.HealthState.Equals("Infected", StringComparison.OrdinalIgnoreCase));
+            int snapshotRecovered = agentSnaps.Count(a => a.HealthState.Equals("Recovered", StringComparison.OrdinalIgnoreCase));
+            int snapshotDead = agentSnaps.Count(a => a.HealthState.Equals("Dead", StringComparison.OrdinalIgnoreCase));
+
+            // Load building snapshots in batches
+            var buildingSnaps = new List<BuildingSnapshot>();
+            offset = 0;
+
+            while (true)
+            {
+                var batch = await _db.Set<BuildingSnapshot>()
+                    .Where(b => b.SimulationSnapshotId == snapshot.Id)
+                    .OrderBy(b => b.BuildingId)
+                    .Skip(offset)
+                    .Take(batchSize)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                if (batch.Count == 0) break;
+                buildingSnaps.AddRange(batch);
+                offset += batchSize;
+            }
+
+            // Assign to snapshot
+            snapshot.Agents = agentSnaps;
+            snapshot.Buildings = buildingSnaps;
+
+            // Restore without computing forward
+            RestoreSnapshot(snapshot);
+
+            return true;
+        }
+
         // ------------------------------------------------------------
         // Restore state into context
         // ------------------------------------------------------------
@@ -219,6 +296,13 @@ namespace MySimulationAPI.SimulationConfiguration
         {
             // --- Set simulation tick ---
             _context.CurrentTick = snapshot.Tick;
+
+            // --- Restore cumulative infection metrics ---
+            _context.InfectionService.RestoreMetricsFromSnapshot(
+                snapshot.TotalInfections,
+                snapshot.TotalDeaths,
+                snapshot.TotalRecoveries
+            );
 
             // --- Build fast lookup dictionaries for snapshot data ---
             var agentSnaps = snapshot.Agents;
@@ -234,12 +318,21 @@ namespace MySimulationAPI.SimulationConfiguration
 
             // --- Restore AgentStates ---
             var agents = _context.AgentStates;
+            int restoredCount = 0;
+            int skippedCount = 0;
+            int infectedCount = 0;
+            int recoveredCount = 0;
+            int deadCount = 0;
+
             for (int i = 0; i < agents.Length; i++)
             {
                 ref var a = ref agents[i];
 
                 if (!agentSnapLookup.TryGetValue(a.Id, out var snap))
+                {
+                    skippedCount++;
                     continue;
+                }
 
                 a.Lat = (float)snap.Latitude;
                 a.Lon = (float)snap.Longitude;
@@ -249,6 +342,29 @@ namespace MySimulationAPI.SimulationConfiguration
 
                 // Parse health string → byte enum
                 a.HealthState = (byte)ParseHealthState(snap.HealthState);
+
+                // Restore extended infection tracking
+                a.SymptomSeverity = snap.SymptomSeverity;
+                a.Immunity = snap.Immunity;
+                a.WearsMask = snap.WearsMask;
+                a.IsVaccinated = snap.IsVaccinated;
+                a.InfectionCount = snap.InfectionCount;
+
+                restoredCount++;
+
+                // Count health states for verification
+                switch ((AgentHealthState)a.HealthState)
+                {
+                    case AgentHealthState.Infected:
+                        infectedCount++;
+                        break;
+                    case AgentHealthState.Recovered:
+                        recoveredCount++;
+                        break;
+                    case AgentHealthState.Dead:
+                        deadCount++;
+                        break;
+                }
             }
 
             // --- Restore BuildingStates ---

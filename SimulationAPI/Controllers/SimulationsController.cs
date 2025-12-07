@@ -122,6 +122,15 @@ namespace MySimulationAPI.Controllers
                     sim.Disease.InfectionRate,
                     sim.Disease.RecoveryRate,
                     sim.Disease.MortalityRate,
+                    sim.Disease.IncubationPeriod,
+                    sim.Disease.InfectiousPeriod,
+                    sim.Disease.SymptomaticRate,
+                    sim.Disease.SevereSymptomsRate,
+                    sim.Disease.HospitalSeekingRate,
+                    sim.Disease.ImmunityDuration,
+                    sim.Disease.ReinfectionResistance,
+                    sim.Disease.MaskEffectiveness,
+                    sim.Disease.VaccineEffectiveness,
                 },
 
                 // Map area info

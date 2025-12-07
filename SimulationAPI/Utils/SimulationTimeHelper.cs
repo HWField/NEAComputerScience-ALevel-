@@ -4,25 +4,16 @@ namespace MySimulationAPI.Utils
 {
     /// <summary>
     /// Helper class for converting real-world time -> simulation ticks.
-    /// Tick length is variable per simulation (e.g., 1 tick = 5 min).
+    /// Tick length is variable per simulation (e.g., 1 tick = 5 seconds).
     /// </summary>
     public static class SimulationTimeHelper
     {
         /// <summary>
-        /// Converts a TimeOnly into a tick count (e.g. 08:00 = tick 480 if tickLength=1min).
-        /// </summary>
-        public static int ConvertTimeToTicks(TimeOnly time, int tickLength)
-        {
-            int totalMinutes = time.Hour * 60 + time.Minute;
-            return totalMinutes / (tickLength * 60);
-        }
-
-        /// <summary>
         /// Converts a TimeSpan duration into ticks.
         /// </summary>
-        public static int ConvertTimeSpanToTicks(TimeSpan span, int tickLength)
+        public static int ConvertTimeSpanToTicks(TimeSpan span, int tickLengthSeconds)
         {
-            return (int)Math.Round(span.TotalMinutes / (tickLength * 60));
+            return (int)Math.Round(span.TotalSeconds / tickLengthSeconds);
         }
 
         /// <summary>

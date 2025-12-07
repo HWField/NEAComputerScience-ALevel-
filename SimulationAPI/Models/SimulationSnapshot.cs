@@ -7,6 +7,11 @@ namespace MySimulationAPI.Models
         public Simulation Simulation { get; set; } = null!;
         public long Tick { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // Cumulative infection metrics
+        public int TotalInfections { get; set; }
+        public int TotalDeaths { get; set; }
+        public int TotalRecoveries { get; set; }
         public ICollection<AgentSnapshot> Agents { get; set; } = new List<AgentSnapshot>();
         public ICollection<BuildingSnapshot> Buildings { get; set; } = new List<BuildingSnapshot>();
     }
@@ -16,12 +21,20 @@ namespace MySimulationAPI.Models
         public int Id { get; set; }
         public int AgentId { get; set; }
         public Agent Agent { get; set; } = null!;
+
         public double Latitude { get; set; }
         public double Longitude { get; set; }
+
         public string HealthState { get; set; } = "Healthy";
         public double InfectionProgress { get; set; } = 0.0;
         public bool IsQuarantined { get; set; } = false;
         public int? CurrentBuildingId { get; set; }
+        public float SymptomSeverity { get; set; } = 0f;
+        public float Immunity { get; set; } = 0f;
+        public bool WearsMask { get; set; } = false;
+        public bool IsVaccinated { get; set; } = false;
+        public byte InfectionCount { get; set; } = 0;
+
         public Building? CurrentBuilding { get; set; }
         public int SimulationSnapshotId { get; set; }
         public SimulationSnapshot Snapshot { get; set; } = null!;

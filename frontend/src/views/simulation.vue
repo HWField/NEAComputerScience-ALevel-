@@ -99,41 +99,54 @@
           <!-- Disease Info Card -->
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h3 class="card-title text-lg flex items-center gap-2">
-                <i-ph-virus class="w-5 h-5 text-error" />
-                Disease Profile
-              </h3>
-              <div v-if="simulationData?.disease" class="space-y-3 mt-4">
+              <div
+                class="flex items-center justify-between cursor-pointer"
+                @click="toggleSection('disease')"
+              >
+                <h3 class="card-title text-lg flex items-center gap-2">
+                  <i-ph-virus class="w-5 h-5 text-error" />
+                  Disease Profile
+                </h3>
+                <i-ph-caret-down
+                  class="w-5 h-5 transition-transform"
+                  :class="{ 'rotate-180': expandedSections.disease }"
+                />
+              </div>
+              <div
+                v-if="expandedSections.disease && simulationData?.disease"
+                class="space-y-3 mt-4"
+              >
                 <div>
                   <div class="text-xs text-base-content/70 mb-1">Name</div>
                   <div class="font-semibold">
                     {{ simulationData.disease.name }}
                   </div>
                 </div>
+                <div class="divider my-2"></div>
                 <div class="grid grid-cols-2 gap-2">
                   <div>
                     <div class="text-xs text-base-content/70 mb-1">
-                      Infection
+                      Infection Rate
                     </div>
                     <div class="text-error font-bold">
                       {{
                         (simulationData.disease.infectionRate * 100).toFixed(1)
-                      }}%
+                      }}%/hr
                     </div>
                   </div>
                   <div>
                     <div class="text-xs text-base-content/70 mb-1">
-                      Recovery
+                      Recovery Rate
                     </div>
                     <div class="text-success font-bold">
                       {{
                         (simulationData.disease.recoveryRate * 100).toFixed(1)
-                      }}%
+                      }}%/day
                     </div>
                   </div>
                   <div>
                     <div class="text-xs text-base-content/70 mb-1">
-                      Mortality
+                      Mortality Rate
                     </div>
                     <div class="text-warning font-bold">
                       {{
@@ -141,9 +154,106 @@
                       }}%
                     </div>
                   </div>
+                  <div>
+                    <div class="text-xs text-base-content/70 mb-1">
+                      Symptomatic Rate
+                    </div>
+                    <div class="font-bold">
+                      {{
+                        (simulationData.disease.symptomaticRate * 100).toFixed(
+                          1
+                        )
+                      }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="divider my-2"></div>
+                <div class="space-y-2 text-sm">
+                  <div class="flex justify-between">
+                    <span class="text-base-content/70">Incubation Period</span>
+                    <span class="font-medium"
+                      >{{ simulationData.disease.incubationPeriod }} days</span
+                    >
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-base-content/70">Infectious Period</span>
+                    <span class="font-medium"
+                      >{{ simulationData.disease.infectiousPeriod }} days</span
+                    >
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-base-content/70">Immunity Duration</span>
+                    <span class="font-medium"
+                      >{{ simulationData.disease.immunityDuration }} days</span
+                    >
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-base-content/70">Severe Symptoms</span>
+                    <span class="font-medium"
+                      >{{
+                        (
+                          simulationData.disease.severeSymptomsRate * 100
+                        ).toFixed(1)
+                      }}%</span
+                    >
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-base-content/70">Hospital Seeking</span>
+                    <span class="font-medium"
+                      >{{
+                        (
+                          simulationData.disease.hospitalSeekingRate * 100
+                        ).toFixed(1)
+                      }}%</span
+                    >
+                  </div>
+                </div>
+                <div class="divider my-2"></div>
+                <div class="space-y-2 text-sm">
+                  <div class="text-xs text-base-content/70 font-semibold mb-1">
+                    Intervention Effectiveness
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-base-content/70">Masks</span>
+                    <span class="font-medium text-info"
+                      >{{
+                        (
+                          simulationData.disease.maskEffectiveness * 100
+                        ).toFixed(0)
+                      }}% reduction</span
+                    >
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-base-content/70">Vaccines</span>
+                    <span class="font-medium text-success"
+                      >{{
+                        (
+                          simulationData.disease.vaccineEffectiveness * 100
+                        ).toFixed(0)
+                      }}% reduction</span
+                    >
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-base-content/70"
+                      >Reinfection Resistance</span
+                    >
+                    <span class="font-medium"
+                      >{{
+                        (
+                          simulationData.disease.reinfectionResistance * 100
+                        ).toFixed(0)
+                      }}%</span
+                    >
+                  </div>
                 </div>
               </div>
-              <div v-else class="text-sm text-base-content/60 italic">
+              <div
+                v-else-if="!expandedSections.disease"
+                class="text-sm text-base-content/60 italic mt-2"
+              >
+                Click to expand
+              </div>
+              <div v-else class="text-sm text-base-content/60 italic mt-2">
                 No disease configured
               </div>
             </div>
@@ -152,11 +262,20 @@
           <!-- Population Stats Card -->
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h3 class="card-title text-lg flex items-center gap-2">
-                <i-ph-users class="w-5 h-5 text-primary" />
-                Population
-              </h3>
-              <div class="space-y-4 mt-4">
+              <div
+                class="flex items-center justify-between cursor-pointer"
+                @click="toggleSection('population')"
+              >
+                <h3 class="card-title text-lg flex items-center gap-2">
+                  <i-ph-users class="w-5 h-5 text-primary" />
+                  Population
+                </h3>
+                <i-ph-caret-down
+                  class="w-5 h-5 transition-transform"
+                  :class="{ 'rotate-180': expandedSections.population }"
+                />
+              </div>
+              <div v-if="expandedSections.population" class="space-y-4 mt-4">
                 <!-- Total Agents -->
                 <div class="stat bg-base-200 rounded-lg">
                   <div class="stat-title text-xs">Total Agents</div>
@@ -217,6 +336,9 @@
                     }}</span>
                   </div>
                 </div>
+              </div>
+              <div v-else class="text-sm text-base-content/60 italic mt-2">
+                Click to expand
               </div>
             </div>
           </div>
@@ -294,46 +416,115 @@
           <!-- Infection Metrics -->
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h3 class="card-title text-lg flex items-center gap-2">
-                <i-ph-trend-up class="w-5 h-5 text-error" />
-                Infection Rate
-              </h3>
-              <div class="space-y-4 mt-4">
+              <div
+                class="flex items-center justify-between cursor-pointer"
+                @click="toggleSection('infection')"
+              >
+                <h3 class="card-title text-lg flex items-center gap-2">
+                  <i-ph-trend-up class="w-5 h-5 text-error" />
+                  Infection Metrics
+                </h3>
+                <i-ph-caret-down
+                  class="w-5 h-5 transition-transform"
+                  :class="{ 'rotate-180': expandedSections.infection }"
+                />
+              </div>
+              <div v-if="expandedSections.infection" class="space-y-4 mt-4">
+                <!-- Current Infection Rates -->
                 <div>
                   <div class="flex justify-between mb-2">
-                    <span class="text-sm text-base-content/70">Current</span>
+                    <span class="text-sm text-base-content/70"
+                      >Current Active</span
+                    >
                     <span class="font-bold text-error"
-                      >{{ infectionRate }}%</span
+                      >{{ currentInfectionRate }}%</span
                     >
                   </div>
-                  <!-- <progress
-                    class="progress progress-error w-full"
-                    :value="infectionRate"
-                    max="100"
-                  ></progress> -->
                 </div>
-                <div>
-                  <div class="flex justify-between mb-2">
-                    <span class="text-sm text-base-content/70">Recovery</span>
-                    <span class="font-bold text-info">{{ recoveryRate }}%</span>
+
+                <!-- Symptomatic vs Asymptomatic -->
+                <div class="space-y-2">
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-base-content/70">Symptomatic Cases</span>
+                    <span class="font-bold text-warning">{{
+                      formatNumber(metrics?.symptomaticCases || 0)
+                    }}</span>
                   </div>
-                  <!-- <progress
-                    class="progress progress-info w-full"
-                    :value="recoveryRate"
-                    max="100"
-                  ></progress> -->
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-base-content/70">Reported Cases</span>
+                    <span class="font-bold text-info">{{
+                      formatNumber(metrics?.reportedCases || 0)
+                    }}</span>
+                  </div>
+                  <div class="text-xs text-base-content/60 mt-1">
+                    Reporting rate: {{ reportingRate }}%
+                  </div>
                 </div>
+
+                <div class="divider my-2"></div>
+
+                <!-- Cumulative Statistics -->
+                <div class="space-y-2">
+                  <div class="text-xs text-base-content/70 font-semibold mb-1">
+                    Cumulative Statistics
+                  </div>
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-base-content/70">Total Infections</span>
+                    <span class="font-bold">{{
+                      formatNumber(metrics?.totalInfections || 0)
+                    }}</span>
+                  </div>
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-base-content/70">Total Recoveries</span>
+                    <span class="font-bold text-success">{{
+                      formatNumber(metrics?.totalRecoveries || 0)
+                    }}</span>
+                  </div>
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-base-content/70">Total Deaths</span>
+                    <span class="font-bold text-error">{{
+                      formatNumber(metrics?.totalDeaths || 0)
+                    }}</span>
+                  </div>
+                  <div class="text-xs text-base-content/60 mt-1">
+                    Case Fatality Rate:
+                    {{
+                      metrics?.totalInfections
+                        ? (
+                            ((metrics?.totalDeaths || 0) /
+                              metrics.totalInfections) *
+                            100
+                          ).toFixed(2)
+                        : "0.00"
+                    }}%
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-sm text-base-content/60 italic mt-2">
+                Click to expand
               </div>
             </div>
           </div>
           <!-- Map Area Info -->
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h3 class="card-title text-lg flex items-center gap-2">
-                <i-ph-map-pin-bold class="w-5 h-5 text-accent" />
-                Map Area
-              </h3>
-              <div v-if="simulationData?.mapArea" class="space-y-3 mt-4">
+              <div
+                class="flex items-center justify-between cursor-pointer"
+                @click="toggleSection('mapArea')"
+              >
+                <h3 class="card-title text-lg flex items-center gap-2">
+                  <i-ph-map-pin-bold class="w-5 h-5 text-accent" />
+                  Map Area
+                </h3>
+                <i-ph-caret-down
+                  class="w-5 h-5 transition-transform"
+                  :class="{ 'rotate-180': expandedSections.mapArea }"
+                />
+              </div>
+              <div
+                v-if="expandedSections.mapArea && simulationData?.mapArea"
+                class="space-y-3 mt-4"
+              >
                 <div>
                   <div class="text-xs text-base-content/70 mb-1">Location</div>
                   <div class="font-semibold">
@@ -357,7 +548,13 @@
                   </div>
                 </div>
               </div>
-              <div v-else class="text-sm text-base-content/60 italic">
+              <div
+                v-else-if="!expandedSections.mapArea"
+                class="text-sm text-base-content/60 italic mt-2"
+              >
+                Click to expand
+              </div>
+              <div v-else class="text-sm text-base-content/60 italic mt-2">
                 No map area configured
               </div>
             </div>
@@ -365,11 +562,20 @@
           <!-- Quick Actions -->
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h3 class="card-title text-lg flex items-center gap-2">
-                <i-ph-lightning-bold class="w-5 h-5 text-accent" />
-                Quick Actions
-              </h3>
-              <div class="space-y-2 mt-4">
+              <div
+                class="flex items-center justify-between cursor-pointer"
+                @click="toggleSection('quickActions')"
+              >
+                <h3 class="card-title text-lg flex items-center gap-2">
+                  <i-ph-lightning-bold class="w-5 h-5 text-accent" />
+                  Quick Actions
+                </h3>
+                <i-ph-caret-down
+                  class="w-5 h-5 transition-transform"
+                  :class="{ 'rotate-180': expandedSections.quickActions }"
+                />
+              </div>
+              <div v-if="expandedSections.quickActions" class="space-y-2 mt-4">
                 <button
                   class="btn btn-outline btn-sm w-full gap-2"
                   @click="handleReset"
@@ -384,6 +590,9 @@
                   <i-ph-eject-simple class="w-4 h-4" />
                   Unload from Memory
                 </button>
+              </div>
+              <div v-else class="text-sm text-base-content/60 italic mt-2">
+                Click to expand
               </div>
             </div>
           </div>
@@ -670,6 +879,34 @@ const recoveryRate = computed(() => {
   return ((metrics.value.recovered / metrics.value.totalAgents) * 100).toFixed(
     1
   );
+});
+
+const expandedSections = ref({
+  disease: true,
+  population: true,
+  infection: true,
+  mapArea: true,
+  quickActions: true,
+});
+
+function toggleSection(section: keyof typeof expandedSections.value) {
+  expandedSections.value[section] = !expandedSections.value[section];
+}
+
+const currentInfectionRate = computed(() => {
+  if (!metrics.value || metrics.value.totalAgents === 0) return "0.0";
+  return (
+    (metrics.value.activeInfections / metrics.value.totalAgents) *
+    100
+  ).toFixed(1);
+});
+
+const reportingRate = computed(() => {
+  if (!metrics.value || metrics.value.symptomaticCases === 0) return "0.0";
+  return (
+    (metrics.value.reportedCases / metrics.value.symptomaticCases) *
+    100
+  ).toFixed(1);
 });
 
 function formatNumber(num: number): string {

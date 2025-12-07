@@ -159,7 +159,11 @@ namespace MySimulationAPI.SimulationConfiguration
                     Susceptibility = (float)a.MedicalProfile.InfectionSusceptibility,
                     HasChronicCondition = a.MedicalProfile.HasChronicCondition,
                     HealthState = (byte)AgentHealthState.Healthy,
-                    CurrentBuildingId = a.HouseId ?? 0
+                    CurrentBuildingId = a.HouseId ?? 0,
+                    SymptomSeverity = 0f,
+                    WearsMask = false,
+                    IsVaccinated = false,
+                    InfectionCount = 0
                 };
                 // --- Routines ---
                 foreach (var ev in a.RoutineEvents)

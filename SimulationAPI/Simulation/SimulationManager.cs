@@ -65,6 +65,17 @@ namespace MySimulationAPI.SimulationConfiguration
             var context = new SimulationContext(sim, _dbFactory, _hubContext);
             _contexts[simulationId] = context;
 
+            if (context.CurrentTick == 0)
+            {
+                // No snapshot exists - generate fresh state
+                context.GenerateStates();
+            }
+            else
+            {
+                context.GenerateStates(); // generate base state arrays
+                await context.SnapshotManager.LoadLatestSnapshotAsync();
+            }
+
             Console.WriteLine($"Broadcasting state: Status={context.Status}");
             await SimulationHub.BroadcastState(_hubContext, simulationId, context);
 

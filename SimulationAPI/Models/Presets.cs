@@ -62,6 +62,15 @@ namespace MySimulationAPI.Models
         public double InfectionRate { get; set; }
         public double RecoveryRate { get; set; }
         public double MortalityRate { get; set; }
+        public double IncubationPeriod { get; set; } = 3.0;
+        public double InfectiousPeriod { get; set; } = 10.0;
+        public double SymptomaticRate { get; set; } = 0.7;
+        public double SevereSymptomsRate { get; set; } = 0.15;
+        public double HospitalSeekingRate { get; set; } = 0.5;
+        public double ImmunityDuration { get; set; } = 180;
+        public double ReinfectionResistance { get; set; } = 0.7;
+        public double MaskEffectiveness { get; set; } = 0.5;
+        public double VaccineEffectiveness { get; set; } = 0.8;
     }
 
 }
