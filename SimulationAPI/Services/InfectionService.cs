@@ -62,7 +62,6 @@ namespace MySimulationAPI.Services
                     agent.HealthState = (byte)AgentHealthState.Infected;
                     agent.InfectionProgress = 0f;
                     infected++;
-                    Console.WriteLine($"[InfectionService] Seeded infection in agent {agent.Id}");
                 }
                 attempts++;
             }

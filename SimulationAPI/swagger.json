@@ -653,7 +653,7 @@
         "tags": [
           "Simulation"
         ],
-        "summary": "Resets a simulation by ID removing all computed data and metrics.\nAutomatically reseeds the initial infection if one was configured.",
+        "summary": "Resets a simulation by ID removing all computed data and metrics.",
         "parameters": [
           {
             "name": "id",

@@ -14,8 +14,10 @@ namespace MySimulationAPI.SimulationRuntime
         private readonly SimulationContext _context;
         private readonly IHubContext<SimulationHub> _hubContext;
         private CancellationTokenSource? _cts;
-        private long snapshotIntervalTicks = 0;
         private long metricsIntervalTicks = 0;
+        private System.Threading.Timer? _snapshotTimer;
+        private readonly SemaphoreSlim _snapshotSemaphore = new SemaphoreSlim(1, 1);
+        private volatile bool _snapshotRequested = false;
         public bool IsRunning => _cts != null && !_cts.IsCancellationRequested;
 
         public SimulationEngine(SimulationContext context, IHubContext<SimulationHub> hubContext)
@@ -26,8 +28,6 @@ namespace MySimulationAPI.SimulationRuntime
 
         public void Start(long? targetTick = null)
         {
-            // snapshots will save every 14 in sim days be default (can later scale depending on compute times etc)
-            snapshotIntervalTicks = (long)(TimeSpan.FromDays(14).TotalSeconds / _context.TickLength);
             // metrics recorded twice every sim day
             metricsIntervalTicks = (long)((TimeSpan.FromDays(1).TotalSeconds / _context.TickLength) / 2);
 
@@ -45,10 +45,28 @@ namespace MySimulationAPI.SimulationRuntime
             }
 
             _cts = new CancellationTokenSource();
+
+            // Start real-time snapshot timer if in real time mode(every 30 seconds by default)
+            if (!targetTick.HasValue)
+            {
+                var interval = TimeSpan.FromSeconds(30);
+                _snapshotTimer = new System.Threading.Timer(
+                    _ => _snapshotRequested = true, // Lambda: signal snapshot request
+                    null,
+                    interval, // first snapshot after interval
+                    interval  // then every interval
+                );
+            }
+
             Task.Run(() => RunAsync(_cts.Token, targetTick));
         }
 
-        public void Stop() => _cts?.Cancel();
+        public void Stop()
+        {
+            _cts?.Cancel();
+            _snapshotTimer?.Dispose();
+            _snapshotTimer = null;
+        }
 
         private async Task RunAsync(CancellationToken token, long? targetTick)
         {
@@ -72,10 +90,23 @@ namespace MySimulationAPI.SimulationRuntime
                 Tick(); // run simulation logic
                 sw.Stop();
 
-                if (_context.CurrentTick % snapshotIntervalTicks == 0)
+                // Check if real-time snapshot was requested (only in non-target mode)
+                if (_snapshotRequested && !targetTick.HasValue)
                 {
-                    await _context.SnapshotManager.SaveSnapshotAsync();
+                    // Acquire semaphore to ensure atomic snapshot
+                    await _snapshotSemaphore.WaitAsync(token);
+                    try
+                    {
+                        Console.WriteLine($"[SimulationEngine] Real-time snapshot at tick {_context.CurrentTick}");
+                        await _context.SnapshotManager.SaveSnapshotAsync();
+                        _snapshotRequested = false;
+                    }
+                    finally
+                    {
+                        _snapshotSemaphore.Release();
+                    }
                 }
+
                 if (_context.CurrentTick % metricsIntervalTicks == 0)
                 {
                     await _context.MetricsManager.RecordAsync();
