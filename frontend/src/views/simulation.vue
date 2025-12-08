@@ -620,7 +620,8 @@
                   class="text-2xl font-mono font-bold tabular-nums"
                   :class="isComputing ? 'text-info' : 'text-primary'"
                 >
-                  {{ formattedTime }}
+                  {{ simulationDateTime.date }}
+                  {{ simulationDateTime.time }}
                 </div>
                 <div class="text-xs text-base-content/60">
                   <span
@@ -635,10 +636,8 @@
                     >
                   </span>
                   <span v-else>
-                    Tick:
-                    <span class="font-mono">{{
-                      formatNumber(currentTick)
-                    }}</span>
+                    Duration:
+                    <span class="font-mono">{{ formattedTime }}</span>
                   </span>
                 </div>
               </div>
@@ -865,6 +864,32 @@ const statusIndicatorClass = computed(() => {
 
 const formattedTime = computed(() => {
   return formatTime(currentTick.value);
+});
+
+const simulationDateTime = computed(() => {
+  const tickLength = simulationData.value?.tickLength ?? 300; // default 5 min
+  const totalSeconds = Math.floor(currentTick.value) * tickLength;
+
+  // Calculate date starting from January 1st, 2025
+  const startDate = new Date("2025-01-01T00:00:00");
+  const totalMilliseconds = totalSeconds * 1000;
+  const currentDate = new Date(startDate.getTime() + totalMilliseconds);
+
+  // Format date as dd/mm/yy
+  const day = String(currentDate.getDate()).padStart(2, "0");
+  const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+  const year = String(currentDate.getFullYear()).slice(-2);
+  const dateStr = `${day}/${month}/${year}`;
+
+  // Format time as HH:MM
+  const hours = String(currentDate.getHours()).padStart(2, "0");
+  const minutes = String(currentDate.getMinutes()).padStart(2, "0");
+  const timeStr = `${hours}:${minutes}`;
+
+  return {
+    date: dateStr,
+    time: timeStr,
+  };
 });
 
 const infectionRate = computed(() => {
