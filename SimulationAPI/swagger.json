@@ -1153,6 +1153,51 @@
             "format": "double",
             "nullable": true
           },
+          "incubationPeriod": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "infectiousPeriod": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "symptomaticRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "severeSymptomsRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "hospitalSeekingRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "immunityDuration": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "reinfectionResistance": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "maskEffectiveness": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vaccineEffectiveness": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
           "savePreset": {
             "type": "boolean"
           }

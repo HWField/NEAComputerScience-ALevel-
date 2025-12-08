@@ -707,7 +707,25 @@ namespace MySimulationAPI.SimulationConfiguration
 
 
         // Setup disease
-        public async Task SetupDisease(int simulationId, int? presetId, string? name, double? infectionRate, double? recoveryRate, double? mortalityRate, bool savePreset, int userId, bool IsAdmin)
+        public async Task SetupDisease(
+            int simulationId,
+            int? presetId,
+            string? name,
+            double? infectionRate,
+            double? recoveryRate,
+            double? mortalityRate,
+            double? incubationPeriod,
+            double? infectiousPeriod,
+            double? symptomaticRate,
+            double? severeSymptomsRate,
+            double? hospitalSeekingRate,
+            double? immunityDuration,
+            double? reinfectionResistance,
+            double? maskEffectiveness,
+            double? vaccineEffectiveness,
+            bool savePreset,
+            int userId,
+            bool IsAdmin)
         {
             using var _db = _dbFactory.CreateDbContext();
             var simulation = await _db.Simulations
@@ -734,6 +752,15 @@ namespace MySimulationAPI.SimulationConfiguration
                     InfectionRate = preset.InfectionRate,
                     RecoveryRate = preset.RecoveryRate,
                     MortalityRate = preset.MortalityRate,
+                    IncubationPeriod = preset.IncubationPeriod,
+                    InfectiousPeriod = preset.InfectiousPeriod,
+                    SymptomaticRate = preset.SymptomaticRate,
+                    SevereSymptomsRate = preset.SevereSymptomsRate,
+                    HospitalSeekingRate = preset.HospitalSeekingRate,
+                    ImmunityDuration = preset.ImmunityDuration,
+                    ReinfectionResistance = preset.ReinfectionResistance,
+                    MaskEffectiveness = preset.MaskEffectiveness,
+                    VaccineEffectiveness = preset.VaccineEffectiveness,
                 };
                 _db.Diseases.Add(disease);
                 await _db.SaveChangesAsync();
@@ -751,6 +778,15 @@ namespace MySimulationAPI.SimulationConfiguration
                     InfectionRate = infectionRate.Value,
                     RecoveryRate = recoveryRate.Value,
                     MortalityRate = mortalityRate.Value,
+                    IncubationPeriod = incubationPeriod ?? 3.0,
+                    InfectiousPeriod = infectiousPeriod ?? 10.0,
+                    SymptomaticRate = symptomaticRate ?? 0.7,
+                    SevereSymptomsRate = severeSymptomsRate ?? 0.15,
+                    HospitalSeekingRate = hospitalSeekingRate ?? 0.5,
+                    ImmunityDuration = immunityDuration ?? 180,
+                    ReinfectionResistance = reinfectionResistance ?? 0.7,
+                    MaskEffectiveness = maskEffectiveness ?? 0.5,
+                    VaccineEffectiveness = vaccineEffectiveness ?? 0.8,
                 };
                 _db.Diseases.Add(disease);
 
@@ -762,6 +798,15 @@ namespace MySimulationAPI.SimulationConfiguration
                         InfectionRate = infectionRate.Value,
                         RecoveryRate = recoveryRate.Value,
                         MortalityRate = mortalityRate.Value,
+                        IncubationPeriod = incubationPeriod ?? 3.0,
+                        InfectiousPeriod = infectiousPeriod ?? 10.0,
+                        SymptomaticRate = symptomaticRate ?? 0.7,
+                        SevereSymptomsRate = severeSymptomsRate ?? 0.15,
+                        HospitalSeekingRate = hospitalSeekingRate ?? 0.5,
+                        ImmunityDuration = immunityDuration ?? 180,
+                        ReinfectionResistance = reinfectionResistance ?? 0.7,
+                        MaskEffectiveness = maskEffectiveness ?? 0.5,
+                        VaccineEffectiveness = vaccineEffectiveness ?? 0.8,
                         // The preset is scoped to the user by default
                         UserId = userId
                     };

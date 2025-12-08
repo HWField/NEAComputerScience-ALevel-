@@ -149,9 +149,18 @@ const createNewSimulation = async () => {
     diseasePresetID: 0,
     customDisease: {
       PresetName: "",
-      infectionRate: 0.0,
-      recoveryRate: 0.0,
-      mortalityRate: 0.0,
+      infectionRate: 0.3,
+      recoveryRate: 0.1,
+      mortalityRate: 0.01,
+      incubationPeriod: 3.0,
+      infectiousPeriod: 10.0,
+      symptomaticRate: 0.7,
+      severeSymptomsRate: 0.15,
+      hospitalSeekingRate: 0.5,
+      immunityDuration: 180,
+      reinfectionResistance: 0.7,
+      maskEffectiveness: 0.5,
+      vaccineEffectiveness: 0.8,
       savePreset: false,
     },
     // step 5 initial infection
@@ -561,6 +570,23 @@ const handleNextStep = async () => {
             infectionRate: newSimDetails.value.customDisease.infectionRate,
             recoveryRate: newSimDetails.value.customDisease.recoveryRate,
             mortalityRate: newSimDetails.value.customDisease.mortalityRate,
+            incubationPeriod:
+              newSimDetails.value.customDisease.incubationPeriod,
+            infectiousPeriod:
+              newSimDetails.value.customDisease.infectiousPeriod,
+            symptomaticRate: newSimDetails.value.customDisease.symptomaticRate,
+            severeSymptomsRate:
+              newSimDetails.value.customDisease.severeSymptomsRate,
+            hospitalSeekingRate:
+              newSimDetails.value.customDisease.hospitalSeekingRate,
+            immunityDuration:
+              newSimDetails.value.customDisease.immunityDuration,
+            reinfectionResistance:
+              newSimDetails.value.customDisease.reinfectionResistance,
+            maskEffectiveness:
+              newSimDetails.value.customDisease.maskEffectiveness,
+            vaccineEffectiveness:
+              newSimDetails.value.customDisease.vaccineEffectiveness,
             SavePreset: newSimDetails.value.customDisease.savePreset,
           }
         );
@@ -1031,58 +1057,472 @@ const handleNextStep = async () => {
             </select>
           </div>
 
-          <div v-else>
-            <label class="label"
-              ><span class="label-text">Custom Disease Name:</span></label
-            >
-            <input
-              v-model="newSimDetails.customDisease.PresetName"
-              class="input input-bordered w-full mb-2"
-              placeholder="Enter custom disease name"
-            />
-            <div class="flex items-center mb-2">
+          <div v-else class="space-y-4">
+            <!-- Disease Name -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Disease Name</span>
+              </label>
               <input
-                type="checkbox"
-                v-model="newSimDetails.customDisease.savePreset"
-                class="checkbox mr-2"
-                id="save-disease-preset"
+                v-model="newSimDetails.customDisease.PresetName"
+                class="input input-bordered w-full"
+                placeholder="e.g., Custom Flu"
               />
-              <label
-                for="save-disease-preset"
-                class="cursor-pointer select-none"
-              >
-                Save as preset
+            </div>
+
+            <!-- Save as Preset -->
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-3">
+                <input
+                  type="checkbox"
+                  v-model="newSimDetails.customDisease.savePreset"
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">Save as preset for future use</span>
               </label>
             </div>
-            <div class="grid grid-cols-3 gap-2">
-              <div>
-                <label class="label"
-                  ><span class="label-text">Infection Rate:</span></label
-                >
+
+            <!-- Transmission & Outcomes -->
+            <div class="divider">Transmission & Outcomes</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Infection Rate -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Infection Rate</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Base probability of transmission per contact (0.0 - 1.0). Higher = more contagious"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
                 <input
-                  type="decimal"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
                   v-model.number="newSimDetails.customDisease.infectionRate"
                   class="input input-bordered w-full"
+                  placeholder="0.3"
                 />
               </div>
-              <div>
-                <label class="label"
-                  ><span class="label-text">Recovery Rate:</span></label
-                >
+
+              <!-- Recovery Rate -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Recovery Rate</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Daily probability of recovery (0.0 - 1.0). Higher = faster recovery"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
                 <input
-                  type="decimal"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
                   v-model.number="newSimDetails.customDisease.recoveryRate"
                   class="input input-bordered w-full"
+                  placeholder="0.1"
                 />
               </div>
-              <div>
-                <label class="label"
-                  ><span class="label-text">Mortality Rate:</span></label
-                >
+
+              <!-- Mortality Rate -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Mortality Rate</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Probability of death for infected individuals (0.0 - 1.0). Higher = more deadly"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
                 <input
-                  type="decimal"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
                   v-model.number="newSimDetails.customDisease.mortalityRate"
                   class="input input-bordered w-full"
+                  placeholder="0.01"
+                />
+              </div>
+            </div>
+
+            <!-- Disease Timeline -->
+            <div class="divider">Disease Timeline</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Incubation Period -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Incubation Period (days)</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Days before infected agents become contagious. During this time they're infected but can't spread the disease"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  v-model.number="newSimDetails.customDisease.incubationPeriod"
+                  class="input input-bordered w-full"
+                  placeholder="3.0"
+                />
+              </div>
+
+              <!-- Infectious Period -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Infectious Period (days)</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Days of peak infectiousness. After this period, agents are less likely to spread the disease"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  v-model.number="newSimDetails.customDisease.infectiousPeriod"
+                  class="input input-bordered w-full"
+                  placeholder="10.0"
+                />
+              </div>
+            </div>
+
+            <!-- Symptoms & Healthcare -->
+            <div class="divider">Symptoms & Healthcare</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Symptomatic Rate -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Symptomatic Rate</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Percentage of infected who develop noticeable symptoms (0.0 - 1.0). Rest are asymptomatic carriers"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  v-model.number="newSimDetails.customDisease.symptomaticRate"
+                  class="input input-bordered w-full"
+                  placeholder="0.7"
+                />
+              </div>
+
+              <!-- Severe Symptoms Rate -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Severe Symptoms Rate</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Percentage who develop severe symptoms requiring medical attention (0.0 - 1.0)"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  v-model.number="
+                    newSimDetails.customDisease.severeSymptomsRate
+                  "
+                  class="input input-bordered w-full"
+                  placeholder="0.15"
+                />
+              </div>
+
+              <!-- Hospital Seeking Rate -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Hospital Seeking Rate</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Percentage of severe cases that actually seek medical help (0.0 - 1.0)"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  v-model.number="
+                    newSimDetails.customDisease.hospitalSeekingRate
+                  "
+                  class="input input-bordered w-full"
+                  placeholder="0.5"
+                />
+              </div>
+            </div>
+
+            <!-- Immunity -->
+            <div class="divider">Immunity & Reinfection</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Immunity Duration -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Immunity Duration (days)</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Days before immunity from recovery starts to decrease. Default 180 days (6 months)"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  v-model.number="newSimDetails.customDisease.immunityDuration"
+                  class="input input-bordered w-full"
+                  placeholder="180"
+                />
+              </div>
+
+              <!-- Reinfection Resistance -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Reinfection Resistance</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Reduction in susceptibility after recovery (0.0 - 1.0). 0.7 means 70% resistance to reinfection"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  v-model.number="
+                    newSimDetails.customDisease.reinfectionResistance
+                  "
+                  class="input input-bordered w-full"
+                  placeholder="0.7"
+                />
+              </div>
+            </div>
+
+            <!-- Interventions -->
+            <div class="divider">Intervention Effectiveness</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Mask Effectiveness -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Mask Effectiveness</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Reduction in transmission when masks are worn (0.0 - 1.0). 0.5 means 50% reduction"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  v-model.number="newSimDetails.customDisease.maskEffectiveness"
+                  class="input input-bordered w-full"
+                  placeholder="0.5"
+                />
+              </div>
+
+              <!-- Vaccine Effectiveness -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Vaccine Effectiveness</span>
+                  <div
+                    class="tooltip tooltip-left"
+                    data-tip="Reduction in infection risk when vaccinated (0.0 - 1.0). 0.8 means 80% protection"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  v-model.number="
+                    newSimDetails.customDisease.vaccineEffectiveness
+                  "
+                  class="input input-bordered w-full"
+                  placeholder="0.8"
                 />
               </div>
             </div>

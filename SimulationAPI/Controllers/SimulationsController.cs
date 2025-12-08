@@ -285,8 +285,24 @@ namespace MySimulationAPI.Controllers
             try
             {
                 await _simulationSetup.SetupDisease(
-                    id, dto.PresetId, dto.Name, dto.InfectionRate,
-                    dto.RecoveryRate, dto.MortalityRate, dto.SavePreset, GetUserId(), IsAdmin());
+                    id,
+                    dto.PresetId,
+                    dto.Name,
+                    dto.InfectionRate,
+                    dto.RecoveryRate,
+                    dto.MortalityRate,
+                    dto.IncubationPeriod,
+                    dto.InfectiousPeriod,
+                    dto.SymptomaticRate,
+                    dto.SevereSymptomsRate,
+                    dto.HospitalSeekingRate,
+                    dto.ImmunityDuration,
+                    dto.ReinfectionResistance,
+                    dto.MaskEffectiveness,
+                    dto.VaccineEffectiveness,
+                    dto.SavePreset,
+                    GetUserId(),
+                    IsAdmin());
 
                 return Ok(new { Message = "Disease configured successfully" });
             }

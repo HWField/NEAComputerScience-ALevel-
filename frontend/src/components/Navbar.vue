@@ -1,7 +1,7 @@
 <template>
   <div class="navbar bg-base-100 shadow-sm">
     <div class="flex-1">
-      <a @click="Home" class="btn btn-ghost text-xl">Epedemic simulation</a>
+      <a @click="Home" class="btn btn-ghost text-xl">Epidemic simulation</a>
     </div>
     <div class="flex gap-2">
       <div class="dropdown dropdown-end">
