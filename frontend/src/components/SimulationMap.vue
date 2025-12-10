@@ -60,7 +60,6 @@ interface AgentLocation {
 const props = defineProps<{
   mapArea: MapArea;
   agents?: AgentPosition[];
-  maxDisplayedAgents?: number; // Limit for performance
   totalAgents?: number; // Total agent count from metrics
 }>();
 
@@ -106,13 +105,9 @@ function initializeMap() {
 function updateAgents(agents: AgentPosition[]) {
   if (!map) return;
 
-  const maxAgents = props.maxDisplayedAgents || 2000;
-  const agentsToDisplay =
-    agents.length <= maxAgents ? agents : agents.slice(0, maxAgents);
+  displayedAgentCount.value = agents.length;
 
-  displayedAgentCount.value = agentsToDisplay.length;
-
-  const currentAgentIds = new Set(agentsToDisplay.map((a) => a.id));
+  const currentAgentIds = new Set(agents.map((a) => a.id));
 
   agentMarkers.forEach((marker, id) => {
     if (!currentAgentIds.has(id)) {
@@ -121,7 +116,7 @@ function updateAgents(agents: AgentPosition[]) {
     }
   });
 
-  agentsToDisplay.forEach((agent) => {
+  agents.forEach((agent) => {
     // Map status directly from agent data
     const status = agent.isQuarantined ? "Quarantined" : agent.healthState;
     const color = statusColors[status] || "#6b7280";
