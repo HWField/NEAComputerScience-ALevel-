@@ -718,6 +718,9 @@ namespace MySimulationAPI.Services
             var routines = _context.RoutineStates;
             var buildings = _context.BuildingStates;
 
+            // Check for self-isolation mitigation
+            var selfIsolationMitigation = _context.Mitigations.OfType<SelfIsolationMitigation>().FirstOrDefault();
+
             // quick map BuildingId -> index in building array
             var buildingIndexById = new Dictionary<int, int>(buildings.Length);
             for (int bi = 0; bi < buildings.Length; bi++)
@@ -736,6 +739,28 @@ namespace MySimulationAPI.Services
                 ref var agent = ref agents[i];
                 int agentId = agent.Id; // Capture for lambda use
 
+                // --- Check for Self-Isolation ---
+                // If agent is symptomatic and self-isolation policy is active, force them to stay home
+                bool shouldIsolate = false;
+                if (selfIsolationMitigation != null &&
+                    selfIsolationMitigation.IsActive &&
+                    (AgentHealthState)agent.HealthState == AgentHealthState.Infected &&
+                    agent.SymptomSeverity >= selfIsolationMitigation.SymptomThreshold)
+                {
+                    // Check if this agent complies with self-isolation (deterministic per agent)
+                    // Use agent ID as seed for consistent compliance decision
+                    var agentRng = new Random(agentId + _context.Simulation.Id);
+                    if (agentRng.NextDouble() < selfIsolationMitigation.ComplianceRate)
+                    {
+                        shouldIsolate = true;
+                        agent.IsIsolating = true;
+                    }
+                }
+                else
+                {
+                    agent.IsIsolating = false;
+                }
+
                 // get today's routines for this agent  
                 var agentRoutines = routinesLookup[agentId].OrderBy(r => r.StartTick).ToList();
                 if (!agentRoutines.Any())
@@ -750,6 +775,20 @@ namespace MySimulationAPI.Services
                         occupantCounts[homeIdx]++;
                     }
                     continue;
+                }
+
+                // If agent is self-isolating, override their routine and keep them home
+                if (shouldIsolate)
+                {
+                    var homeEvent = agentRoutines.FirstOrDefault(r => r.Type == (byte)RoutineEventType.Home);
+                    if (homeEvent.BuildingId != 0 && buildingIndexById.TryGetValue(homeEvent.BuildingId, out var homeIdx))
+                    {
+                        agent.Lat = buildings[homeIdx].X;
+                        agent.Lon = buildings[homeIdx].Y;
+                        agent.CurrentBuildingId = homeEvent.BuildingId;
+                        occupantCounts[homeIdx]++;
+                    }
+                    continue; // Skip normal routine processing
                 }
 
                 // Find the active event for current tickOfDay

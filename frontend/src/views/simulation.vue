@@ -342,6 +342,12 @@
               </div>
             </div>
           </div>
+
+          <!-- Mitigation Panel -->
+          <MitigationPanel
+            v-if="simulationData"
+            :simulation-id="simulationData.id"
+          />
         </div>
 
         <!-- Center - Map View -->
@@ -778,6 +784,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useSimulationHub } from "@/composables/useSimulationHub";
 import { simulationApi, type SimulationDetail } from "@/api/simulation";
 import SimulationMap from "@/components/SimulationMap.vue";
+import MitigationPanel from "@/components/MitigationPanel.vue";
 
 interface AgentLocation {
   id: number;

@@ -80,7 +80,7 @@ export interface AgentPosition {
   lat: number;
   lon: number;
   healthState: "Healthy" | "Infected" | "Recovered" | "Dead";
-  isQuarantined: boolean;
+  isIsolating: boolean;
 }
 
 export interface AgentPositionUpdate {
@@ -96,6 +96,65 @@ export type ConnectionStatus =
   | "connected"
   | "reconnecting"
   | "failed";
+
+// Mitigation types
+export interface Mitigation {
+  id: number;
+  name: string;
+  type: "SelfIsolation" | "MaskWearing" | "Vaccination";
+  simulationId: number;
+  isActive: boolean;
+  createdAt: string;
+  modifiedAt?: string;
+
+  // Self-Isolation specific
+  complianceRate?: number;
+  symptomThreshold?: number;
+
+  // Mask Wearing specific
+  adoptionRate?: number;
+  effectivenessModifier?: number;
+
+  // Vaccination specific
+  vaccinationRate?: number;
+  daysToFullEffectiveness?: number;
+}
+
+export interface CreateMitigationDto {
+  type: "SelfIsolation" | "MaskWearing" | "Vaccination";
+  name?: string;
+
+  // Self-Isolation parameters
+  complianceRate?: number;
+  symptomThreshold?: number;
+
+  // Mask Wearing parameters
+  adoptionRate?: number;
+  maskEffectivenessModifier?: number;
+
+  // Vaccination parameters
+  vaccinationRate?: number;
+  vaccineEffectivenessModifier?: number;
+  daysToFullEffectiveness?: number;
+}
+
+export interface UpdateMitigationDto {
+  name?: string;
+  isActive?: boolean;
+
+  // Self-Isolation parameters
+  complianceRate?: number;
+  symptomThreshold?: number;
+
+  // Mask Wearing parameters
+  adoptionRate?: number;
+  maskEffectivenessModifier?: number;
+
+  // Vaccination parameters
+  vaccinationRate?: number;
+  vaccineEffectivenessModifier?: number;
+  daysToFullEffectiveness?: number;
+}
 
 export const simulationApi = {
   // Get all simulations
@@ -153,5 +212,38 @@ export const simulationApi = {
   // Seed infection
   async seedInfection(id: number, count: number = 1): Promise<void> {
     await api.post(`/simulation/${id}/infect`, count);
+  },
+
+  // Get all mitigations for a simulation
+  async getMitigations(id: number): Promise<Mitigation[]> {
+    const response = await api.get(`/simulation/${id}/mitigations`);
+    return response.data;
+  },
+
+  // Create a new mitigation
+  async createMitigation(
+    id: number,
+    dto: CreateMitigationDto
+  ): Promise<Mitigation> {
+    const response = await api.post(`/simulation/${id}/mitigations`, dto);
+    return response.data;
+  },
+
+  // Update an existing mitigation
+  async updateMitigation(
+    id: number,
+    mitigationId: number,
+    dto: UpdateMitigationDto
+  ): Promise<Mitigation> {
+    const response = await api.put(
+      `/simulation/${id}/mitigations/${mitigationId}`,
+      dto
+    );
+    return response.data;
+  },
+
+  // Delete a mitigation
+  async deleteMitigation(id: number, mitigationId: number): Promise<void> {
+    await api.delete(`/simulation/${id}/mitigations/${mitigationId}`);
   },
 };

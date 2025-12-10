@@ -27,7 +27,7 @@ namespace MySimulationAPI.Models
 
         public string HealthState { get; set; } = "Healthy";
         public double InfectionProgress { get; set; } = 0.0;
-        public bool IsQuarantined { get; set; } = false;
+        public bool isIsolating { get; set; } = false;
         public int? CurrentBuildingId { get; set; }
         public float SymptomSeverity { get; set; } = 0f;
         public float Immunity { get; set; } = 0f;

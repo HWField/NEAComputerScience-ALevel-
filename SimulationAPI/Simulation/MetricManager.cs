@@ -30,7 +30,7 @@ namespace MySimulationAPI.SimulationConfiguration
             var infected = agents.Count(a => a.HealthState == (byte)AgentHealthState.Infected);
             var recovered = agents.Count(a => a.HealthState == (byte)AgentHealthState.Recovered);
             var dead = agents.Count(a => a.HealthState == (byte)AgentHealthState.Dead);
-            var quarantined = agents.Count(a => a.IsQuarantined);
+            var quarantined = agents.Count(a => a.IsIsolating); // Use IsIsolating from runtime state
 
             using var db = _context.DbFactory.CreateDbContext();
 

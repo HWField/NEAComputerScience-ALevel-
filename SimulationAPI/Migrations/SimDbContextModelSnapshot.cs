@@ -90,9 +90,6 @@ namespace SimulationAPI.Migrations
                     b.Property<double>("InfectionProgress")
                         .HasColumnType("double precision");
 
-                    b.Property<bool>("IsQuarantined")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsVaccinated")
                         .HasColumnType("boolean");
 
@@ -109,6 +106,9 @@ namespace SimulationAPI.Migrations
                         .HasColumnType("real");
 
                     b.Property<bool>("WearsMask")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("isIsolating")
                         .HasColumnType("boolean");
 
                     b.HasKey("Id");
@@ -410,17 +410,30 @@ namespace SimulationAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("MitigationType")
                         .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("character varying(21)");
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("SimulationId")
+                    b.Property<int>("SimulationId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -901,21 +914,52 @@ namespace SimulationAPI.Migrations
                     b.HasDiscriminator().HasValue("Retail");
                 });
 
-            modelBuilder.Entity("MySimulationAPI.Models.MaskWearing", b =>
+            modelBuilder.Entity("MySimulationAPI.Models.MaskWearingMitigation", b =>
                 {
                     b.HasBaseType("MySimulationAPI.Models.Mitigation");
 
-                    b.Property<double>("Efficacy")
+                    b.Property<double>("AdoptionRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("EffectivenessModifier")
                         .HasColumnType("double precision");
 
                     b.HasDiscriminator().HasValue("MaskWearing");
                 });
 
-            modelBuilder.Entity("MySimulationAPI.Models.SocialDistancing", b =>
+            modelBuilder.Entity("MySimulationAPI.Models.SelfIsolationMitigation", b =>
                 {
                     b.HasBaseType("MySimulationAPI.Models.Mitigation");
 
-                    b.HasDiscriminator().HasValue("SocialDistancing");
+                    b.Property<double>("ComplianceRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("SymptomThreshold")
+                        .HasColumnType("double precision");
+
+                    b.HasDiscriminator().HasValue("SelfIsolation");
+                });
+
+            modelBuilder.Entity("MySimulationAPI.Models.VaccinationMitigation", b =>
+                {
+                    b.HasBaseType("MySimulationAPI.Models.Mitigation");
+
+                    b.Property<int>("DaysToFullEffectiveness")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("EffectivenessModifier")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("VaccinationRate")
+                        .HasColumnType("double precision");
+
+                    b.ToTable("Mitigations", t =>
+                        {
+                            t.Property("EffectivenessModifier")
+                                .HasColumnName("VaccinationMitigation_EffectivenessModifier");
+                        });
+
+                    b.HasDiscriminator().HasValue("Vaccination");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.Agent", b =>
@@ -1051,10 +1095,13 @@ namespace SimulationAPI.Migrations
 
             modelBuilder.Entity("MySimulationAPI.Models.Mitigation", b =>
                 {
-                    b.HasOne("MySimulationAPI.Models.Simulation", null)
+                    b.HasOne("MySimulationAPI.Models.Simulation", "Simulation")
                         .WithMany("Mitigations")
                         .HasForeignKey("SimulationId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Simulation");
                 });
 
             modelBuilder.Entity("MySimulationAPI.Models.OSMBuildingPreset", b =>

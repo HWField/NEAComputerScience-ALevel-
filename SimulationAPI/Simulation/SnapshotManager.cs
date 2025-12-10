@@ -65,13 +65,13 @@ namespace MySimulationAPI.SimulationConfiguration
                 Latitude = a.Lat,
                 Longitude = a.Lon,
                 InfectionProgress = a.InfectionProgress,
-                IsQuarantined = a.IsQuarantined,
+                isIsolating = a.IsIsolating,
                 CurrentBuildingId = a.CurrentBuildingId > 0 ? a.CurrentBuildingId : null,
                 HealthState = ConvertHealthStateToString((AgentHealthState)a.HealthState),
                 SymptomSeverity = a.SymptomSeverity,
                 Immunity = a.Immunity,
-                WearsMask = a.WearsMask,
-                IsVaccinated = a.IsVaccinated,
+                WearsMask = false, // No longer stored in AgentState (checked probabilistically)
+                IsVaccinated = false, // No longer stored in AgentState (checked probabilistically)
                 InfectionCount = a.InfectionCount
             }).ToList();
             Console.WriteLine("✓");
@@ -337,7 +337,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 a.Lat = (float)snap.Latitude;
                 a.Lon = (float)snap.Longitude;
                 a.InfectionProgress = (float)snap.InfectionProgress;
-                a.IsQuarantined = snap.IsQuarantined;
+                a.IsIsolating = snap.isIsolating;
                 a.CurrentBuildingId = snap.CurrentBuildingId ?? 0;
 
                 // Parse health string → byte enum
@@ -346,8 +346,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 // Restore extended infection tracking
                 a.SymptomSeverity = snap.SymptomSeverity;
                 a.Immunity = snap.Immunity;
-                a.WearsMask = snap.WearsMask;
-                a.IsVaccinated = snap.IsVaccinated;
+                // WearsMask and IsVaccinated are no longer stored - checked probabilistically per tick
                 a.InfectionCount = snap.InfectionCount;
 
                 restoredCount++;

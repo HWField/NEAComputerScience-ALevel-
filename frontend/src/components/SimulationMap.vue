@@ -118,7 +118,7 @@ function updateAgents(agents: AgentPosition[]) {
 
   agents.forEach((agent) => {
     // Map status directly from agent data
-    const status = agent.isQuarantined ? "Quarantined" : agent.healthState;
+    const status = agent.isIsolating ? "Quarantined" : agent.healthState;
     const color = statusColors[status] || "#6b7280";
 
     let marker = agentMarkers.get(agent.id);

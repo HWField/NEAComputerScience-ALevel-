@@ -27,6 +27,7 @@ namespace MySimulationAPI.SimulationConfiguration
         public List<Agent> Agents { get; set; }
         public List<Building> Buildings { get; set; }
         public List<Models.Path> Paths { get; set; }
+        public List<Mitigation> Mitigations { get; set; } = new();
 
         // In-memory object structs for runtime use (efficent compared to iterating over classes)
         public AgentState[] AgentStates { get; private set; } = Array.Empty<AgentState>();
@@ -82,6 +83,11 @@ namespace MySimulationAPI.SimulationConfiguration
                 .AsNoTracking()
                 .ToList();
 
+            Mitigations = db.Mitigations
+                .Where(m => m.SimulationId == simulation.Id && m.IsActive)
+                .AsNoTracking()
+                .ToList();
+
             // Instantiate services using in-memory data
             RoutingService = new RoutingService(this);
             BuildingService = new BuildingService(this);
@@ -109,6 +115,11 @@ namespace MySimulationAPI.SimulationConfiguration
             Paths = Db.Paths
                 .Where(p => p.MapAreaId == Simulation.MapArea.Id)
                 .Include(p => p.Nodes)
+                .AsNoTracking()
+                .ToList();
+
+            Mitigations = Db.Mitigations
+                .Where(m => m.SimulationId == Simulation.Id && m.IsActive)
                 .AsNoTracking()
                 .ToList();
 
@@ -145,6 +156,7 @@ namespace MySimulationAPI.SimulationConfiguration
             // --- Agents ---
             AgentStates = new AgentState[Agents.Count];
 
+            // --- Apply Mitigations ---
             var routineList = new List<RoutineEventState>();
             for (int i = 0; i < Agents.Count; i++)
             {
@@ -161,8 +173,8 @@ namespace MySimulationAPI.SimulationConfiguration
                     HealthState = (byte)AgentHealthState.Healthy,
                     CurrentBuildingId = a.HouseId ?? 0,
                     SymptomSeverity = 0f,
-                    WearsMask = false,
-                    IsVaccinated = false,
+                    VaccinationProgress = 0f,
+                    IsIsolating = false,
                     InfectionCount = 0
                 };
                 // --- Routines ---

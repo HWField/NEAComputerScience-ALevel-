@@ -1060,6 +1060,154 @@
           }
         }
       }
+    },
+    "/api/Simulation/{id}/mitigations": {
+      "get": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Gets all mitigations for a simulation.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Creates a new mitigation for a simulation.\nDeletes all future snapshots and metrics as mitigation will change outcomes.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMitigationDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMitigationDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMitigationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Simulation/{id}/mitigations/{mitigationId}": {
+      "put": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Updates an existing mitigation.\nDeletes all future snapshots and metrics as mitigation changes will affect outcomes.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "mitigationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMitigationDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMitigationDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMitigationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Deletes a mitigation.\nDeletes all future snapshots and metrics as removal will change outcomes.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "mitigationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1073,6 +1221,58 @@
           },
           "newPassword": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateMitigationDto": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "complianceRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "symptomThreshold": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "adoptionRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "maskEffectivenessModifier": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vaccinationRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vaccineEffectivenessModifier": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "daysToFullEffectiveness": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           }
         },
@@ -1313,6 +1513,55 @@
           "radius": {
             "type": "number",
             "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMitigationDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "complianceRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "symptomThreshold": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "adoptionRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "maskEffectivenessModifier": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vaccinationRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vaccineEffectivenessModifier": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "daysToFullEffectiveness": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           }
         },

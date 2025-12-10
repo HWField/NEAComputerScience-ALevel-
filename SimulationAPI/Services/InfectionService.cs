@@ -203,6 +203,7 @@ namespace MySimulationAPI.Services
                 ref var agent = ref agents[i];
                 ProgressDisease(ref agent);
                 DecayImmunity(ref agent);
+                ProgressVaccination(ref agent);
             }
         }
 
@@ -218,19 +219,47 @@ namespace MySimulationAPI.Services
             else
                 transmissionProb *= OUTDOOR_DECAY;
 
-            // --- Intervention: Masks ---
-            if (infectious.WearsMask)
-                transmissionProb *= (1f - (float)_disease.MaskEffectiveness);
+            // --- Intervention: Masks (probabilistic check per transmission attempt) ---
+            var maskMitigation = _context.Mitigations.OfType<MaskWearingMitigation>().FirstOrDefault();
+            if (maskMitigation != null && maskMitigation.IsActive)
+            {
+                // Probabilistic: infectious agent wears mask based on adoption rate
+                if (_rng.NextDouble() < maskMitigation.AdoptionRate)
+                {
+                    float maskEffectiveness = (float)_disease.MaskEffectiveness;
+                    // Apply effectiveness modifier from mitigation policy
+                    maskEffectiveness *= (float)maskMitigation.EffectivenessModifier;
+                    transmissionProb *= (1f - maskEffectiveness);
+                }
 
-            if (susceptible.WearsMask)
-                transmissionProb *= (1f - (float)_disease.MaskEffectiveness * 0.5f); // Masks protect wearer less
+                // Probabilistic: susceptible agent wears mask (masks protect wearer less)
+                if (_rng.NextDouble() < maskMitigation.AdoptionRate)
+                {
+                    float maskEffectiveness = (float)_disease.MaskEffectiveness * 0.5f;
+                    maskEffectiveness *= (float)maskMitigation.EffectivenessModifier;
+                    transmissionProb *= (1f - maskEffectiveness);
+                }
+            }
 
             // --- Host Susceptibility ---
             float effectiveSusceptibility = susceptible.Susceptibility;
 
-            // Intervention: Vaccination
-            if (susceptible.IsVaccinated)
-                effectiveSusceptibility *= (1f - (float)_disease.VaccineEffectiveness);
+            // Intervention: Vaccination (probabilistic check per transmission attempt)
+            var vaccineMitigation = _context.Mitigations.OfType<VaccinationMitigation>().FirstOrDefault();
+            if (vaccineMitigation != null && vaccineMitigation.IsActive)
+            {
+                // Probabilistic: susceptible agent is vaccinated based on vaccination rate
+                if (_rng.NextDouble() < vaccineMitigation.VaccinationRate)
+                {
+                    // Vaccination effectiveness increases over time to full effectiveness
+                    float vaccineEffectiveness = (float)_disease.VaccineEffectiveness;
+                    // Apply effectiveness modifier from mitigation policy
+                    vaccineEffectiveness *= (float)vaccineMitigation.EffectivenessModifier;
+                    // Progress towards full effectiveness (stored in agent state)
+                    vaccineEffectiveness *= susceptible.VaccinationProgress;
+                    effectiveSusceptibility *= (1f - vaccineEffectiveness);
+                }
+            }
 
             // Natural immunity from previous infections
             if (susceptible.Immunity > 0)
@@ -343,9 +372,15 @@ namespace MySimulationAPI.Services
                         // Build immunity based on disease properties
                         float immunityGain = (float)_disease.ReinfectionResistance;
 
-                        // Vaccination boosts immunity
-                        if (agent.IsVaccinated)
-                            immunityGain *= 1.2f;
+                        // Check if agent was probabilistically vaccinated (affects immunity gain)
+                        var vaccineMitigation = _context.Mitigations.OfType<VaccinationMitigation>().FirstOrDefault();
+                        if (vaccineMitigation != null && vaccineMitigation.IsActive)
+                        {
+                            // Use agent ID as seed for deterministic vaccination status
+                            var agentRng = new Random(agent.Id + _context.Simulation.Id);
+                            if (agentRng.NextDouble() < vaccineMitigation.VaccinationRate)
+                                immunityGain *= 1.2f; // Vaccination boosts immunity
+                        }
 
                         // Chronic conditions reduce immune response
                         if (agent.HasChronicCondition)
@@ -378,6 +413,28 @@ namespace MySimulationAPI.Services
                 agent.HealthState = (byte)AgentHealthState.Healthy;
                 agent.Immunity = 0f;
             }
+        }
+
+        private void ProgressVaccination(ref AgentState agent)
+        {
+            // Progress vaccination effectiveness over time for agents
+            // VaccinationProgress tracks how long agent has been "vaccinated" (0.0 to 1.0)
+            var vaccineMitigation = _context.Mitigations.OfType<VaccinationMitigation>().FirstOrDefault();
+            if (vaccineMitigation == null || !vaccineMitigation.IsActive) return;
+
+            // Check if this agent is deterministically vaccinated based on policy rate
+            var agentRng = new Random(agent.Id + _context.Simulation.Id);
+            if (agentRng.NextDouble() >= vaccineMitigation.VaccinationRate) return;
+
+            // Only progress if not yet at full effectiveness
+            if (agent.VaccinationProgress >= 1f) return;
+
+            // Progress vaccination effectiveness over time (0.0 to 1.0)
+            float ticksPerDay = 86400f / _context.TickLength;
+            float daysToFull = vaccineMitigation.DaysToFullEffectiveness;
+            float progressPerTick = 1f / (daysToFull * ticksPerDay);
+
+            agent.VaccinationProgress = Math.Min(1f, agent.VaccinationProgress + progressPerTick);
         }
 
         private SpatialIndex BuildSpatialIndex(Span<AgentState> agents)

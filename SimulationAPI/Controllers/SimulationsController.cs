@@ -490,5 +490,305 @@ namespace MySimulationAPI.Controllers
                 return BadRequest($"Failed to seed infection: {ex.Message}");
             }
         }
+
+        // ==========================================
+        // MITIGATION ENDPOINTS
+        // ==========================================
+
+        [HttpGet("{id}/mitigations")]
+        public async Task<IActionResult> GetMitigations(int id)
+        {
+            var sim = await _db.Simulations.FindAsync(id);
+            if (sim == null) return NotFound();
+            if (sim.UserId != GetUserId() && !IsAdmin())
+                return Forbid();
+
+            var mitigations = await _db.Mitigations
+                .Where(m => m.SimulationId == id)
+                .ToListAsync();
+
+            var result = mitigations.Select(m => new
+            {
+                m.Id,
+                m.Name,
+                m.Type,
+                m.SimulationId,
+                m.IsActive,
+                m.CreatedAt,
+                m.ModifiedAt,
+                ComplianceRate = m is SelfIsolationMitigation si ? (double?)si.ComplianceRate : null,
+                SymptomThreshold = m is SelfIsolationMitigation si2 ? (double?)si2.SymptomThreshold : null,
+                AdoptionRate = m is MaskWearingMitigation mw ? (double?)mw.AdoptionRate : null,
+                EffectivenessModifier = m is MaskWearingMitigation mw2 ? (double?)mw2.EffectivenessModifier :
+                                       m is VaccinationMitigation v ? (double?)v.EffectivenessModifier : null,
+                VaccinationRate = m is VaccinationMitigation v2 ? (double?)v2.VaccinationRate : null,
+                DaysToFullEffectiveness = m is VaccinationMitigation v3 ? (int?)v3.DaysToFullEffectiveness : null
+            });
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Creates a new mitigation for a simulation.
+        /// Deletes all future snapshots and metrics as mitigation will change outcomes.
+        /// </summary>
+        [HttpPost("{id}/mitigations")]
+        public async Task<IActionResult> CreateMitigation(int id, [FromBody] CreateMitigationDto dto)
+        {
+            var sim = await _db.Simulations.FindAsync(id);
+            if (sim == null) return NotFound();
+            if (sim.UserId != GetUserId() && !IsAdmin())
+                return Forbid();
+
+            bool wasRunning = false;
+            SimulationContext? context = null;
+
+            if (_simulationManager.TryGet(id, out context) && context != null)
+            {
+                wasRunning = context.Engine.IsRunning;
+                if (wasRunning)
+                {
+                    await _simulationManager.PauseAsync(id);
+                }
+            }
+
+            Mitigation mitigation;
+
+            switch (dto.Type)
+            {
+                case "SelfIsolation":
+                    mitigation = new SelfIsolationMitigation
+                    {
+                        Name = dto.Name ?? "Self-Isolation Protocol",
+                        ComplianceRate = dto.ComplianceRate ?? 0.7,
+                        SymptomThreshold = dto.SymptomThreshold ?? 0.3,
+                        SimulationId = id
+                    };
+                    break;
+
+                case "MaskWearing":
+                    mitigation = new MaskWearingMitigation
+                    {
+                        Name = dto.Name ?? "Mask Wearing Policy",
+                        AdoptionRate = dto.AdoptionRate ?? 0.6,
+                        EffectivenessModifier = dto.MaskEffectivenessModifier ?? 1.0,
+                        SimulationId = id
+                    };
+                    break;
+
+                case "Vaccination":
+                    mitigation = new VaccinationMitigation
+                    {
+                        Name = dto.Name ?? "Vaccination Campaign",
+                        VaccinationRate = dto.VaccinationRate ?? 0.7,
+                        EffectivenessModifier = dto.VaccineEffectivenessModifier ?? 1.0,
+                        DaysToFullEffectiveness = dto.DaysToFullEffectiveness ?? 14,
+                        SimulationId = id
+                    };
+                    break;
+
+                default:
+                    return BadRequest($"Unknown mitigation type: {dto.Type}");
+            }
+
+            _db.Mitigations.Add(mitigation);
+
+            // Delete future snapshots and metrics since mitigation changes outcomes
+            await DeleteFutureData(id);
+
+            await _db.SaveChangesAsync();
+
+            // Resume simulation if it was running before
+            if (wasRunning && context != null)
+            {
+                await _simulationManager.StartAsync(id);
+            }
+
+            // Return DTO to avoid circular reference
+            var result = new
+            {
+                mitigation.Id,
+                mitigation.Name,
+                mitigation.Type,
+                mitigation.SimulationId,
+                mitigation.IsActive,
+                mitigation.CreatedAt,
+                mitigation.ModifiedAt,
+                ComplianceRate = mitigation is SelfIsolationMitigation si ? (double?)si.ComplianceRate : null,
+                SymptomThreshold = mitigation is SelfIsolationMitigation si2 ? (double?)si2.SymptomThreshold : null,
+                AdoptionRate = mitigation is MaskWearingMitigation mw ? (double?)mw.AdoptionRate : null,
+                EffectivenessModifier = mitigation is MaskWearingMitigation mw2 ? (double?)mw2.EffectivenessModifier :
+                                       mitigation is VaccinationMitigation v ? (double?)v.EffectivenessModifier : null,
+                VaccinationRate = mitigation is VaccinationMitigation v2 ? (double?)v2.VaccinationRate : null,
+                DaysToFullEffectiveness = mitigation is VaccinationMitigation v3 ? (int?)v3.DaysToFullEffectiveness : null
+            };
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Updates an existing mitigation.
+        /// Deletes all future snapshots and metrics as mitigation changes will affect outcomes.
+        /// </summary>
+        [HttpPut("{id}/mitigations/{mitigationId}")]
+        public async Task<IActionResult> UpdateMitigation(int id, int mitigationId, [FromBody] UpdateMitigationDto dto)
+        {
+            var sim = await _db.Simulations.FindAsync(id);
+            if (sim == null) return NotFound();
+            if (sim.UserId != GetUserId() && !IsAdmin())
+                return Forbid();
+
+            var mitigation = await _db.Mitigations.FindAsync(mitigationId);
+            if (mitigation == null || mitigation.SimulationId != id)
+                return NotFound();
+
+            bool wasRunning = false;
+            SimulationContext? context = null;
+
+            if (_simulationManager.TryGet(id, out context) && context != null)
+            {
+                wasRunning = context.Engine.IsRunning;
+                if (wasRunning)
+                {
+                    await _simulationManager.PauseAsync(id);
+                }
+            }
+
+            if (dto.Name != null) mitigation.Name = dto.Name;
+            if (dto.IsActive.HasValue) mitigation.IsActive = dto.IsActive.Value;
+            mitigation.ModifiedAt = DateTime.UtcNow;
+
+            switch (mitigation)
+            {
+                case SelfIsolationMitigation selfIsolation:
+                    if (dto.ComplianceRate.HasValue) selfIsolation.ComplianceRate = dto.ComplianceRate.Value;
+                    if (dto.SymptomThreshold.HasValue) selfIsolation.SymptomThreshold = dto.SymptomThreshold.Value;
+                    break;
+
+                case MaskWearingMitigation maskWearing:
+                    if (dto.AdoptionRate.HasValue) maskWearing.AdoptionRate = dto.AdoptionRate.Value;
+                    if (dto.MaskEffectivenessModifier.HasValue) maskWearing.EffectivenessModifier = dto.MaskEffectivenessModifier.Value;
+                    break;
+
+                case VaccinationMitigation vaccination:
+                    if (dto.VaccinationRate.HasValue) vaccination.VaccinationRate = dto.VaccinationRate.Value;
+                    if (dto.VaccineEffectivenessModifier.HasValue) vaccination.EffectivenessModifier = dto.VaccineEffectivenessModifier.Value;
+                    if (dto.DaysToFullEffectiveness.HasValue) vaccination.DaysToFullEffectiveness = dto.DaysToFullEffectiveness.Value;
+                    break;
+            }
+
+            // Delete future snapshots and metrics since mitigation changes will affect outcomes
+            await DeleteFutureData(id);
+
+            await _db.SaveChangesAsync();
+
+            // Resume simulation if it was running before
+            if (wasRunning && context != null)
+            {
+                await _simulationManager.StartAsync(id);
+            }
+
+            var result = new
+            {
+                mitigation.Id,
+                mitigation.Name,
+                mitigation.Type,
+                mitigation.SimulationId,
+                mitigation.IsActive,
+                mitigation.CreatedAt,
+                mitigation.ModifiedAt,
+                ComplianceRate = mitigation is SelfIsolationMitigation si ? (double?)si.ComplianceRate : null,
+                SymptomThreshold = mitigation is SelfIsolationMitigation si2 ? (double?)si2.SymptomThreshold : null,
+                AdoptionRate = mitigation is MaskWearingMitigation mw ? (double?)mw.AdoptionRate : null,
+                EffectivenessModifier = mitigation is MaskWearingMitigation mw2 ? (double?)mw2.EffectivenessModifier :
+                                       mitigation is VaccinationMitigation v ? (double?)v.EffectivenessModifier : null,
+                VaccinationRate = mitigation is VaccinationMitigation v2 ? (double?)v2.VaccinationRate : null,
+                DaysToFullEffectiveness = mitigation is VaccinationMitigation v3 ? (int?)v3.DaysToFullEffectiveness : null
+            };
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Deletes a mitigation.
+        /// Deletes all future snapshots and metrics as removal will change outcomes.
+        /// </summary>
+        [HttpDelete("{id}/mitigations/{mitigationId}")]
+        public async Task<IActionResult> DeleteMitigation(int id, int mitigationId)
+        {
+            var sim = await _db.Simulations.FindAsync(id);
+            if (sim == null) return NotFound();
+            if (sim.UserId != GetUserId() && !IsAdmin())
+                return Forbid();
+
+            var mitigation = await _db.Mitigations.FindAsync(mitigationId);
+            if (mitigation == null || mitigation.SimulationId != id)
+                return NotFound();
+
+            bool wasRunning = false;
+            SimulationContext? context = null;
+
+            if (_simulationManager.TryGet(id, out context) && context != null)
+            {
+                wasRunning = context.Engine.IsRunning;
+                if (wasRunning)
+                {
+                    await _simulationManager.PauseAsync(id);
+                }
+            }
+
+            _db.Mitigations.Remove(mitigation);
+
+            // Delete future snapshots and metrics since mitigation removal changes outcomes
+            await DeleteFutureData(id);
+
+            await _db.SaveChangesAsync();
+
+            // Resume simulation if it was running before
+            if (wasRunning && context != null)
+            {
+                await _simulationManager.StartAsync(id);
+            }
+
+            return Ok($"Mitigation {mitigationId} deleted");
+        }
+
+        /// <summary>
+        /// Helper method to delete all snapshots and metrics with tick > currentTick.
+        /// Called when mitigations are modified to invalidate future computed data.
+        /// </summary>
+        private async Task DeleteFutureData(int simulationId)
+        {
+            long currentTick = 0;
+
+            // Get current tick from memory if simulation is loaded
+            if (_simulationManager.TryGet(simulationId, out var context) && context != null)
+            {
+                currentTick = context.CurrentTick;
+            }
+            else
+            {
+                // Otherwise get latest snapshot tick from database
+                currentTick = await _db.SimulationSnapshots
+                    .Where(s => s.SimulationId == simulationId)
+                    .OrderByDescending(s => s.Tick)
+                    .Select(s => (long?)s.Tick)
+                    .FirstOrDefaultAsync() ?? 0;
+            }
+
+            // Delete all snapshots with tick > currentTick
+            var futureSnapshots = await _db.SimulationSnapshots
+                .Where(s => s.SimulationId == simulationId && s.Tick > currentTick)
+                .ToListAsync();
+            _db.SimulationSnapshots.RemoveRange(futureSnapshots);
+
+            // Delete all metrics with tick > currentTick
+            var futureMetrics = await _db.SimulationMetrics
+                .Where(m => m.SimulationId == simulationId && m.Tick > currentTick)
+                .ToListAsync();
+            _db.SimulationMetrics.RemoveRange(futureMetrics);
+
+            Console.WriteLine($"[Mitigation Change] Deleted {futureSnapshots.Count} future snapshots and {futureMetrics.Count} future metrics for simulation {simulationId}");
+        }
     }
 }

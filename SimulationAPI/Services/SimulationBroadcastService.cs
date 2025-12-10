@@ -197,7 +197,7 @@ namespace MySimulationAPI.Services
                         break;
                 }
 
-                if (agent.IsQuarantined)
+                if (agent.IsIsolating)
                 {
                     quarantined++;
                 }
@@ -240,7 +240,7 @@ namespace MySimulationAPI.Services
                         Lat = agent.Lat,
                         Lon = agent.Lon,
                         HealthState = GetHealthStateString((AgentHealthState)agent.HealthState),
-                        IsQuarantined = agent.IsQuarantined,
+                        isIsolating = agent.IsIsolating,
                         CurrentBuildingId = agent.CurrentBuildingId > 0 ? agent.CurrentBuildingId : null
                     };
                 }
@@ -295,7 +295,7 @@ namespace MySimulationAPI.Services
         public float Lat { get; set; }
         public float Lon { get; set; }
         public string HealthState { get; set; } = "Healthy";
-        public bool IsQuarantined { get; set; }
+        public bool isIsolating { get; set; }
         public int? CurrentBuildingId { get; set; }
     }
 

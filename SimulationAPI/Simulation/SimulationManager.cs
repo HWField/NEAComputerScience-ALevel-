@@ -100,7 +100,6 @@ namespace MySimulationAPI.SimulationConfiguration
             {
                 throw new InvalidOperationException($"Simulation {simulationId} is not loaded in memory");
             }
-
             context.Engine.Stop();
             context.Status = "Paused";
             await SimulationHub.BroadcastState(_hubContext, simulationId, context);

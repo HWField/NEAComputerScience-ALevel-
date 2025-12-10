@@ -117,8 +117,8 @@ namespace MySimulationAPI.Data
 
             modelBuilder.Entity<Simulation>()
                 .HasMany(s => s.Mitigations)
-                .WithOne()
-                .HasForeignKey("SimulationId")
+                .WithOne(m => m.Simulation)
+                .HasForeignKey(m => m.SimulationId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Simulation>()
@@ -166,10 +166,12 @@ namespace MySimulationAPI.Data
                 .HasValue<MedicalBuilding>("Medical")
                 .HasValue<RetailBuilding>("Retail")
                 .HasValue<LeisureBuilding>("Leisure");
+
             modelBuilder.Entity<Mitigation>()
                 .HasDiscriminator<string>("MitigationType")
-                .HasValue<MaskWearing>("MaskWearing")
-                .HasValue<SocialDistancing>("SocialDistancing");
+                .HasValue<SelfIsolationMitigation>("SelfIsolation")
+                .HasValue<MaskWearingMitigation>("MaskWearing")
+                .HasValue<VaccinationMitigation>("Vaccination");
 
             //Configure Preset cascade deletes
             modelBuilder.Entity<MapAreaPreset>()
