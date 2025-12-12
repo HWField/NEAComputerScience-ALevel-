@@ -1066,7 +1066,6 @@
         "tags": [
           "Simulation"
         ],
-        "summary": "Gets all mitigations for a simulation.",
         "parameters": [
           {
             "name": "id",
