@@ -160,17 +160,13 @@ namespace MySimulationAPI.SimulationConfiguration
 
             Console.WriteLine($"[SimulationManager] Reset simulation {simulationId}: removed {simulationSnapshots.Count} snapshots and {simulationMetrics.Count} metrics");
 
-
-
             // Reload simulation with clean state
             var newContext = await GetOrCreateAsync(simulationId);
             newContext.GenerateStates();
-
-            // Re-seed infection if initial infection count was set
+            // Re-seed infection
             if (sim.InitialInfectionCount > 0)
             {
                 newContext.InfectionService.SeedInfection(sim.InitialInfectionCount);
-                Console.WriteLine($"[SimulationManager] Re-seeded {sim.InitialInfectionCount} initial infections after reset");
             }
 
             // Broadcast the reset state

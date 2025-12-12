@@ -126,6 +126,9 @@
       <SimulationConfigure
         v-if="activeTab === 'configure'"
         :simulation-data="simulationData"
+        @refresh="refreshSimulationData"
+        @reset="handleReset"
+        @unload="handleUnload"
       />
 
       <SimulationSimulate
@@ -142,8 +145,6 @@
         @toggle-play-pause="togglePlayPause"
         @speed-change="handleSpeedChange"
         @tick-change="handleTickChange"
-        @reset="handleReset"
-        @unload="handleUnload"
       />
 
       <SimulationAnalyse
@@ -254,6 +255,15 @@ async function loadSimulation() {
     error.value = err.message || "Failed to load simulation";
   } finally {
     isInitializing.value = false;
+  }
+}
+
+async function refreshSimulationData() {
+  try {
+    // Re-fetch simulation details to get updated values
+    simulationData.value = await simulationApi.getById(id.value);
+  } catch (err: any) {
+    console.error("Failed to refresh simulation data:", err);
   }
 }
 

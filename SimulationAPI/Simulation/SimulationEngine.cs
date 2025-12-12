@@ -14,8 +14,8 @@ namespace MySimulationAPI.SimulationRuntime
         private readonly SimulationContext _context;
         private readonly IHubContext<SimulationHub> _hubContext;
         private CancellationTokenSource? _cts;
-        private long metricsIntervalTicks = 0;
         private System.Threading.Timer? _snapshotTimer;
+        private long metricsIntervalTicks;
         private readonly SemaphoreSlim _snapshotSemaphore = new SemaphoreSlim(1, 1);
         private volatile bool _snapshotRequested = false;
         public bool IsRunning => _cts != null && !_cts.IsCancellationRequested;
@@ -28,8 +28,6 @@ namespace MySimulationAPI.SimulationRuntime
 
         public void Start(long? targetTick = null)
         {
-            // metrics recorded twice every sim day
-            metricsIntervalTicks = (long)((TimeSpan.FromDays(1).TotalSeconds / _context.TickLength) / 2);
 
             if (_cts != null && !_cts.IsCancellationRequested)
                 return; // already running
@@ -46,10 +44,11 @@ namespace MySimulationAPI.SimulationRuntime
 
             _cts = new CancellationTokenSource();
 
-            // Start real-time snapshot timer if in real time mode(every 30 seconds by default)
+            metricsIntervalTicks = _context.Simulation.MetricRecordingFrequency;
+            // Start real-time snapshot timer if in real time mode
             if (!targetTick.HasValue)
             {
-                var interval = TimeSpan.FromSeconds(30);
+                var interval = TimeSpan.FromSeconds(_context.Simulation.SnapshotSavingFrequency);
                 _snapshotTimer = new System.Threading.Timer(
                     _ => _snapshotRequested = true, // Lambda: signal snapshot request
                     null,

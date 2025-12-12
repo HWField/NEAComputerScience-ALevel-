@@ -801,6 +801,47 @@
             "description": "OK"
           }
         }
+      },
+      "put": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Updates disease properties for a simulation.\nNote: Changing disease properties will require a simulation reset.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDiseaseDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDiseaseDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDiseaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/api/Simulation/{id}/load": {
@@ -1083,11 +1124,11 @@
           }
         }
       },
-      "post": {
+      "put": {
         "tags": [
           "Simulation"
         ],
-        "summary": "Creates a new mitigation for a simulation.\nDeletes all future snapshots and metrics as mitigation will change outcomes.",
+        "summary": "Replaces all mitigations for a simulation with a new set.\nDeletes all future snapshots and metrics as mitigations affect outcomes.",
         "parameters": [
           {
             "name": "id",
@@ -1103,17 +1144,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateMitigationDto"
+                "$ref": "#/components/schemas/BatchUpdateMitigationsDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateMitigationDto"
+                "$ref": "#/components/schemas/BatchUpdateMitigationsDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateMitigationDto"
+                "$ref": "#/components/schemas/BatchUpdateMitigationsDto"
               }
             }
           }
@@ -1125,24 +1166,15 @@
         }
       }
     },
-    "/api/Simulation/{id}/mitigations/{mitigationId}": {
+    "/api/Simulation/{id}/initial-infection": {
       "put": {
         "tags": [
           "Simulation"
         ],
-        "summary": "Updates an existing mitigation.\nDeletes all future snapshots and metrics as mitigation changes will affect outcomes.",
+        "summary": "Updates the initial infection count for a simulation.\nThis determines how many agents are infected when the simulation is reset.",
         "parameters": [
           {
             "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "mitigationId",
             "in": "path",
             "required": true,
             "schema": {
@@ -1155,17 +1187,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMitigationDto"
+                "$ref": "#/components/schemas/UpdateInitialInfectionDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMitigationDto"
+                "$ref": "#/components/schemas/UpdateInitialInfectionDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMitigationDto"
+                "$ref": "#/components/schemas/UpdateInitialInfectionDto"
               }
             }
           }
@@ -1175,12 +1207,14 @@
             "description": "OK"
           }
         }
-      },
-      "delete": {
+      }
+    },
+    "/api/Simulation/{id}/metric-frequency": {
+      "put": {
         "tags": [
           "Simulation"
         ],
-        "summary": "Deletes a mitigation.\nDeletes all future snapshots and metrics as removal will change outcomes.",
+        "summary": "Updates how frequently metrics are recorded (in ticks).",
         "parameters": [
           {
             "name": "id",
@@ -1190,9 +1224,43 @@
               "type": "integer",
               "format": "int32"
             }
-          },
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMetricFrequencyDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMetricFrequencyDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMetricFrequencyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Simulation/{id}/snapshot-frequency": {
+      "put": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Updates how frequently snapshots are saved (in ticks).",
+        "parameters": [
           {
-            "name": "mitigationId",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1201,6 +1269,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSnapshotFrequencyDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSnapshotFrequencyDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSnapshotFrequencyDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -1211,6 +1298,21 @@
   },
   "components": {
     "schemas": {
+      "BatchUpdateMitigationsDto": {
+        "required": [
+          "mitigations"
+        ],
+        "type": "object",
+        "properties": {
+          "mitigations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateMitigationDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "ChangePasswordDto": {
         "type": "object",
         "properties": {
@@ -1467,6 +1569,72 @@
         },
         "additionalProperties": false
       },
+      "UpdateDiseaseDto": {
+        "type": "object",
+        "properties": {
+          "infectionRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "recoveryRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "mortalityRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "incubationPeriod": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "infectiousPeriod": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "symptomaticRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "severeSymptomsRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "hospitalSeekingRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "immunityDuration": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "reinfectionResistance": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "maskEffectiveness": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vaccineEffectiveness": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateDiseasePresetDto": {
         "type": "object",
         "properties": {
@@ -1488,6 +1656,16 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateInitialInfectionDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -1517,51 +1695,12 @@
         },
         "additionalProperties": false
       },
-      "UpdateMitigationDto": {
+      "UpdateMetricFrequencyDto": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "isActive": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "complianceRate": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "symptomThreshold": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "adoptionRate": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "maskEffectivenessModifier": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "vaccinationRate": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "vaccineEffectivenessModifier": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "daysToFullEffectiveness": {
+          "frequency": {
             "type": "integer",
-            "format": "int32",
-            "nullable": true
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -1580,6 +1719,16 @@
           "streamerMode": {
             "type": "boolean",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateSnapshotFrequencyDto": {
+        "type": "object",
+        "properties": {
+          "frequency": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false

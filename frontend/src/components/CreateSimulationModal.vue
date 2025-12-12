@@ -637,10 +637,7 @@ const handleNextStep = async () => {
           newSimDetails.value.initialInfectionCount
         );
 
-        toast.show(
-          `Simulation created successfully with ${newSimDetails.value.initialInfectionCount} initially infected agent(s)!`,
-          "success"
-        );
+        toast.show(`Simulation created successfully`, "success");
       } catch (err) {
         console.error("Failed to seed infection:", err);
         toast.show(

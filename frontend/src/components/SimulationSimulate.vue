@@ -179,44 +179,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Quick Actions -->
-        <div class="card bg-base-100 shadow-xl">
-          <div class="card-body">
-            <div
-              class="flex items-center justify-between cursor-pointer"
-              @click="toggleSection('quickActions')"
-            >
-              <h3 class="card-title text-lg flex items-center gap-2">
-                <i-ph-lightning-bold class="w-5 h-5 text-accent" />
-                Quick Actions
-              </h3>
-              <i-ph-caret-down
-                class="w-5 h-5 transition-transform"
-                :class="{ 'rotate-180': expandedSections.quickActions }"
-              />
-            </div>
-            <div v-if="expandedSections.quickActions" class="space-y-2 mt-4">
-              <button
-                class="btn btn-outline btn-sm w-full gap-2"
-                @click="handleReset"
-              >
-                <i-ph-arrow-clockwise class="w-4 h-4" />
-                Reset Simulation
-              </button>
-              <button
-                class="btn btn-outline btn-sm w-full gap-2 btn-error"
-                @click="handleUnload"
-              >
-                <i-ph-eject-simple class="w-4 h-4" />
-                Unload from Memory
-              </button>
-            </div>
-            <div v-else class="text-sm text-base-content/60 italic mt-2">
-              Click to expand
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Center - Map View -->
@@ -454,9 +416,7 @@
 <script lang="ts" setup>
 import { ref, computed } from "vue";
 import type { SimulationDetail, AgentPosition } from "@/api/simulation";
-import { simulationApi } from "@/api/simulation";
 import SimulationMap from "@/components/SimulationMap.vue";
-import { useRouter } from "vue-router";
 
 interface SimulationMetrics {
   totalAgents: number;
@@ -490,16 +450,11 @@ const emit = defineEmits<{
   togglePlayPause: [];
   speedChange: [speed: number];
   tickChange: [tick: number];
-  reset: [];
-  unload: [];
 }>();
-
-const router = useRouter();
 
 const expandedSections = ref({
   population: true,
   infection: true,
-  quickActions: true,
 });
 
 const maxTick = computed(() => {
@@ -591,14 +546,6 @@ function handleTickChange(event: Event) {
   const target = event.target as HTMLInputElement;
   const tick = parseInt(target.value);
   emit("tickChange", tick);
-}
-
-function handleReset() {
-  emit("reset");
-}
-
-function handleUnload() {
-  emit("unload");
 }
 </script>
 

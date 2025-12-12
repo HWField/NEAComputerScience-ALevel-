@@ -18,6 +18,9 @@ export interface SimulationDetail {
   createdAt: string;
   progress: number;
   tickLength: number;
+  initialInfectionCount: number;
+  metricRecordingFrequency: number;
+  snapshotSavingFrequency: number;
   disease: {
     id: number;
     name: string;
@@ -43,6 +46,14 @@ export interface SimulationDetail {
     buildingCount: number;
   } | null;
   agentCount: number;
+  agentBreakdown: {
+    students: number;
+    officeWorkers: number;
+    medicalWorkers: number;
+    retailWorkers: number;
+    serviceWorkers: number;
+    elderlyRetired: number;
+  };
 }
 
 // SignalR/Hub related types
@@ -156,6 +167,33 @@ export interface UpdateMitigationDto {
   daysToFullEffectiveness?: number;
 }
 
+export interface UpdateDiseaseDto {
+  infectionRate?: number;
+  recoveryRate?: number;
+  mortalityRate?: number;
+  incubationPeriod?: number;
+  infectiousPeriod?: number;
+  symptomaticRate?: number;
+  severeSymptomsRate?: number;
+  hospitalSeekingRate?: number;
+  immunityDuration?: number;
+  reinfectionResistance?: number;
+  maskEffectiveness?: number;
+  vaccineEffectiveness?: number;
+}
+
+export interface UpdateInitialInfectionDto {
+  count: number;
+}
+
+export interface UpdateMetricFrequencyDto {
+  frequency: number;
+}
+
+export interface UpdateSnapshotFrequencyDto {
+  frequency: number;
+}
+
 export const simulationApi = {
   // Get all simulations
   async getAll(): Promise<Simulation[]> {
@@ -220,30 +258,50 @@ export const simulationApi = {
     return response.data;
   },
 
-  // Create a new mitigation
-  async createMitigation(
+  // Batch update all mitigations (replaces all existing mitigations)
+  async batchUpdateMitigations(
     id: number,
-    dto: CreateMitigationDto
-  ): Promise<Mitigation> {
-    const response = await api.post(`/simulation/${id}/mitigations`, dto);
+    mitigations: CreateMitigationDto[]
+  ): Promise<Mitigation[]> {
+    const response = await api.put(`/simulation/${id}/mitigations`, {
+      mitigations,
+    });
     return response.data;
   },
 
-  // Update an existing mitigation
-  async updateMitigation(
+  // Update disease properties
+  async updateDisease(
     id: number,
-    mitigationId: number,
-    dto: UpdateMitigationDto
-  ): Promise<Mitigation> {
-    const response = await api.put(
-      `/simulation/${id}/mitigations/${mitigationId}`,
-      dto
-    );
+    dto: UpdateDiseaseDto
+  ): Promise<{ message: string; requiresReset: boolean }> {
+    const response = await api.put(`/simulation/${id}/disease`, dto);
     return response.data;
   },
 
-  // Delete a mitigation
-  async deleteMitigation(id: number, mitigationId: number): Promise<void> {
-    await api.delete(`/simulation/${id}/mitigations/${mitigationId}`);
+  // Update initial infection count
+  async updateInitialInfection(
+    id: number,
+    dto: UpdateInitialInfectionDto
+  ): Promise<{ message: string; initialInfectionCount: number }> {
+    const response = await api.put(`/simulation/${id}/initial-infection`, dto);
+    return response.data;
+  },
+
+  // Update metric recording frequency
+  async updateMetricFrequency(
+    id: number,
+    dto: UpdateMetricFrequencyDto
+  ): Promise<{ message: string; metricRecordingFrequency: number }> {
+    const response = await api.put(`/simulation/${id}/metric-frequency`, dto);
+    return response.data;
+  },
+
+  // Update snapshot saving frequency
+  async updateSnapshotFrequency(
+    id: number,
+    dto: UpdateSnapshotFrequencyDto
+  ): Promise<{ message: string; snapshotSavingFrequency: number }> {
+    const response = await api.put(`/simulation/${id}/snapshot-frequency`, dto);
+    return response.data;
   },
 };

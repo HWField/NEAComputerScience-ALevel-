@@ -35,6 +35,9 @@ namespace MySimulationAPI.SimulationConfiguration
             {
                 UserId = userId,
                 Name = simulationName,
+                TickLength = 300,
+                MetricRecordingFrequency = 10,
+                SnapshotSavingFrequency = 30,
             };
 
             db.Simulations.Add(sim);
@@ -817,6 +820,36 @@ namespace MySimulationAPI.SimulationConfiguration
             }
 
         }
+
+        // Seed initial infection in the simulation
+        public async Task SeedInitialInfection(int simulationId, int count, int userId)
+        {
+            using var _db = _dbFactory.CreateDbContext();
+
+            // Verify simulation exists and belongs to user
+            var simulation = await _db.Simulations
+                .FirstOrDefaultAsync(s => s.Id == simulationId && s.UserId == userId)
+                ?? throw new Exception("Simulation not found or access denied");
+
+            // Get the simulation context
+            var context = _simulationManager.TryGet(simulationId, out var ctx) && ctx != null
+                ? ctx
+                : throw new Exception("Simulation is not loaded in memory. Load it first.");
+
+            // Validate infection count
+            if (count < 1 || count > 100)
+                throw new ArgumentException("Infection count must be between 1 and 100");
+
+            // Seed the infection
+            context.InfectionService.SeedInfection(count);
+
+            // Store the initial infection count for future resets
+            simulation.InitialInfectionCount = count;
+            await _db.SaveChangesAsync();
+
+            Console.WriteLine($"[SimulationSetup] Seeded {count} initial infection(s) for simulation {simulationId}");
+        }
+
         private Agent CreateRandomAgent(int simId)
         {
             var type = _rng.Next(6);

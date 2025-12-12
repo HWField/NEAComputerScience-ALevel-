@@ -691,9 +691,15 @@ namespace SimulationAPI.Migrations
                     b.Property<int>("InitialInfectionCount")
                         .HasColumnType("integer");
 
+                    b.Property<int>("MetricRecordingFrequency")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("SnapshotSavingFrequency")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Status")
                         .IsRequired()
