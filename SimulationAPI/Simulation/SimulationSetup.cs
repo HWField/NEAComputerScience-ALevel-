@@ -877,7 +877,5 @@ namespace MySimulationAPI.SimulationConfiguration
             return $"{first[_rng.Next(first.Length)]} {last[_rng.Next(last.Length)]}";
         }
 
-
-
     }
 }

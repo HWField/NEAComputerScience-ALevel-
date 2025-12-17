@@ -128,117 +128,114 @@ namespace MySimulationAPI.SimulationConfiguration
         }
 
         // ------------------------------------------------------------
-        // Load snapshot from DB (nearest <= targetTick)
+        // Load snapshot from DB (nearest <= targetTick) and compute forward
         // ------------------------------------------------------------
         public async Task<bool> LoadTargetTick(long targetTick)
         {
-            using var _db = _context.DbFactory.CreateDbContext();
-
-            // Configure longer timeout for large datasets
-            _db.Database.SetCommandTimeout(120); // 2 minutes
-
             _context.Engine.Stop();
 
-            // Step 1: Find the snapshot (WITHOUT eager loading)
-            var snapshot = await _db.SimulationSnapshots
-                .Where(s => s.SimulationId == _context.Simulation.Id && s.Tick <= targetTick)
-                .OrderByDescending(s => s.Tick)
-                .FirstOrDefaultAsync();
-
+            // Find the snapshot closest to but not exceeding targetTick
+            var snapshot = await FindSnapshotAsync(targetTick);
             if (snapshot == null)
             {
                 Console.WriteLine($"[LoadTargetTick] No snapshot found for tick <= {targetTick}");
                 return false;
             }
 
-            Console.WriteLine($"[LoadTargetTick] Loading snapshot {snapshot.Id} at tick {snapshot.Tick}...");
+            Console.WriteLine($"[LoadTargetTick] Found snapshot at tick {snapshot.Tick}");
 
-            // Step 2: Load agent snapshots in batches
-            var agentSnaps = new List<AgentSnapshot>();
-            var batchSize = 5000;
-            var offset = 0;
-            var loadedCount = 0;
+            // Load snapshot data
+            await LoadSnapshotDataAsync(snapshot);
 
-            while (true)
-            {
-                var batch = await _db.Set<AgentSnapshot>()
-                    .Where(a => a.SimulationSnapshotId == snapshot.Id)
-                    .OrderBy(a => a.AgentId)
-                    .Skip(offset)
-                    .Take(batchSize)
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                if (batch.Count == 0) break;
-
-                agentSnaps.AddRange(batch);
-                loadedCount += batch.Count;
-                offset += batchSize;
-
-                if (loadedCount % 10000 == 0)
-                {
-                    Console.WriteLine($"[LoadTargetTick] Loaded {loadedCount} agent snapshots...");
-                }
-            }
-
-            Console.WriteLine($"[LoadTargetTick] Loaded {agentSnaps.Count} total agent snapshots");
-
-            // Step 3: Load building snapshots in batches
-            var buildingSnaps = new List<BuildingSnapshot>();
-            offset = 0;
-            loadedCount = 0;
-
-            while (true)
-            {
-                var batch = await _db.Set<BuildingSnapshot>()
-                    .Where(b => b.SimulationSnapshotId == snapshot.Id)
-                    .OrderBy(b => b.BuildingId)
-                    .Skip(offset)
-                    .Take(batchSize)
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                if (batch.Count == 0) break;
-
-                buildingSnaps.AddRange(batch);
-                loadedCount += batch.Count;
-                offset += batchSize;
-            }
-
-            Console.WriteLine($"[LoadTargetTick] Loaded {buildingSnaps.Count} building snapshots");
-
-            // Assign to snapshot for RestoreSnapshot method
-            snapshot.Agents = agentSnaps;
-            snapshot.Buildings = buildingSnaps;
-
+            // Restore the snapshot state
             Console.WriteLine($"[LoadTargetTick] Restoring snapshot state...");
             RestoreSnapshot(snapshot);
 
-            Console.WriteLine($"[LoadTargetTick] Starting engine to compute forward to tick {targetTick}...");
-            _context.Engine.Start(targetTick); //compute forward to target tick
+            // If the snapshot tick is less than target, compute forward
+            if (snapshot.Tick < targetTick)
+            {
+                Console.WriteLine($"[LoadTargetTick] Computing forward from tick {snapshot.Tick} to {targetTick}...");
+                _context.Engine.Start(targetTick);
+            }
+            else
+            {
+                Console.WriteLine($"[LoadTargetTick] Snapshot is at target tick {targetTick}");
+            }
 
             return true;
         }
 
+        // ------------------------------------------------------------
+        // Load latest snapshot
+        // ------------------------------------------------------------
         public async Task<bool> LoadLatestSnapshotAsync()
+        {
+            _context.Engine.Stop();
+
+            // Find the latest snapshot (highest tick number)
+            var snapshot = await FindLatestSnapshotAsync();
+            if (snapshot == null)
+            {
+                Console.WriteLine($"[LoadLatestSnapshot] No snapshots found");
+                return false;
+            }
+
+            Console.WriteLine($"[LoadLatestSnapshot] Found latest snapshot at tick {snapshot.Tick}");
+
+            // Load snapshot data
+            await LoadSnapshotDataAsync(snapshot);
+
+            // Restore the snapshot state
+            Console.WriteLine($"[LoadLatestSnapshot] Restoring snapshot state...");
+            RestoreSnapshot(snapshot);
+
+            return true;
+        }
+
+        // ------------------------------------------------------------
+        // Find snapshot at or before targetTick
+        // ------------------------------------------------------------
+        private async Task<SimulationSnapshot?> FindSnapshotAsync(long targetTick)
         {
             using var _db = _context.DbFactory.CreateDbContext();
             _db.Database.SetCommandTimeout(120);
 
-            // Find the latest snapshot
-            var snapshot = await _db.SimulationSnapshots
+            return await _db.SimulationSnapshots
+                .Where(s => s.SimulationId == _context.Simulation.Id && s.Tick <= targetTick)
+                .OrderByDescending(s => s.Tick)
+                .FirstOrDefaultAsync();
+        }
+
+        // ------------------------------------------------------------
+        // Find latest snapshot
+        // ------------------------------------------------------------
+        private async Task<SimulationSnapshot?> FindLatestSnapshotAsync()
+        {
+            using var _db = _context.DbFactory.CreateDbContext();
+            _db.Database.SetCommandTimeout(120);
+
+            return await _db.SimulationSnapshots
                 .Where(s => s.SimulationId == _context.Simulation.Id)
                 .OrderByDescending(s => s.Tick)
                 .FirstOrDefaultAsync();
+        }
 
-            if (snapshot == null)
-            {
-                return false;
-            }
+        // ------------------------------------------------------------
+        // Load agent and building snapshots in batches
+        // ------------------------------------------------------------
+        private async Task LoadSnapshotDataAsync(SimulationSnapshot snapshot)
+        {
+            using var _db = _context.DbFactory.CreateDbContext();
+            _db.Database.SetCommandTimeout(120);
+
+            const int batchSize = 5000;
+
             // Load agent snapshots in batches
             var agentSnaps = new List<AgentSnapshot>();
-            var batchSize = 5000;
             var offset = 0;
+
+            Console.Write($"[LoadSnapshot] Loading agent snapshots... ");
+            var startTime = DateTime.Now;
 
             while (true)
             {
@@ -251,19 +248,26 @@ namespace MySimulationAPI.SimulationConfiguration
                     .ToListAsync();
 
                 if (batch.Count == 0) break;
+
                 agentSnaps.AddRange(batch);
                 offset += batchSize;
+
+                if (agentSnaps.Count % 10000 == 0)
+                {
+                    Console.Write($"{agentSnaps.Count}... ");
+                }
             }
 
-            // Count health states in snapshot data for verification
-            int snapshotInfected = agentSnaps.Count(a => a.HealthState.Equals("Infected", StringComparison.OrdinalIgnoreCase));
-            int snapshotRecovered = agentSnaps.Count(a => a.HealthState.Equals("Recovered", StringComparison.OrdinalIgnoreCase));
-            int snapshotDead = agentSnaps.Count(a => a.HealthState.Equals("Dead", StringComparison.OrdinalIgnoreCase));
+            var elapsed = (DateTime.Now - startTime).TotalSeconds;
+            Console.WriteLine($"✓ Loaded {agentSnaps.Count} agents in {elapsed:F1}s");
 
             // Load building snapshots in batches
             var buildingSnaps = new List<BuildingSnapshot>();
             offset = 0;
 
+            Console.Write($"[LoadSnapshot] Loading building snapshots... ");
+            startTime = DateTime.Now;
+
             while (true)
             {
                 var batch = await _db.Set<BuildingSnapshot>()
@@ -275,18 +279,17 @@ namespace MySimulationAPI.SimulationConfiguration
                     .ToListAsync();
 
                 if (batch.Count == 0) break;
+
                 buildingSnaps.AddRange(batch);
                 offset += batchSize;
             }
 
+            elapsed = (DateTime.Now - startTime).TotalSeconds;
+            Console.WriteLine($"✓ Loaded {buildingSnaps.Count} buildings in {elapsed:F1}s");
+
             // Assign to snapshot
             snapshot.Agents = agentSnaps;
             snapshot.Buildings = buildingSnaps;
-
-            // Restore without computing forward
-            RestoreSnapshot(snapshot);
-
-            return true;
         }
 
         // ------------------------------------------------------------
@@ -318,51 +321,22 @@ namespace MySimulationAPI.SimulationConfiguration
 
             // --- Restore AgentStates ---
             var agents = _context.AgentStates;
-            int restoredCount = 0;
-            int skippedCount = 0;
-            int infectedCount = 0;
-            int recoveredCount = 0;
-            int deadCount = 0;
 
             for (int i = 0; i < agents.Length; i++)
             {
                 ref var a = ref agents[i];
 
-                if (!agentSnapLookup.TryGetValue(a.Id, out var snap))
+                if (agentSnapLookup.TryGetValue(a.Id, out var snap))
                 {
-                    skippedCount++;
-                    continue;
-                }
-
-                a.Lat = (float)snap.Latitude;
-                a.Lon = (float)snap.Longitude;
-                a.InfectionProgress = (float)snap.InfectionProgress;
-                a.IsIsolating = snap.isIsolating;
-                a.CurrentBuildingId = snap.CurrentBuildingId ?? 0;
-
-                // Parse health string → byte enum
-                a.HealthState = (byte)ParseHealthState(snap.HealthState);
-
-                // Restore extended infection tracking
-                a.SymptomSeverity = snap.SymptomSeverity;
-                a.Immunity = snap.Immunity;
-                // WearsMask and IsVaccinated are no longer stored - checked probabilistically per tick
-                a.InfectionCount = snap.InfectionCount;
-
-                restoredCount++;
-
-                // Count health states for verification
-                switch ((AgentHealthState)a.HealthState)
-                {
-                    case AgentHealthState.Infected:
-                        infectedCount++;
-                        break;
-                    case AgentHealthState.Recovered:
-                        recoveredCount++;
-                        break;
-                    case AgentHealthState.Dead:
-                        deadCount++;
-                        break;
+                    a.Lat = (float)snap.Latitude;
+                    a.Lon = (float)snap.Longitude;
+                    a.InfectionProgress = (float)snap.InfectionProgress;
+                    a.IsIsolating = snap.isIsolating;
+                    a.CurrentBuildingId = snap.CurrentBuildingId ?? 0;
+                    a.HealthState = (byte)ParseHealthState(snap.HealthState);
+                    a.SymptomSeverity = snap.SymptomSeverity;
+                    a.Immunity = snap.Immunity;
+                    a.InfectionCount = snap.InfectionCount;
                 }
             }
 

@@ -64,21 +64,11 @@ namespace MySimulationAPI.SimulationConfiguration
             // Create in-memory context
             var context = new SimulationContext(sim, _dbFactory, _hubContext);
             _contexts[simulationId] = context;
+            await context.GenerateStatesAsync();
 
-            if (context.CurrentTick == 0)
-            {
-                // No snapshot exists - generate fresh state
-                context.GenerateStates();
-            }
-            else
-            {
-                context.GenerateStates(); // generate base state arrays
-                await context.SnapshotManager.LoadLatestSnapshotAsync();
-            }
-
-            Console.WriteLine($"Broadcasting state: Status={context.Status}");
+            // Load the latest snapshot if one exists
+            var loaded = await context.SnapshotManager.LoadLatestSnapshotAsync();
             await SimulationHub.BroadcastState(_hubContext, simulationId, context);
-
             return context;
         }
 
@@ -122,6 +112,7 @@ namespace MySimulationAPI.SimulationConfiguration
             {
                 throw new InvalidOperationException($"Simulation {simulationId} is not loaded in memory");
             }
+            await PauseAsync(simulationId);
             await context.SnapshotManager.LoadTargetTick(targetTick);
 
             await SimulationHub.BroadcastState(_hubContext, simulationId, context);
@@ -162,7 +153,6 @@ namespace MySimulationAPI.SimulationConfiguration
 
             // Reload simulation with clean state
             var newContext = await GetOrCreateAsync(simulationId);
-            newContext.GenerateStates();
             // Re-seed infection
             if (sim.InitialInfectionCount > 0)
             {
