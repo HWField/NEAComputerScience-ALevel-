@@ -174,6 +174,13 @@ namespace MySimulationAPI.Controllers
             if (sim == null) return NotFound();
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
+
+            // Unload simulation from memory if it's loaded
+            if (_simulationManager.TryGet(id, out var context) && context != null)
+            {
+                await _simulationManager.RemoveAsync(id);
+            }
+
             _db.Simulations.Remove(sim);
             await _db.SaveChangesAsync();
             return Ok($"Simulation {id} deleted successfully");
@@ -344,7 +351,6 @@ namespace MySimulationAPI.Controllers
             }
 
             var context = await _simulationManager.GetOrCreateAsync(id);
-            context.GenerateStates();
             return Ok($"Simulation {id} loaded into memory.");
         }
 

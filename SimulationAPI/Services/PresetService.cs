@@ -185,10 +185,13 @@ namespace MySimulationAPI.Services
             }
 
             // === Seed Global MapArea Presets ===
-            if (!await _db.MapAreaPresets.AnyAsync(m => m.Name == "CambridgeCity"))
-            {
-                await FetchAndCreateMapPresetAsync("CambridgeCity", 52.1951, 0.1313, 1);
-            }
+            // if (!await _db.MapAreaPresets.AnyAsync(m => m.Name == "CambridgeCity"))
+            // {
+            //     await FetchAndCreateMapPresetAsync("CambridgeCity", 52.1951, 0.1313, 1);
+            // }
+            // delay here to avoid overloading the OSM API
+            // await Task.Delay(1000);
+
             if (!await _db.MapAreaPresets.AnyAsync(m => m.Name == "SaffronWalden"))
             {
                 await FetchAndCreateMapPresetAsync("SaffronWalden", 52.0174, 0.2438, 1);

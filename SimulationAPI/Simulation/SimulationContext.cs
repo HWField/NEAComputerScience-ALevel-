@@ -134,66 +134,69 @@ namespace MySimulationAPI.SimulationConfiguration
             await Db.SaveChangesAsync();
         }
 
-        public void GenerateStates()
+        public Task GenerateStatesAsync()
         // Generates a base state for agents and buildings, Done at a later stage to allow for modifications before starting the simulation
         {
-            // --- Buildings ---
-            BuildingStates = new BuildingState[Buildings.Count];
-            for (int i = 0; i < Buildings.Count; i++)
+            return Task.Run(() =>
             {
-                var b = Buildings[i];
-                BuildingStates[i] = new BuildingState
+                // --- Buildings ---
+                BuildingStates = new BuildingState[Buildings.Count];
+                for (int i = 0; i < Buildings.Count; i++)
                 {
-                    Id = b.Id,
-                    X = (float)b.Latitude,
-                    Y = (float)b.Longitude,
-                    Capacity = (short)b.Capacity,
-                    Occupants = 0,
-                    BuildingType = BuildingTypeRegistry.GetTypeCode(b.GetType())
-                };
-            }
-
-            // --- Agents ---
-            AgentStates = new AgentState[Agents.Count];
-
-            // --- Apply Mitigations ---
-            var routineList = new List<RoutineEventState>();
-            for (int i = 0; i < Agents.Count; i++)
-            {
-                var a = Agents[i];
-                AgentStates[i] = new AgentState
-                {
-                    Id = a.Id,
-                    AgentType = AgentTypeRegistry.GetTypeCode(a.GetType()),
-                    Lat = (float)(a.House?.Latitude ?? 0),
-                    Lon = (float)(a.House?.Longitude ?? 0),
-                    Immunity = (float)a.MedicalProfile.Immunity,
-                    Susceptibility = (float)a.MedicalProfile.InfectionSusceptibility,
-                    HasChronicCondition = a.MedicalProfile.HasChronicCondition,
-                    HealthState = (byte)AgentHealthState.Healthy,
-                    CurrentBuildingId = a.HouseId ?? 0,
-                    SymptomSeverity = 0f,
-                    VaccinationProgress = 0f,
-                    IsIsolating = false,
-                    InfectionCount = 0
-                };
-                // --- Routines ---
-                foreach (var ev in a.RoutineEvents)
-                {
-                    routineList.Add(new RoutineEventState
+                    var b = Buildings[i];
+                    BuildingStates[i] = new BuildingState
                     {
-                        AgentId = a.Id,
-                        Day = ev.DayIndex,
-                        StartTick = Utils.SimulationTimeHelper.ConvertTimeToTick(ev.StartTime, TickLength),
-                        DurationTicks = Utils.SimulationTimeHelper.ConvertTimeSpanToTicks(ev.Duration, TickLength),
-                        BuildingId = ev.BuildingId,
-                        Type = (byte)ev.EventType,
-                        CachedTravelDuration = ev.CachedTravelDuration / TickLength,
-                        Path = ev.CachedPath?.Select(p => ((float)p.Lat, (float)p.Lon)).ToArray()
-                    });
+                        Id = b.Id,
+                        X = (float)b.Latitude,
+                        Y = (float)b.Longitude,
+                        Capacity = (short)b.Capacity,
+                        Occupants = 0,
+                        BuildingType = BuildingTypeRegistry.GetTypeCode(b.GetType())
+                    };
                 }
-            }
-            RoutineStates = routineList.ToArray();
+
+                // --- Agents ---
+                AgentStates = new AgentState[Agents.Count];
+
+                // --- Apply Mitigations ---
+                var routineList = new List<RoutineEventState>();
+                for (int i = 0; i < Agents.Count; i++)
+                {
+                    var a = Agents[i];
+                    AgentStates[i] = new AgentState
+                    {
+                        Id = a.Id,
+                        AgentType = AgentTypeRegistry.GetTypeCode(a.GetType()),
+                        Lat = (float)(a.House?.Latitude ?? 0),
+                        Lon = (float)(a.House?.Longitude ?? 0),
+                        Immunity = (float)a.MedicalProfile.Immunity,
+                        Susceptibility = (float)a.MedicalProfile.InfectionSusceptibility,
+                        HasChronicCondition = a.MedicalProfile.HasChronicCondition,
+                        HealthState = (byte)AgentHealthState.Healthy,
+                        CurrentBuildingId = a.HouseId ?? 0,
+                        SymptomSeverity = 0f,
+                        VaccinationProgress = 0f,
+                        IsIsolating = false,
+                        InfectionCount = 0
+                    };
+                    // --- Routines ---
+                    foreach (var ev in a.RoutineEvents)
+                    {
+                        routineList.Add(new RoutineEventState
+                        {
+                            AgentId = a.Id,
+                            Day = ev.DayIndex,
+                            StartTick = Utils.SimulationTimeHelper.ConvertTimeToTick(ev.StartTime, TickLength),
+                            DurationTicks = Utils.SimulationTimeHelper.ConvertTimeSpanToTicks(ev.Duration, TickLength),
+                            BuildingId = ev.BuildingId,
+                            Type = (byte)ev.EventType,
+                            CachedTravelDuration = ev.CachedTravelDuration / TickLength,
+                            Path = ev.CachedPath?.Select(p => ((float)p.Lat, (float)p.Lon)).ToArray()
+                        });
+                    }
+                }
+                RoutineStates = routineList.ToArray();
+            });
         }
 
         public void Dispose()

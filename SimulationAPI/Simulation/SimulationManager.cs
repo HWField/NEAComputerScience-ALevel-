@@ -179,6 +179,7 @@ namespace MySimulationAPI.SimulationConfiguration
             {
 
                 ctx.Engine.Stop();
+                await ctx.SnapshotManager.SaveSnapshotAsync();
                 // Dispose the context to release memory and unmanaged resources
                 ctx.Dispose();
             }
