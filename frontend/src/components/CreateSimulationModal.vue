@@ -617,14 +617,6 @@ const handleNextStep = async () => {
         return;
       }
 
-      if (newSimDetails.value.initialInfectionCount > 100) {
-        toast.show(
-          "Maximum initial infection count is 100 agents for performance reasons.",
-          "error"
-        );
-        return;
-      }
-
       // Load simulation and seed infection
       loadingMessage.value = "Loading simulation and seeding infection...";
       try {
@@ -1567,7 +1559,6 @@ const handleNextStep = async () => {
             <input
               type="number"
               min="1"
-              max="100"
               v-model.number="newSimDetails.initialInfectionCount"
               class="input input-bordered w-full"
               placeholder="Number of initially infected agents"
@@ -1577,7 +1568,6 @@ const handleNextStep = async () => {
               <span class="label-text-alt text-xs opacity-70">
                 Recommended: 1-5 for realistic outbreak simulation
               </span>
-              <span class="label-text-alt text-xs">Maximum: 100</span>
             </label>
           </div>
 

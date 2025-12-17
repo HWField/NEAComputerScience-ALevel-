@@ -86,6 +86,20 @@ export interface MetricsUpdate {
   totalRecoveries: number;
 }
 
+export interface SimulationMetric {
+  tick: number;
+  totalAgents: number;
+  infected: number;
+  recovered: number;
+  dead: number;
+  quarantined: number;
+  healthy: number;
+}
+
+export interface MetricsResponse {
+  metrics: SimulationMetric[];
+}
+
 export interface AgentPosition {
   id: number;
   lat: number;
@@ -302,6 +316,25 @@ export const simulationApi = {
     dto: UpdateSnapshotFrequencyDto
   ): Promise<{ message: string; snapshotSavingFrequency: number }> {
     const response = await api.put(`/simulation/${id}/snapshot-frequency`, dto);
+    return response.data;
+  },
+
+  // Get historical metrics for analysis
+  async getMetrics(
+    id: number,
+    startTick?: number,
+    endTick?: number
+  ): Promise<MetricsResponse> {
+    const params = new URLSearchParams();
+    if (startTick !== undefined)
+      params.append("startTick", startTick.toString());
+    if (endTick !== undefined) params.append("endTick", endTick.toString());
+
+    const response = await api.get(
+      `/simulation/${id}/metrics${
+        params.toString() ? `?${params.toString()}` : ""
+      }`
+    );
     return response.data;
   },
 };

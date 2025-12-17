@@ -1294,6 +1294,49 @@
           }
         }
       }
+    },
+    "/api/Simulation/{id}/metrics": {
+      "get": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Gets all recorded metrics for a simulation.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Simulation ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "startTick",
+            "in": "query",
+            "description": "Optional: Filter metrics starting from this tick",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "endTick",
+            "in": "query",
+            "description": "Optional: Filter metrics up to this tick",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {

@@ -689,8 +689,8 @@ namespace MySimulationAPI.Controllers
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
 
-            if (dto.Count < 0 || dto.Count > 1000)
-                return BadRequest("Initial infection count must be between 0 and 1000");
+            if (dto.Count < 1)
+                return BadRequest("Initial infection count must be at least 1");
 
             sim.InitialInfectionCount = dto.Count;
             await _db.SaveChangesAsync();
@@ -713,8 +713,8 @@ namespace MySimulationAPI.Controllers
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
 
-            if (dto.Frequency < 1 || dto.Frequency > 10000)
-                return BadRequest("Metric recording frequency must be between 1 and 10000 ticks");
+            if (dto.Frequency < 1)
+                return BadRequest("Metric recording frequency must be at least 1 tick");
 
             sim.MetricRecordingFrequency = dto.Frequency;
             await _db.SaveChangesAsync();
@@ -737,8 +737,8 @@ namespace MySimulationAPI.Controllers
             if (sim.UserId != GetUserId() && !IsAdmin())
                 return Forbid();
 
-            if (dto.Frequency < 1 || dto.Frequency > 10000)
-                return BadRequest("Snapshot saving frequency must be between 1 and 10000 ticks");
+            if (dto.Frequency < 1)
+                return BadRequest("Snapshot saving frequency must be at least 1 tick");
 
             sim.SnapshotSavingFrequency = dto.Frequency;
             await _db.SaveChangesAsync();
@@ -786,6 +786,42 @@ namespace MySimulationAPI.Controllers
             _db.SimulationMetrics.RemoveRange(futureMetrics);
 
             Console.WriteLine($"[Mitigation Change] Deleted {futureSnapshots.Count} future snapshots and {futureMetrics.Count} future metrics for simulation {simulationId}");
+        }
+
+
+        [HttpGet("{id}/metrics")]
+        public async Task<IActionResult> GetMetrics(int id, [FromQuery] long? startTick = null, [FromQuery] long? endTick = null)
+        {
+            var sim = await _db.Simulations.FindAsync(id);
+            if (sim == null) return NotFound("Simulation not found");
+            if (sim.UserId != GetUserId() && !IsAdmin())
+                return Forbid();
+
+            var query = _db.SimulationMetrics
+                .Where(m => m.SimulationId == id)
+                .OrderBy(m => m.Tick)
+                .AsQueryable();
+
+            if (startTick.HasValue)
+                query = query.Where(m => m.Tick >= startTick.Value);
+
+            if (endTick.HasValue)
+                query = query.Where(m => m.Tick <= endTick.Value);
+
+            var metrics = await query
+                .Select(m => new
+                {
+                    m.Tick,
+                    m.TotalAgents,
+                    m.Infected,
+                    m.Recovered,
+                    m.Dead,
+                    m.Quarantined,
+                    Healthy = m.TotalAgents - m.Infected - m.Recovered - m.Dead
+                })
+                .ToListAsync();
+
+            return Ok(new { metrics });
         }
     }
 }
