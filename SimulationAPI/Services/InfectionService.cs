@@ -20,13 +20,21 @@ namespace MySimulationAPI.Services
         // Time-based transmission (per tick exposure)
         private float _transmissionPerTick;
 
-        // Tracking metrics
-        public int TotalInfections { get; private set; }
-        public int ActiveInfections { get; private set; }
-        public int SymptomaticCases { get; private set; }
-        public int ReportedCases { get; private set; }
-        public int TotalDeaths { get; private set; }
-        public int TotalRecoveries { get; private set; }
+        // Tracking metrics using private backing fields with thread-safe reads
+        private int _totalInfections;
+        private int _activeInfections;
+        private int _symptomaticCases;
+        private int _reportedCases;
+        private int _totalDeaths;
+        private int _totalRecoveries;
+
+        // Public properties that provide thread-safe atomic reads
+        public int TotalInfections => System.Threading.Volatile.Read(ref _totalInfections);
+        public int ActiveInfections => System.Threading.Volatile.Read(ref _activeInfections);
+        public int SymptomaticCases => System.Threading.Volatile.Read(ref _symptomaticCases);
+        public int ReportedCases => System.Threading.Volatile.Read(ref _reportedCases);
+        public int TotalDeaths => System.Threading.Volatile.Read(ref _totalDeaths);
+        public int TotalRecoveries => System.Threading.Volatile.Read(ref _totalRecoveries);
 
         public InfectionService(SimulationContext context)
         {
@@ -50,9 +58,9 @@ namespace MySimulationAPI.Services
 
         public void RestoreMetricsFromSnapshot(int totalInfections, int totalDeaths, int totalRecoveries)
         {
-            TotalInfections = totalInfections;
-            TotalDeaths = totalDeaths;
-            TotalRecoveries = totalRecoveries;
+            System.Threading.Volatile.Write(ref _totalInfections, totalInfections);
+            System.Threading.Volatile.Write(ref _totalDeaths, totalDeaths);
+            System.Threading.Volatile.Write(ref _totalRecoveries, totalRecoveries);
 
             // Recalculate current state metrics from agent states
             RecalculateActiveMetrics();
@@ -62,9 +70,9 @@ namespace MySimulationAPI.Services
         {
             Span<AgentState> agents = _context.AgentStates.AsSpan();
 
-            ActiveInfections = 0;
-            SymptomaticCases = 0;
-            ReportedCases = 0;
+            int activeInfections = 0;
+            int symptomaticCases = 0;
+            int reportedCases = 0;
 
             for (int i = 0; i < agents.Length; i++)
             {
@@ -72,17 +80,22 @@ namespace MySimulationAPI.Services
 
                 if ((AgentHealthState)agent.HealthState == AgentHealthState.Infected)
                 {
-                    ActiveInfections++;
+                    activeInfections++;
 
                     if (agent.SymptomSeverity > 0.1f)
                     {
-                        SymptomaticCases++;
+                        symptomaticCases++;
 
                         if (agent.SymptomSeverity > 0.3f)
-                            ReportedCases++;
+                            reportedCases++;
                     }
                 }
             }
+
+            // Atomically update all metrics at once
+            System.Threading.Volatile.Write(ref _activeInfections, activeInfections);
+            System.Threading.Volatile.Write(ref _symptomaticCases, symptomaticCases);
+            System.Threading.Volatile.Write(ref _reportedCases, reportedCases);
         }
 
 
@@ -121,7 +134,7 @@ namespace MySimulationAPI.Services
                     }
 
                     infected++;
-                    TotalInfections++;
+                    System.Threading.Interlocked.Increment(ref _totalInfections);
                 }
                 attempts++;
             }
@@ -133,10 +146,10 @@ namespace MySimulationAPI.Services
             if (agents.Length == 0)
                 return;
 
-            // Reset metrics for this tick
-            ActiveInfections = 0;
-            SymptomaticCases = 0;
-            ReportedCases = 0;
+            // Use local variables during computation to avoid intermediate states being read
+            int activeInfections = 0;
+            int symptomaticCases = 0;
+            int reportedCases = 0;
 
             // --- Build spatial index for proximity queries ---
             var spatialIndex = BuildSpatialIndex(agents);
@@ -148,7 +161,7 @@ namespace MySimulationAPI.Services
                 if ((AgentHealthState)infectious.HealthState != AgentHealthState.Infected)
                     continue;
 
-                ActiveInfections++;
+                activeInfections++;
 
                 // Calculate days since infection
                 float daysSinceInfection = _disease != null ? infectious.InfectionProgress / (float)_disease.RecoveryRate : 0;
@@ -158,11 +171,11 @@ namespace MySimulationAPI.Services
 
                 if (infectious.SymptomSeverity > 0.1f)
                 {
-                    SymptomaticCases++;
+                    symptomaticCases++;
 
                     // Reported if symptoms are severe enough to test/notice
                     if (infectious.SymptomSeverity > 0.3f)
-                        ReportedCases++;
+                        reportedCases++;
                 }
 
                 // Only spread infection if past incubation period
@@ -205,6 +218,11 @@ namespace MySimulationAPI.Services
                 DecayImmunity(ref agent);
                 ProgressVaccination(ref agent);
             }
+
+            // Atomically write all computed metrics at once at the end
+            System.Threading.Volatile.Write(ref _activeInfections, activeInfections);
+            System.Threading.Volatile.Write(ref _symptomaticCases, symptomaticCases);
+            System.Threading.Volatile.Write(ref _reportedCases, reportedCases);
         }
 
         private void TryInfect(ref AgentState infectious, ref AgentState susceptible, bool isIndoors)
@@ -294,7 +312,7 @@ namespace MySimulationAPI.Services
                 susceptible.HealthState = (byte)AgentHealthState.Infected;
                 susceptible.InfectionProgress = 0f;
                 susceptible.InfectionCount++;
-                TotalInfections++;
+                System.Threading.Interlocked.Increment(ref _totalInfections);
 
                 // Determine symptoms
                 if (_rng.NextDouble() < _disease.SymptomaticRate)
@@ -358,7 +376,7 @@ namespace MySimulationAPI.Services
                             agent.HealthState = (byte)AgentHealthState.Dead;
                             agent.InfectionProgress = 1f;
                             agent.SymptomSeverity = 0f;
-                            TotalDeaths++;
+                            System.Threading.Interlocked.Increment(ref _totalDeaths);
                             return;
                         }
                     }
@@ -367,7 +385,7 @@ namespace MySimulationAPI.Services
                     if (agent.InfectionProgress >= 1f)
                     {
                         agent.HealthState = (byte)AgentHealthState.Recovered;
-                        TotalRecoveries++;
+                        System.Threading.Interlocked.Increment(ref _totalRecoveries);
 
                         // Build immunity based on disease properties
                         float immunityGain = (float)_disease.ReinfectionResistance;

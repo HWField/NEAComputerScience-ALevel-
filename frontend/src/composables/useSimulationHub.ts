@@ -10,6 +10,61 @@ import type {
   AgentPositionUpdate,
 } from "@/api/simulation";
 
+function validateMetrics(data: MetricsUpdate): boolean {
+  // All values must be non-negative and finite
+  if (
+    !isFinite(data.totalInfections) ||
+    !isFinite(data.activeInfections) ||
+    !isFinite(data.symptomaticCases) ||
+    !isFinite(data.reportedCases) ||
+    !isFinite(data.totalDeaths) ||
+    !isFinite(data.totalRecoveries) ||
+    data.totalInfections < 0 ||
+    data.activeInfections < 0 ||
+    data.symptomaticCases < 0 ||
+    data.reportedCases < 0 ||
+    data.totalDeaths < 0 ||
+    data.totalRecoveries < 0
+  ) {
+    return false;
+  }
+
+  // Active infections cannot exceed total infections
+  if (data.activeInfections > data.totalInfections) {
+    return false;
+  }
+
+  // Symptomatic cases cannot exceed active infections
+  if (data.symptomaticCases > data.activeInfections) {
+    return false;
+  }
+
+  // Reported cases cannot exceed symptomatic cases
+  if (data.reportedCases > data.symptomaticCases) {
+    return false;
+  }
+
+  // Total deaths and recoveries cannot exceed total infections
+  if (
+    data.totalDeaths > data.totalInfections ||
+    data.totalRecoveries > data.totalInfections
+  ) {
+    return false;
+  }
+
+  // If have zero total infections but non-zero derivatives, it's invalid
+  if (
+    data.totalInfections === 0 &&
+    (data.activeInfections > 0 ||
+      data.totalDeaths > 0 ||
+      data.totalRecoveries > 0)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export function useSimulationHub(simulationId: number) {
   const userStore = useUserStore();
   const connection = ref<signalR.HubConnection | null>(null);
@@ -280,7 +335,13 @@ export function useSimulationHub(simulationId: number) {
       });
 
       hubConnection.on("MetricsUpdate", (data: MetricsUpdate) => {
-        latestMetrics.value = data;
+        // Validate metrics before updating to prevent flickering from invalid/intermediate data
+        const isValid = validateMetrics(data);
+
+        if (isValid) {
+          // Only update if metrics are valid
+          latestMetrics.value = data;
+        }
 
         if (data.tick > maxComputedTick.value) {
           maxComputedTick.value = data.tick;

@@ -120,6 +120,16 @@ namespace MySimulationAPI.Services
                     // Calculate metrics for this simulation
                     var metrics = CalculateHealthMetrics(context);
 
+                    // Get infection service metrics
+                    var totalInfections = context.InfectionService.TotalInfections;
+                    var activeInfections = context.InfectionService.ActiveInfections;
+                    var symptomaticCases = context.InfectionService.SymptomaticCases;
+                    var reportedCases = context.InfectionService.ReportedCases;
+                    var totalDeaths = context.InfectionService.TotalDeaths;
+                    var totalRecoveries = context.InfectionService.TotalRecoveries;
+
+
+
                     // Send both agent positions and metrics to the specific tracking client
                     var client = _hubContext.Clients.Client(connectionId);
 
@@ -148,13 +158,14 @@ namespace MySimulationAPI.Services
                         dead = metrics.Dead,
                         quarantined = metrics.Quarantined,
                         healthy = metrics.Healthy,
-                        totalInfections = context.InfectionService.TotalInfections,
-                        activeInfections = context.InfectionService.ActiveInfections,
-                        symptomaticCases = context.InfectionService.SymptomaticCases,
-                        reportedCases = context.InfectionService.ReportedCases,
-                        totalDeaths = context.InfectionService.TotalDeaths,
-                        totalRecoveries = context.InfectionService.TotalRecoveries
+                        totalInfections = totalInfections,
+                        activeInfections = activeInfections,
+                        symptomaticCases = symptomaticCases,
+                        reportedCases = reportedCases,
+                        totalDeaths = totalDeaths,
+                        totalRecoveries = totalRecoveries
                     });
+
                 }
                 catch (Exception ex)
                 {
@@ -215,6 +226,8 @@ namespace MySimulationAPI.Services
                 Quarantined = quarantined
             };
         }
+
+
 
         /// <summary>
         /// Efficiently gathers position data for specific agents.
