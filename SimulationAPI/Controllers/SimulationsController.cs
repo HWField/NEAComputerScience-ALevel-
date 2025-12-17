@@ -610,6 +610,14 @@ namespace MySimulationAPI.Controllers
 
             await _db.SaveChangesAsync();
 
+            if (context != null)
+            {
+                context.Mitigations = _db.Mitigations
+                                .Where(m => m.SimulationId == sim.Id && m.IsActive)
+                                .AsNoTracking()
+                                .ToList();
+            }
+
             // Resume simulation if it was running before
             if (wasRunning && context != null)
             {
