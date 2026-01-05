@@ -61,6 +61,8 @@ declare module 'vue' {
     IPhStorefront: typeof import('~icons/ph/storefront')['default']
     IPhStudent: typeof import('~icons/ph/student')['default']
     IPhSyringe: typeof import('~icons/ph/syringe')['default']
+    IPhToggleLeft: typeof import('~icons/ph/toggle-left')['default']
+    IPhToggleRight: typeof import('~icons/ph/toggle-right')['default']
     IPhTrash: typeof import('~icons/ph/trash')['default']
     IPhTrendingUp: typeof import('~icons/ph/trending-up')['default']
     IPhTrendUp: typeof import('~icons/ph/trend-up')['default']

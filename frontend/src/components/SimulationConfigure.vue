@@ -746,7 +746,7 @@
               <button
                 v-if="!isEditingMitigations"
                 class="btn btn-sm btn-primary"
-                @click="startEditingMitigations"
+                @click="isEditingMitigations = true"
               >
                 <i-ph-pencil class="w-4 h-4" />
                 Edit Mitigations
@@ -792,11 +792,19 @@
                 <div
                   v-if="selfIsolation"
                   class="bg-base-200 rounded-lg p-4 space-y-2"
+                  :class="{ 'opacity-60': !selfIsolation.isActive }"
                 >
                   <div class="flex items-center gap-2">
                     <i-ph-house class="w-5 h-5" />
                     <span class="font-medium">Self-Isolation</span>
-                    <span class="badge badge-success badge-sm">Active</span>
+                    <span
+                      v-if="selfIsolation.isActive"
+                      class="badge badge-success badge-sm"
+                      >Active</span
+                    >
+                    <span v-else class="badge badge-warning badge-sm"
+                      >Inactive</span
+                    >
                   </div>
                   <div class="text-sm text-base-content/70 space-y-1">
                     <div class="flex justify-between">
@@ -822,11 +830,19 @@
                 <div
                   v-if="maskWearing"
                   class="bg-base-200 rounded-lg p-4 space-y-2"
+                  :class="{ 'opacity-60': !maskWearing.isActive }"
                 >
                   <div class="flex items-center gap-2">
                     <i-ph-mask-happy class="w-5 h-5" />
                     <span class="font-medium">Mask Wearing</span>
-                    <span class="badge badge-success badge-sm">Active</span>
+                    <span
+                      v-if="maskWearing.isActive"
+                      class="badge badge-success badge-sm"
+                      >Active</span
+                    >
+                    <span v-else class="badge badge-warning badge-sm"
+                      >Inactive</span
+                    >
                   </div>
                   <div class="text-sm text-base-content/70 space-y-1">
                     <div class="flex justify-between">
@@ -842,11 +858,19 @@
                 <div
                   v-if="vaccination"
                   class="bg-base-200 rounded-lg p-4 space-y-2"
+                  :class="{ 'opacity-60': !vaccination.isActive }"
                 >
                   <div class="flex items-center gap-2">
                     <i-ph-syringe class="w-5 h-5" />
                     <span class="font-medium">Vaccination</span>
-                    <span class="badge badge-success badge-sm">Active</span>
+                    <span
+                      v-if="vaccination.isActive"
+                      class="badge badge-success badge-sm"
+                      >Active</span
+                    >
+                    <span v-else class="badge badge-warning badge-sm"
+                      >Inactive</span
+                    >
                   </div>
                   <div class="text-sm text-base-content/70 space-y-1">
                     <div class="flex justify-between">
@@ -874,32 +898,77 @@
             <!-- Edit Mode: Full mitigation controls -->
             <div v-else class="space-y-4">
               <!-- Self-Isolation -->
-              <div class="bg-base-200 rounded-lg">
+              <div
+                class="bg-base-200 rounded-lg"
+                :class="{
+                  'opacity-60':
+                    hasMitigation('SelfIsolation') &&
+                    !isMitigationActive('SelfIsolation'),
+                }"
+              >
                 <div class="flex items-center justify-between p-4">
                   <div class="flex items-center gap-2">
                     <i-ph-house class="w-5 h-5" />
                     <span class="font-medium">Self-Isolation</span>
                     <span
-                      v-if="hasMitigation('SelfIsolation')"
+                      v-if="
+                        hasMitigation('SelfIsolation') &&
+                        isMitigationActive('SelfIsolation')
+                      "
                       class="badge badge-success badge-sm"
                       >Active</span
                     >
+                    <span
+                      v-else-if="
+                        hasMitigation('SelfIsolation') &&
+                        !isMitigationActive('SelfIsolation')
+                      "
+                      class="badge badge-warning badge-sm"
+                      >Inactive</span
+                    >
                   </div>
-                  <button
-                    @click="toggleMitigation('SelfIsolation')"
-                    class="btn btn-sm btn-circle"
-                    :class="
-                      hasMitigation('SelfIsolation')
-                        ? 'btn-error'
-                        : 'btn-primary'
-                    "
-                  >
-                    <i-ph-x
+                  <div class="flex gap-2">
+                    <!-- Toggle Active/Inactive -->
+                    <button
                       v-if="hasMitigation('SelfIsolation')"
-                      class="w-5 h-5"
-                    />
-                    <i-ph-plus v-else class="w-5 h-5" />
-                  </button>
+                      @click="toggleMitigation('SelfIsolation')"
+                      class="btn btn-sm btn-circle"
+                      :class="
+                        isMitigationActive('SelfIsolation')
+                          ? 'btn-warning'
+                          : 'btn-success'
+                      "
+                      :title="
+                        isMitigationActive('SelfIsolation')
+                          ? 'Deactivate'
+                          : 'Activate'
+                      "
+                    >
+                      <i-ph-pause
+                        v-if="isMitigationActive('SelfIsolation')"
+                        class="w-5 h-5"
+                      />
+                      <i-ph-play v-else class="w-5 h-5" />
+                    </button>
+                    <!-- Delete -->
+                    <button
+                      v-if="hasMitigation('SelfIsolation')"
+                      @click="deleteMitigation('SelfIsolation')"
+                      class="btn btn-sm btn-circle btn-error"
+                      title="Delete"
+                    >
+                      <i-ph-trash class="w-5 h-5" />
+                    </button>
+                    <!-- Add -->
+                    <button
+                      v-if="!hasMitigation('SelfIsolation')"
+                      @click="toggleMitigation('SelfIsolation')"
+                      class="btn btn-sm btn-circle btn-primary"
+                      title="Add"
+                    >
+                      <i-ph-plus class="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
                 <div
                   v-if="hasMitigation('SelfIsolation')"
@@ -960,30 +1029,77 @@
               </div>
 
               <!-- Mask Wearing -->
-              <div class="bg-base-200 rounded-lg">
+              <div
+                class="bg-base-200 rounded-lg"
+                :class="{
+                  'opacity-60':
+                    hasMitigation('MaskWearing') &&
+                    !isMitigationActive('MaskWearing'),
+                }"
+              >
                 <div class="flex items-center justify-between p-4">
                   <div class="flex items-center gap-2">
                     <i-ph-mask-happy class="w-5 h-5" />
                     <span class="font-medium">Mask Wearing</span>
                     <span
-                      v-if="hasMitigation('MaskWearing')"
+                      v-if="
+                        hasMitigation('MaskWearing') &&
+                        isMitigationActive('MaskWearing')
+                      "
                       class="badge badge-success badge-sm"
                       >Active</span
                     >
+                    <span
+                      v-else-if="
+                        hasMitigation('MaskWearing') &&
+                        !isMitigationActive('MaskWearing')
+                      "
+                      class="badge badge-warning badge-sm"
+                      >Inactive</span
+                    >
                   </div>
-                  <button
-                    @click="toggleMitigation('MaskWearing')"
-                    class="btn btn-sm btn-circle"
-                    :class="
-                      hasMitigation('MaskWearing') ? 'btn-error' : 'btn-primary'
-                    "
-                  >
-                    <i-ph-x
+                  <div class="flex gap-2">
+                    <!-- Toggle Active/Inactive -->
+                    <button
                       v-if="hasMitigation('MaskWearing')"
-                      class="w-5 h-5"
-                    />
-                    <i-ph-plus v-else class="w-5 h-5" />
-                  </button>
+                      @click="toggleMitigation('MaskWearing')"
+                      class="btn btn-sm btn-circle"
+                      :class="
+                        isMitigationActive('MaskWearing')
+                          ? 'btn-warning'
+                          : 'btn-success'
+                      "
+                      :title="
+                        isMitigationActive('MaskWearing')
+                          ? 'Deactivate'
+                          : 'Activate'
+                      "
+                    >
+                      <i-ph-pause
+                        v-if="isMitigationActive('MaskWearing')"
+                        class="w-5 h-5"
+                      />
+                      <i-ph-play v-else class="w-5 h-5" />
+                    </button>
+                    <!-- Delete -->
+                    <button
+                      v-if="hasMitigation('MaskWearing')"
+                      @click="deleteMitigation('MaskWearing')"
+                      class="btn btn-sm btn-circle btn-error"
+                      title="Delete"
+                    >
+                      <i-ph-trash class="w-5 h-5" />
+                    </button>
+                    <!-- Add -->
+                    <button
+                      v-if="!hasMitigation('MaskWearing')"
+                      @click="toggleMitigation('MaskWearing')"
+                      class="btn btn-sm btn-circle btn-primary"
+                      title="Add"
+                    >
+                      <i-ph-plus class="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
                 <div v-if="hasMitigation('MaskWearing')" class="px-4 pb-4 pt-0">
                   <div class="space-y-4">
@@ -1022,30 +1138,77 @@
               </div>
 
               <!-- Vaccination -->
-              <div class="bg-base-200 rounded-lg">
+              <div
+                class="bg-base-200 rounded-lg"
+                :class="{
+                  'opacity-60':
+                    hasMitigation('Vaccination') &&
+                    !isMitigationActive('Vaccination'),
+                }"
+              >
                 <div class="flex items-center justify-between p-4">
                   <div class="flex items-center gap-2">
                     <i-ph-syringe class="w-5 h-5" />
                     <span class="font-medium">Vaccination</span>
                     <span
-                      v-if="hasMitigation('Vaccination')"
+                      v-if="
+                        hasMitigation('Vaccination') &&
+                        isMitigationActive('Vaccination')
+                      "
                       class="badge badge-success badge-sm"
                       >Active</span
                     >
+                    <span
+                      v-else-if="
+                        hasMitigation('Vaccination') &&
+                        !isMitigationActive('Vaccination')
+                      "
+                      class="badge badge-warning badge-sm"
+                      >Inactive</span
+                    >
                   </div>
-                  <button
-                    @click="toggleMitigation('Vaccination')"
-                    class="btn btn-sm btn-circle"
-                    :class="
-                      hasMitigation('Vaccination') ? 'btn-error' : 'btn-primary'
-                    "
-                  >
-                    <i-ph-x
+                  <div class="flex gap-2">
+                    <!-- Toggle Active/Inactive -->
+                    <button
                       v-if="hasMitigation('Vaccination')"
-                      class="w-5 h-5"
-                    />
-                    <i-ph-plus v-else class="w-5 h-5" />
-                  </button>
+                      @click="toggleMitigation('Vaccination')"
+                      class="btn btn-sm btn-circle"
+                      :class="
+                        isMitigationActive('Vaccination')
+                          ? 'btn-warning'
+                          : 'btn-success'
+                      "
+                      :title="
+                        isMitigationActive('Vaccination')
+                          ? 'Deactivate'
+                          : 'Activate'
+                      "
+                    >
+                      <i-ph-pause
+                        v-if="isMitigationActive('Vaccination')"
+                        class="w-5 h-5"
+                      />
+                      <i-ph-play v-else class="w-5 h-5" />
+                    </button>
+                    <!-- Delete -->
+                    <button
+                      v-if="hasMitigation('Vaccination')"
+                      @click="deleteMitigation('Vaccination')"
+                      class="btn btn-sm btn-circle btn-error"
+                      title="Delete"
+                    >
+                      <i-ph-trash class="w-5 h-5" />
+                    </button>
+                    <!-- Add -->
+                    <button
+                      v-if="!hasMitigation('Vaccination')"
+                      @click="toggleMitigation('Vaccination')"
+                      class="btn btn-sm btn-circle btn-primary"
+                      title="Add"
+                    >
+                      <i-ph-plus class="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
                 <div v-if="hasMitigation('Vaccination')" class="px-4 pb-4 pt-0">
                   <div class="space-y-4">
@@ -1107,10 +1270,7 @@
               </div>
 
               <!-- Warning about data invalidation -->
-              <div
-                class="alert alert-warning"
-                v-if="mitigationsEdit.length > 0"
-              >
+              <div class="alert alert-warning" v-if="isEditingMitigations">
                 <i-ph-warning class="w-5 h-5" />
                 <div class="text-sm">
                   <strong>Note:</strong> Changing mitigations will delete all
@@ -1170,7 +1330,6 @@ import type {
   SimulationDetail,
   UpdateDiseaseDto,
   Mitigation,
-  CreateMitigationDto,
   UpdateMitigationDto,
 } from "@/api/simulation";
 import { simulationApi } from "@/api/simulation";
@@ -1216,23 +1375,18 @@ const snapshotFrequencyEdit = ref(100);
 const mitigationsLoading = ref(false);
 const mitigationsError = ref<string | null>(null);
 const mitigations = ref<Mitigation[]>([]);
-const mitigationsEdit = ref<Mitigation[]>([]); // Editable copy for changes
 
-// Computed getters for each mitigation type (use edit copy when editing)
+// Computed properties to extract specific mitigation types
 const selfIsolation = computed(() =>
-  (isEditingMitigations.value ? mitigationsEdit.value : mitigations.value).find(
-    (m) => m.type === "SelfIsolation"
-  )
+  mitigations.value.find((m) => m.type === "SelfIsolation")
 );
+
 const maskWearing = computed(() =>
-  (isEditingMitigations.value ? mitigationsEdit.value : mitigations.value).find(
-    (m) => m.type === "MaskWearing"
-  )
+  mitigations.value.find((m) => m.type === "MaskWearing")
 );
+
 const vaccination = computed(() =>
-  (isEditingMitigations.value ? mitigationsEdit.value : mitigations.value).find(
-    (m) => m.type === "Vaccination"
-  )
+  mitigations.value.find((m) => m.type === "Vaccination")
 );
 
 // Watch for simulation data changes to update edit values
@@ -1396,16 +1550,10 @@ watch(
   }
 );
 
-function startEditingMitigations() {
-  // Create deep copy of mitigations for editing
-  mitigationsEdit.value = JSON.parse(JSON.stringify(mitigations.value));
-  isEditingMitigations.value = true;
-}
-
 function cancelEditingMitigations() {
   isEditingMitigations.value = false;
-  // Discard editable copy
-  mitigationsEdit.value = [];
+  // Refetch to reset edits
+  loadMitigations();
 }
 
 async function saveEditingMitigations() {
@@ -1414,13 +1562,14 @@ async function saveEditingMitigations() {
   mitigationsLoading.value = true;
   try {
     // Convert all mitigations to DTOs for batch update
-    const mitigationDtos = mitigationsEdit.value.map((mitigation) => {
-      const dto: CreateMitigationDto = {
+    const mitigationDtos = mitigations.value.map((mitigation) => {
+      const dto: UpdateMitigationDto = {
         type: mitigation.type as
           | "SelfIsolation"
           | "MaskWearing"
           | "Vaccination",
         name: mitigation.name,
+        isActive: mitigation.isActive,
       };
 
       if (mitigation.type === "SelfIsolation") {
@@ -1438,7 +1587,7 @@ async function saveEditingMitigations() {
     });
 
     // Send batch update - this replaces ALL mitigations
-    const updated = await simulationApi.batchUpdateMitigations(
+    const updated = await simulationApi.updateMitigations(
       props.simulationData.id,
       mitigationDtos
     );
@@ -1447,7 +1596,6 @@ async function saveEditingMitigations() {
     mitigations.value = updated;
 
     isEditingMitigations.value = false;
-    mitigationsEdit.value = [];
 
     toast.show(
       "Mitigation changes saved successfully! Note: Changes will affect future simulation outcomes.",
@@ -1482,11 +1630,14 @@ async function loadMitigations() {
 }
 
 function hasMitigation(type: string): boolean {
-  // Check the edit copy when in edit mode, otherwise check the original
-  const checkArray = isEditingMitigations.value
-    ? mitigationsEdit.value
-    : mitigations.value;
-  return checkArray.some((m) => m.type === type && m.isActive);
+  const checkArray = mitigations.value;
+  return checkArray.some((m) => m.type === type);
+}
+
+function isMitigationActive(type: string): boolean {
+  const checkArray = mitigations.value;
+  const mitigation = checkArray.find((m) => m.type === type);
+  return mitigation ? mitigation.isActive : false;
 }
 
 function formatMitigationPercent(value: number): string {
@@ -1497,19 +1648,24 @@ function toggleMitigation(
   type: "SelfIsolation" | "MaskWearing" | "Vaccination"
 ) {
   if (!isEditingMitigations.value) return;
-
-  const existing = mitigationsEdit.value.find((m) => m.type === type);
-
+  const existing = mitigations.value.find((m) => m.type === type);
   if (existing) {
-    // Toggle off (remove from edit array)
-    mitigationsEdit.value = mitigationsEdit.value.filter(
-      (m) => m.type !== type
-    );
+    // Toggle active/inactive
+    existing.isActive = !existing.isActive;
   } else {
-    // Toggle on (add to edit array with defaults)
+    // Add new mitigation with defaults
     const newMitigation = createDefaultMitigation(type);
-    mitigationsEdit.value.push(newMitigation);
+    mitigations.value.push(newMitigation);
   }
+}
+
+function deleteMitigation(
+  type: "SelfIsolation" | "MaskWearing" | "Vaccination"
+) {
+  if (!isEditingMitigations.value) return;
+
+  // Remove mitigation completely from array
+  mitigations.value = mitigations.value.filter((m) => m.type !== type);
 }
 
 function createDefaultMitigation(
@@ -1549,12 +1705,10 @@ function createDefaultMitigation(
 }
 
 function updateSelfIsolation(field: string, event: Event) {
-  if (!isEditingMitigations.value || !selfIsolation.value) return;
+  if (!isEditingMitigations.value) return;
 
   const value = parseFloat((event.target as HTMLInputElement).value) / 100;
-  const mitigation = mitigationsEdit.value.find(
-    (m) => m.type === "SelfIsolation"
-  );
+  const mitigation = mitigations.value.find((m) => m.type === "SelfIsolation");
 
   if (mitigation) {
     if (field === "complianceRate") {
@@ -1566,12 +1720,10 @@ function updateSelfIsolation(field: string, event: Event) {
 }
 
 function updateMaskWearing(field: string, event: Event) {
-  if (!isEditingMitigations.value || !maskWearing.value) return;
+  if (!isEditingMitigations.value) return;
 
   const value = parseFloat((event.target as HTMLInputElement).value) / 100;
-  const mitigation = mitigationsEdit.value.find(
-    (m) => m.type === "MaskWearing"
-  );
+  const mitigation = mitigations.value.find((m) => m.type === "MaskWearing");
 
   if (mitigation && field === "adoptionRate") {
     (mitigation as any).adoptionRate = value;
@@ -1579,16 +1731,14 @@ function updateMaskWearing(field: string, event: Event) {
 }
 
 function updateVaccination(field: string, event: Event) {
-  if (!isEditingMitigations.value || !vaccination.value) return;
+  if (!isEditingMitigations.value) return;
 
   const value =
     field === "daysToFullEffectiveness"
       ? parseInt((event.target as HTMLInputElement).value)
       : parseFloat((event.target as HTMLInputElement).value) / 100;
 
-  const mitigation = mitigationsEdit.value.find(
-    (m) => m.type === "Vaccination"
-  );
+  const mitigation = mitigations.value.find((m) => m.type === "Vaccination");
 
   if (mitigation) {
     if (field === "vaccinationRate") {

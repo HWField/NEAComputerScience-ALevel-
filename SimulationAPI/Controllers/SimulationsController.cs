@@ -569,6 +569,7 @@ namespace MySimulationAPI.Controllers
                         mitigation = new SelfIsolationMitigation
                         {
                             Name = mitigationDto.Name ?? "Self-Isolation Protocol",
+                            IsActive = mitigationDto.IsActive ?? true,
                             ComplianceRate = mitigationDto.ComplianceRate ?? 0.7,
                             SymptomThreshold = mitigationDto.SymptomThreshold ?? 0.3,
                             SimulationId = id
@@ -579,6 +580,7 @@ namespace MySimulationAPI.Controllers
                         mitigation = new MaskWearingMitigation
                         {
                             Name = mitigationDto.Name ?? "Mask Wearing Policy",
+                            IsActive = mitigationDto.IsActive ?? true,
                             AdoptionRate = mitigationDto.AdoptionRate ?? 0.6,
                             EffectivenessModifier = mitigationDto.MaskEffectivenessModifier ?? 1.0,
                             SimulationId = id
@@ -589,6 +591,7 @@ namespace MySimulationAPI.Controllers
                         mitigation = new VaccinationMitigation
                         {
                             Name = mitigationDto.Name ?? "Vaccination Campaign",
+                            IsActive = mitigationDto.IsActive ?? true,
                             VaccinationRate = mitigationDto.VaccinationRate ?? 0.7,
                             EffectivenessModifier = mitigationDto.VaccineEffectivenessModifier ?? 1.0,
                             DaysToFullEffectiveness = mitigationDto.DaysToFullEffectiveness ?? 14,

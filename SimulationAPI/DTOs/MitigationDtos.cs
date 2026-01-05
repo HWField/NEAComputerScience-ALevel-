@@ -2,12 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MySimulationAPI.DTOs
 {
-    public class CreateMitigationDto
+    public class UpdateMitigationDto
     {
         [Required]
         public string Type { get; set; } = null!; // "SelfIsolation", "MaskWearing", "Vaccination"
 
         public string? Name { get; set; }
+        public bool? IsActive { get; set; }
 
         // Self-Isolation parameters
         public double? ComplianceRate { get; set; }
@@ -26,6 +27,6 @@ namespace MySimulationAPI.DTOs
     public class BatchUpdateMitigationsDto
     {
         [Required]
-        public List<CreateMitigationDto> Mitigations { get; set; } = new();
+        public List<UpdateMitigationDto> Mitigations { get; set; } = new();
     }
 }

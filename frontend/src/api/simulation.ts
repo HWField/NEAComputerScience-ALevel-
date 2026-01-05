@@ -144,26 +144,8 @@ export interface Mitigation {
   vaccinationRate?: number;
   daysToFullEffectiveness?: number;
 }
-
-export interface CreateMitigationDto {
-  type: "SelfIsolation" | "MaskWearing" | "Vaccination";
-  name?: string;
-
-  // Self-Isolation parameters
-  complianceRate?: number;
-  symptomThreshold?: number;
-
-  // Mask Wearing parameters
-  adoptionRate?: number;
-  maskEffectivenessModifier?: number;
-
-  // Vaccination parameters
-  vaccinationRate?: number;
-  vaccineEffectivenessModifier?: number;
-  daysToFullEffectiveness?: number;
-}
-
 export interface UpdateMitigationDto {
+  type: "SelfIsolation" | "MaskWearing" | "Vaccination";
   name?: string;
   isActive?: boolean;
 
@@ -226,32 +208,25 @@ export const simulationApi = {
     await api.post(`/simulation/${id}/load`);
   },
 
-  // Start/resume simulation
   async run(id: number, targetTick?: number): Promise<void> {
     await api.post(`/simulation/${id}/run`, targetTick || null);
   },
 
-  // Pause simulation
   async pause(id: number): Promise<void> {
     await api.post(`/simulation/${id}/pause`);
   },
 
-  // Unload simulation from memory
   async unload(id: number): Promise<void> {
     await api.post(`/simulation/${id}/unload`);
   },
-
-  // Set simulation speed
   async setSpeed(id: number, speedMultiplier: number): Promise<void> {
     await api.post(`/simulation/${id}/speed`, speedMultiplier);
   },
 
-  // Set current tick
   async setTick(id: number, tick: number): Promise<void> {
     await api.post(`/simulation/${id}/tick`, tick);
   },
 
-  // Delete simulation
   async delete(id: number): Promise<void> {
     await api.delete(`/simulation/${id}`);
   },
@@ -261,21 +236,19 @@ export const simulationApi = {
     await api.delete(`/simulation/${id}/reset`);
   },
 
-  // Seed infection
   async seedInfection(id: number, count: number = 1): Promise<void> {
     await api.post(`/simulation/${id}/infect`, count);
   },
 
-  // Get all mitigations for a simulation
   async getMitigations(id: number): Promise<Mitigation[]> {
     const response = await api.get(`/simulation/${id}/mitigations`);
     return response.data;
   },
 
   // Batch update all mitigations (replaces all existing mitigations)
-  async batchUpdateMitigations(
+  async updateMitigations(
     id: number,
-    mitigations: CreateMitigationDto[]
+    mitigations: UpdateMitigationDto[]
   ): Promise<Mitigation[]> {
     const response = await api.put(`/simulation/${id}/mitigations`, {
       mitigations,

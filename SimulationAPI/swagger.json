@@ -1346,7 +1346,7 @@
           "mitigations": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CreateMitigationDto"
+              "$ref": "#/components/schemas/UpdateMitigationDto"
             }
           }
         },
@@ -1361,58 +1361,6 @@
           },
           "newPassword": {
             "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateMitigationDto": {
-        "required": [
-          "type"
-        ],
-        "type": "object",
-        "properties": {
-          "type": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "complianceRate": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "symptomThreshold": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "adoptionRate": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "maskEffectivenessModifier": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "vaccinationRate": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "vaccineEffectivenessModifier": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "daysToFullEffectiveness": {
-            "type": "integer",
-            "format": "int32",
             "nullable": true
           }
         },
@@ -1740,6 +1688,62 @@
           "frequency": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMitigationDto": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "complianceRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "symptomThreshold": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "adoptionRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "maskEffectivenessModifier": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vaccinationRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vaccineEffectivenessModifier": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "daysToFullEffectiveness": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         },
         "additionalProperties": false
