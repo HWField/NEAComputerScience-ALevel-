@@ -21,9 +21,8 @@ namespace MySimulationAPI.Controllers
             _db = db;
         }
 
-        // Helper to get logged-in user
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-        // Helper to check if user is admin
+        // Helper to check if user is admin for higher level functions
         private bool IsAdmin() => User.IsInRole("Admin");
 
         // MapArea routes:
@@ -65,12 +64,10 @@ namespace MySimulationAPI.Controllers
                 return Forbid();
             return Ok(mapAreaPreset);
         }
-        // no post route as it is done via Simulation setup
 
         /// <summary>
         ///  Updates a MapArea Preset.
         /// </summary>
-        /// <returns></returns>
         [HttpPut("mapareas/{id}")]
         public async Task<IActionResult> UpdateMapArea(int id, [FromBody] UpdateMapAreaPresetDto dto)
         {
@@ -102,8 +99,6 @@ namespace MySimulationAPI.Controllers
             await _db.SaveChangesAsync();
             return NoContent();
         }
-
-
 
         // Disease routes:
         /// <summary>
@@ -141,7 +136,6 @@ namespace MySimulationAPI.Controllers
                 return Forbid();
             return Ok(diseasePreset);
         }
-        // no post route as it is done via Simulation setup
 
         /// <summary>
         ///  Updates a Disease Preset.

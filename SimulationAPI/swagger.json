@@ -7,7 +7,7 @@
       "name": "Henry Field",
       "email": "hf165122@hrsfc.ac.uk"
     },
-    "version": "v1"
+    "version": "V7"
   },
   "paths": {
     "/api/Admin/simulations": {
@@ -533,6 +533,7 @@
         "tags": [
           "Profile"
         ],
+        "summary": "Update the logged-in user's password",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1107,6 +1108,7 @@
         "tags": [
           "Simulation"
         ],
+        "summary": "Gets all mitigations for a simulation",
         "parameters": [
           {
             "name": "id",

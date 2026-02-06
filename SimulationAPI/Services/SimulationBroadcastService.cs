@@ -227,8 +227,6 @@ namespace MySimulationAPI.Services
             };
         }
 
-
-
         /// <summary>
         /// Efficiently gathers position data for specific agents.
         /// </summary>

@@ -6,7 +6,7 @@ import axios from "../api/axios";
 const route = useRoute();
 const userStore = useUserStore();
 
-// Check whether on /login or /register
+// Check whether on /login or /register to change form behavior and text
 const isLogin = computed(() => route.name === "login");
 
 // Form state
@@ -252,7 +252,7 @@ const handleSubmit = async () => {
 
     <!-- Footer Text -->
     <p class="text-center text-sm text-base-content/50 mt-8 relative z-10">
-      Epidemic Simulation © 2025
+      Epidemic Simulation © {{ new Date().getFullYear() }}
     </p>
   </div>
 </template>

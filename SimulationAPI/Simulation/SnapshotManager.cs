@@ -18,9 +18,7 @@ namespace MySimulationAPI.SimulationConfiguration
             _context = context;
         }
 
-        // ------------------------------------------------------------
         // Save snapshot to DB
-        // ------------------------------------------------------------
         public async Task SaveSnapshotAsync()
         {
             using var _db = _context.DbFactory.CreateDbContext();
@@ -30,7 +28,7 @@ namespace MySimulationAPI.SimulationConfiguration
 
             Console.WriteLine($"[SaveSnapshot] Starting snapshot save for tick {_context.CurrentTick}...");
 
-            // --- Delete existing snapshot (if any) ---
+            // Delete existing snapshot (if any)
             var existing = await _db.SimulationSnapshots
                 .FirstOrDefaultAsync(s => s.SimulationId == _context.Simulation.Id && s.Tick == _context.CurrentTick);
             if (existing != null)
@@ -55,7 +53,7 @@ namespace MySimulationAPI.SimulationConfiguration
 
             Console.WriteLine($"[SaveSnapshot] Created snapshot {snapshot.Id}");
 
-            // --- AGENTS ---
+            // AGENTS
             var agents = _context.AgentStates;
             Console.Write($"[SaveSnapshot] Preparing {agents.Length} agent snapshots... ");
             var agentSnaps = agents.Select(a => new AgentSnapshot
@@ -70,13 +68,13 @@ namespace MySimulationAPI.SimulationConfiguration
                 HealthState = ConvertHealthStateToString((AgentHealthState)a.HealthState),
                 SymptomSeverity = a.SymptomSeverity,
                 Immunity = a.Immunity,
-                WearsMask = false, // No longer stored in AgentState (checked probabilistically)
-                IsVaccinated = false, // No longer stored in AgentState (checked probabilistically)
+                WearsMask = false,
+                IsVaccinated = false,
                 InfectionCount = a.InfectionCount
             }).ToList();
-            Console.WriteLine("✓");
 
-            // --- BUILDINGS ---
+
+            // BUILDINGS
             var buildings = _context.BuildingStates;
             Console.Write($"[SaveSnapshot] Preparing {buildings.Length} building snapshots... ");
             var buildingSnaps = buildings.Select(b => new BuildingSnapshot
@@ -85,9 +83,8 @@ namespace MySimulationAPI.SimulationConfiguration
                 BuildingId = b.Id,
                 CurrentOccupancy = b.Occupants
             }).ToList();
-            Console.WriteLine("✓");
 
-            // --- SAVE TO DATABASE ---
+            // SAVE TO DATABASE
             Console.Write($"[SaveSnapshot] Saving {agentSnaps.Count} agent snapshots... ");
             var startTime = DateTime.Now;
             await _db.BulkInsertAsync(agentSnaps, new BulkConfig
@@ -96,7 +93,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 BulkCopyTimeout = 300
             });
             var elapsed = (DateTime.Now - startTime).TotalSeconds;
-            Console.WriteLine($"✓ Done in {elapsed:F1}s");
+            Console.WriteLine($"Done in {elapsed:F1}s");
 
             Console.Write($"[SaveSnapshot] Saving {buildingSnaps.Count} building snapshots... ");
             startTime = DateTime.Now;
@@ -106,7 +103,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 BulkCopyTimeout = 120
             });
             elapsed = (DateTime.Now - startTime).TotalSeconds;
-            Console.WriteLine($"✓ Done in {elapsed:F1}s");
+            Console.WriteLine($"Done in {elapsed:F1}s");
 
             _context.MaxComputedTick = Math.Max(_context.MaxComputedTick, _context.CurrentTick);
             Console.WriteLine($"[SaveSnapshot] Snapshot save complete!");
@@ -127,9 +124,8 @@ namespace MySimulationAPI.SimulationConfiguration
             };
         }
 
-        // ------------------------------------------------------------
+
         // Load snapshot from DB (nearest <= targetTick) and compute forward
-        // ------------------------------------------------------------
         public async Task<bool> LoadTargetTick(long targetTick)
         {
             _context.Engine.Stop();
@@ -165,9 +161,6 @@ namespace MySimulationAPI.SimulationConfiguration
             return true;
         }
 
-        // ------------------------------------------------------------
-        // Load latest snapshot
-        // ------------------------------------------------------------
         public async Task<bool> LoadLatestSnapshotAsync()
         {
             _context.Engine.Stop();
@@ -192,9 +185,8 @@ namespace MySimulationAPI.SimulationConfiguration
             return true;
         }
 
-        // ------------------------------------------------------------
+
         // Find snapshot at or before targetTick
-        // ------------------------------------------------------------
         private async Task<SimulationSnapshot?> FindSnapshotAsync(long targetTick)
         {
             using var _db = _context.DbFactory.CreateDbContext();
@@ -206,9 +198,6 @@ namespace MySimulationAPI.SimulationConfiguration
                 .FirstOrDefaultAsync();
         }
 
-        // ------------------------------------------------------------
-        // Find latest snapshot
-        // ------------------------------------------------------------
         private async Task<SimulationSnapshot?> FindLatestSnapshotAsync()
         {
             using var _db = _context.DbFactory.CreateDbContext();
@@ -220,9 +209,8 @@ namespace MySimulationAPI.SimulationConfiguration
                 .FirstOrDefaultAsync();
         }
 
-        // ------------------------------------------------------------
+
         // Load agent and building snapshots in batches
-        // ------------------------------------------------------------
         private async Task LoadSnapshotDataAsync(SimulationSnapshot snapshot)
         {
             using var _db = _context.DbFactory.CreateDbContext();
@@ -259,7 +247,7 @@ namespace MySimulationAPI.SimulationConfiguration
             }
 
             var elapsed = (DateTime.Now - startTime).TotalSeconds;
-            Console.WriteLine($"✓ Loaded {agentSnaps.Count} agents in {elapsed:F1}s");
+            Console.WriteLine($"Loaded {agentSnaps.Count} agents in {elapsed:F1}s");
 
             // Load building snapshots in batches
             var buildingSnaps = new List<BuildingSnapshot>();
@@ -285,29 +273,28 @@ namespace MySimulationAPI.SimulationConfiguration
             }
 
             elapsed = (DateTime.Now - startTime).TotalSeconds;
-            Console.WriteLine($"✓ Loaded {buildingSnaps.Count} buildings in {elapsed:F1}s");
+            Console.WriteLine($"Loaded {buildingSnaps.Count} buildings in {elapsed:F1}s");
 
             // Assign to snapshot
             snapshot.Agents = agentSnaps;
             snapshot.Buildings = buildingSnaps;
         }
 
-        // ------------------------------------------------------------
+
         // Restore state into context
-        // ------------------------------------------------------------
         private void RestoreSnapshot(SimulationSnapshot snapshot)
         {
-            // --- Set simulation tick ---
+            // Set simulation tick
             _context.CurrentTick = snapshot.Tick;
 
-            // --- Restore cumulative infection metrics ---
+            // Restore cumulative infection metrics
             _context.InfectionService.RestoreMetricsFromSnapshot(
                 snapshot.TotalInfections,
                 snapshot.TotalDeaths,
                 snapshot.TotalRecoveries
             );
 
-            // --- Build fast lookup dictionaries for snapshot data ---
+            // Build fast lookup dictionaries for snapshot data
             var agentSnaps = snapshot.Agents;
             var buildingSnaps = snapshot.Buildings;
 
@@ -319,7 +306,7 @@ namespace MySimulationAPI.SimulationConfiguration
             foreach (var s in buildingSnaps)
                 buildingSnapLookup[s.BuildingId] = s;
 
-            // --- Restore AgentStates ---
+            // Restore AgentStates
             var agents = _context.AgentStates;
 
             for (int i = 0; i < agents.Length; i++)
@@ -340,7 +327,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 }
             }
 
-            // --- Restore BuildingStates ---
+            // Restore BuildingStates
             var buildings = _context.BuildingStates;
             for (int i = 0; i < buildings.Length; i++)
             {
@@ -351,7 +338,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 }
             }
 
-            // --- Reset RNG to deterministic state for this tick ---
+            // Reset RNG to deterministic state for this tick
             _context.Rng = new Random(_context.Simulation.Id + (int)snapshot.Tick);
         }
 

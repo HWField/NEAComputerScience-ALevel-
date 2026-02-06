@@ -34,6 +34,7 @@ namespace MySimulationAPI.Models
         }
     }
 
+    // blank initialisation of agent types to ensure they are registered in the AgentTypeRegistry and have consistent discriminator values in the database enabling TPH inheritance mapping in Entity Framework Core.
     public class StudentAgent : Agent
     {
     }

@@ -69,7 +69,7 @@ const initializeSignalR = async (simulationId: number) => {
       progressCurrent.value = data.current;
       progressTotal.value = data.total;
       loadingMessage.value = `${data.step}: ${data.message}`;
-    }
+    },
   );
 
   try {
@@ -83,7 +83,6 @@ const initializeSignalR = async (simulationId: number) => {
   }
 };
 
-// Cleanup SignalR connection
 const cleanupSignalR = async () => {
   if (hubConnection) {
     try {
@@ -174,7 +173,7 @@ watch(show, (val) => {
   if (val) {
     createNewSimulation();
   } else {
-    // Clean up SignalR when modal closes
+    // Clean up SignalR when modal closes to prevent memory leaks
     cleanupSignalR();
   }
 });
@@ -187,7 +186,7 @@ watch(
       await nextTick();
       initializeMap();
     }
-  }
+  },
 );
 
 // Update circle position when map moves
@@ -205,7 +204,7 @@ const updateCircle = () => {
   newSimDetails.value.customMap.radius = radiusKm.value;
 };
 
-// Update circle radius when slider changes
+// Update circle radius when UI slider changes
 const updateCircleRadius = () => {
   if (!circle.value) return;
   circle.value.setRadius(radiusKm.value * 1000); // Convert km to meters
@@ -223,7 +222,7 @@ const initializeMap = () => {
   const mapContainer = document.getElementById("simulation-map");
   if (!mapContainer) return;
 
-  // Initialize map centered on Hills Road Sixth Form College, Cambridge
+  // Initialize map centered on Hills Road :)
   const defaultLat = newSimDetails.value.customMap.latitude || 52.1882;
   const defaultLng = newSimDetails.value.customMap.longitude || 0.1356;
   const defaultZoom = 13;
@@ -286,7 +285,6 @@ const handleNextStep = async () => {
       loadingMessage.value = "Creating simulation...";
       const response = await axios.post("/Simulation", {
         SimulationName: newSimDetails.value.name,
-        // icon: newSimDetails.value.icon,
       });
       newSimDetails.value.id = response.data.simulationId;
       console.error("Created simulation with ID:", newSimDetails.value.id);
@@ -303,7 +301,7 @@ const handleNextStep = async () => {
           `/Simulation/${newSimDetails.value.id}/map-area`,
           {
             presetId: newSimDetails.value.mapPresetId,
-          }
+          },
         );
 
         // Capture population capacity limits from the response
@@ -332,7 +330,7 @@ const handleNextStep = async () => {
           // Check if sum exceeds max total population
           const totalPopulation = Object.values(population).reduce(
             (a, b) => a + b,
-            0
+            0,
           );
 
           if (totalPopulation > estimate.maxTotalPopulation) {
@@ -342,14 +340,14 @@ const handleNextStep = async () => {
               Student: Math.floor(estimate.maxStudents * scaleFactor),
               OfficeWorker: Math.floor(estimate.maxOfficeWorkers * scaleFactor),
               MedicalWorker: Math.floor(
-                estimate.maxMedicalWorkers * scaleFactor
+                estimate.maxMedicalWorkers * scaleFactor,
               ),
               ElderlyRetiredAgent: Math.floor(
-                estimate.maxElderlyRetired * scaleFactor
+                estimate.maxElderlyRetired * scaleFactor,
               ),
               RetailWorker: Math.floor(estimate.maxRetailWorkers * scaleFactor),
               ServiceWorker: Math.floor(
-                estimate.maxServiceWorkers * scaleFactor
+                estimate.maxServiceWorkers * scaleFactor,
               ),
             };
           }
@@ -357,7 +355,7 @@ const handleNextStep = async () => {
           newSimDetails.value.population = population;
         }
       } else {
-        // Custom map area - this may take a while for large areas
+        // Custom map area
         if (
           !newSimDetails.value.customMap.PresetName ||
           newSimDetails.value.customMap.PresetName.trim() === ""
@@ -378,8 +376,8 @@ const handleNextStep = async () => {
             SavePreset: newSimDetails.value.customMap.savePreset,
           },
           {
-            timeout: 600000, // 10 minutes timeout for large map downloads
-          }
+            timeout: 600000, // 10 minutes timeout for large map downloads from OSM server
+          },
         );
 
         // Capture population capacity limits from the response
@@ -408,7 +406,7 @@ const handleNextStep = async () => {
           // Check if sum exceeds max total population
           const totalPopulation = Object.values(population).reduce(
             (a, b) => a + b,
-            0
+            0,
           );
 
           if (totalPopulation > estimate.maxTotalPopulation) {
@@ -418,14 +416,14 @@ const handleNextStep = async () => {
               Student: Math.floor(estimate.maxStudents * scaleFactor),
               OfficeWorker: Math.floor(estimate.maxOfficeWorkers * scaleFactor),
               MedicalWorker: Math.floor(
-                estimate.maxMedicalWorkers * scaleFactor
+                estimate.maxMedicalWorkers * scaleFactor,
               ),
               ElderlyRetiredAgent: Math.floor(
-                estimate.maxElderlyRetired * scaleFactor
+                estimate.maxElderlyRetired * scaleFactor,
               ),
               RetailWorker: Math.floor(estimate.maxRetailWorkers * scaleFactor),
               ServiceWorker: Math.floor(
-                estimate.maxServiceWorkers * scaleFactor
+                estimate.maxServiceWorkers * scaleFactor,
               ),
             };
           }
@@ -445,7 +443,7 @@ const handleNextStep = async () => {
         newSimDetails.value.maxPopulation.MaxStudents
       ) {
         errors.push(
-          `Students cannot exceed ${newSimDetails.value.maxPopulation.MaxStudents}`
+          `Students cannot exceed ${newSimDetails.value.maxPopulation.MaxStudents}`,
         );
       }
       if (
@@ -453,7 +451,7 @@ const handleNextStep = async () => {
         newSimDetails.value.maxPopulation.MaxOfficeWorkers
       ) {
         errors.push(
-          `Office Workers cannot exceed ${newSimDetails.value.maxPopulation.MaxOfficeWorkers}`
+          `Office Workers cannot exceed ${newSimDetails.value.maxPopulation.MaxOfficeWorkers}`,
         );
       }
       if (
@@ -461,7 +459,7 @@ const handleNextStep = async () => {
         newSimDetails.value.maxPopulation.MaxMedicalWorkers
       ) {
         errors.push(
-          `Medical Workers cannot exceed ${newSimDetails.value.maxPopulation.MaxMedicalWorkers}`
+          `Medical Workers cannot exceed ${newSimDetails.value.maxPopulation.MaxMedicalWorkers}`,
         );
       }
       if (
@@ -469,7 +467,7 @@ const handleNextStep = async () => {
         newSimDetails.value.maxPopulation.MaxRetailWorkers
       ) {
         errors.push(
-          `Retail Workers cannot exceed ${newSimDetails.value.maxPopulation.MaxRetailWorkers}`
+          `Retail Workers cannot exceed ${newSimDetails.value.maxPopulation.MaxRetailWorkers}`,
         );
       }
       if (
@@ -477,7 +475,7 @@ const handleNextStep = async () => {
         newSimDetails.value.maxPopulation.MaxServiceWorkers
       ) {
         errors.push(
-          `Service Workers cannot exceed ${newSimDetails.value.maxPopulation.MaxServiceWorkers}`
+          `Service Workers cannot exceed ${newSimDetails.value.maxPopulation.MaxServiceWorkers}`,
         );
       }
       if (
@@ -485,7 +483,7 @@ const handleNextStep = async () => {
         newSimDetails.value.maxPopulation.MaxElderlyRetired
       ) {
         errors.push(
-          `Elderly/Retired cannot exceed ${newSimDetails.value.maxPopulation.MaxElderlyRetired}`
+          `Elderly/Retired cannot exceed ${newSimDetails.value.maxPopulation.MaxElderlyRetired}`,
         );
       }
 
@@ -496,7 +494,7 @@ const handleNextStep = async () => {
 
       // Validate total population
       const totalPopulation = Object.values(
-        newSimDetails.value.population
+        newSimDetails.value.population,
       ).reduce((a, b) => a + b, 0);
 
       if (
@@ -507,7 +505,7 @@ const handleNextStep = async () => {
           newSimDetails.value.maxPopulation.MaxTotalPopulation;
         toast.show(
           `Total population cannot exceed ${newSimDetails.value.maxPopulation.MaxTotalPopulation}. Currently exceeds by ${excess}`,
-          "error"
+          "error",
         );
         return;
       }
@@ -534,7 +532,7 @@ const handleNextStep = async () => {
             newSimDetails.value.population.ElderlyRetiredAgent,
           retailWorker: newSimDetails.value.population.RetailWorker,
           serviceWorker: newSimDetails.value.population.ServiceWorker,
-        }
+        },
       );
 
       // Cleanup SignalR connection after population setup completes
@@ -560,7 +558,7 @@ const handleNextStep = async () => {
           `/Simulation/${newSimDetails.value.id}/disease`,
           {
             presetId: newSimDetails.value.diseasePresetID,
-          }
+          },
         );
       } else {
         const response = await axios.post(
@@ -588,7 +586,7 @@ const handleNextStep = async () => {
             vaccineEffectiveness:
               newSimDetails.value.customDisease.vaccineEffectiveness,
             SavePreset: newSimDetails.value.customDisease.savePreset,
-          }
+          },
         );
       }
       loadingMessage.value = "";
@@ -598,13 +596,13 @@ const handleNextStep = async () => {
       // Validate infection count
       const totalAgents = Object.values(newSimDetails.value.population).reduce(
         (a, b) => a + b,
-        0
+        0,
       );
 
       if (newSimDetails.value.initialInfectionCount < 1) {
         toast.show(
           "Must infect at least 1 agent to start the outbreak.",
-          "error"
+          "error",
         );
         return;
       }
@@ -612,7 +610,7 @@ const handleNextStep = async () => {
       if (newSimDetails.value.initialInfectionCount > totalAgents) {
         toast.show(
           `Cannot infect more agents (${newSimDetails.value.initialInfectionCount}) than total population (${totalAgents})`,
-          "error"
+          "error",
         );
         return;
       }
@@ -626,7 +624,7 @@ const handleNextStep = async () => {
         // Seed initial infection
         await axios.post(
           `/Simulation/${newSimDetails.value.id}/infect`,
-          newSimDetails.value.initialInfectionCount
+          newSimDetails.value.initialInfectionCount,
         );
 
         toast.show(`Simulation created successfully`, "success");
@@ -634,7 +632,7 @@ const handleNextStep = async () => {
         console.error("Failed to seed infection:", err);
         toast.show(
           "Failed to initialize infection. You can manually infect agents later.",
-          "warning"
+          "warning",
         );
       }
       loadingMessage.value = "";
@@ -873,7 +871,7 @@ const handleNextStep = async () => {
               {{
                 Object.values(newSimDetails.population).reduce(
                   (a, b) => a + b,
-                  0
+                  0,
                 )
               }}
             </div>
@@ -1550,7 +1548,7 @@ const handleNextStep = async () => {
                 {{
                   Object.values(newSimDetails.population).reduce(
                     (a, b) => a + b,
-                    0
+                    0,
                   )
                 }}
               </span>
@@ -1624,7 +1622,7 @@ const handleNextStep = async () => {
                     (newSimDetails.initialInfectionCount /
                       Object.values(newSimDetails.population).reduce(
                         (a, b) => a + b,
-                        0
+                        0,
                       )) *
                     100
                   ).toFixed(3)
@@ -1638,7 +1636,7 @@ const handleNextStep = async () => {
                 {{
                   Object.values(newSimDetails.population).reduce(
                     (a, b) => a + b,
-                    0
+                    0,
                   ) - newSimDetails.initialInfectionCount
                 }}
               </div>

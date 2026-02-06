@@ -28,6 +28,7 @@ namespace MySimulationAPI.Models
         }
     }
 
+    // Almost blank initialisation of building types to ensure they are registered in the BuildingTypeRegistry and have consistent discriminator values in the database enabling TPH inheritance mapping in Entity Framework Core. Custom properties are added to the building types that require them.
     public class ResidentialBuilding : Building
     {
     }

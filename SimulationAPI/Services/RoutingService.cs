@@ -7,9 +7,7 @@ using MySimulationAPI.SimulationConfiguration;
 
 namespace MySimulationAPI.Services
 {
-    // -----------------------------
     // Basic Node + Edge Structures
-    // -----------------------------
     public class Node
     {
         public long Id { get; init; }
@@ -25,17 +23,15 @@ namespace MySimulationAPI.Services
         public int PathId { get; init; }
     }
 
-    // -----------------------------
     // Spatial Index for Nearest Node
-    // -----------------------------
     public class NodeGridIndex
     {
         private readonly double _minLon, _minLat, _cellSize;
         private readonly int _cols, _rows;
-        private readonly List<long>[][] _cells;  // Changed from int to long
-        private readonly IReadOnlyDictionary<long, Node> _nodes;  // Changed from int to long
+        private readonly List<long>[][] _cells;
+        private readonly IReadOnlyDictionary<long, Node> _nodes;
 
-        public NodeGridIndex(IReadOnlyDictionary<long, Node> nodes,  // Changed from int to long
+        public NodeGridIndex(IReadOnlyDictionary<long, Node> nodes,
                              double minLon, double minLat,
                              double cellSizeDegrees, int cols, int rows)
         {
@@ -47,7 +43,7 @@ namespace MySimulationAPI.Services
             _rows = rows;
 
             _cells = Enumerable.Range(0, _cols)
-                .Select(_ => Enumerable.Range(0, _rows).Select(__ => new List<long>()).ToArray())  // Changed from int to long
+                .Select(_ => Enumerable.Range(0, _rows).Select(__ => new List<long>()).ToArray())
                 .ToArray();
 
             foreach (var kv in nodes)
@@ -66,10 +62,10 @@ namespace MySimulationAPI.Services
             return (cx, cy);
         }
 
-        public long FindNearestNodeId(double lat, double lon, double radiusMeters = 1000)  // Changed return from int to long
+        public long FindNearestNodeId(double lat, double lon, double radiusMeters = 1000)
         {
             var (cx, cy) = ToCell(lon, lat);
-            var bestId = -1L;  // Changed from -1 to -1L for long
+            var bestId = -1L;
             double bestSq = double.MaxValue;
             var radiusCells = Math.Max(1, (int)Math.Ceiling((radiusMeters / 111000.0) / _cellSize));
 
@@ -115,16 +111,14 @@ namespace MySimulationAPI.Services
         private static double ToRad(double deg) => deg * Math.PI / 180.0;
     }
 
-    // -----------------------------
     // Routing Service
-    // -----------------------------
     public class RoutingService
     {
         private readonly SimulationContext _context;
-        private readonly Dictionary<long, Node> _nodes;  // Changed from int to long
-        private readonly Dictionary<long, List<Edge>> _graph;  // Changed from int to long
+        private readonly Dictionary<long, Node> _nodes;
+        private readonly Dictionary<long, List<Edge>> _graph;
         private readonly NodeGridIndex _grid;
-        private readonly ConcurrentDictionary<(long, long), List<long>> _routeCache = new();  // Changed from int to long
+        private readonly ConcurrentDictionary<(long, long), List<long>> _routeCache = new();
 
         public RoutingService(SimulationContext context)
         {
@@ -140,17 +134,15 @@ namespace MySimulationAPI.Services
             _grid = BuildGrid(_nodes);
         }
 
-        // -----------------------------
         // Graph Construction
-        // -----------------------------
-        private static Dictionary<long, Node> BuildNodeDictionary(ICollection<Models.Path> paths)  // Changed from int to long
+        private static Dictionary<long, Node> BuildNodeDictionary(ICollection<Models.Path> paths)
         {
-            var dict = new Dictionary<long, Node>();  // Changed from int to long
+            var dict = new Dictionary<long, Node>();
             foreach (var path in paths)
             {
                 foreach (var pathNode in path.Nodes)
                 {
-                    long nodeKey = pathNode.OSMNodeId;  // Changed from int cast to long (no cast needed)
+                    long nodeKey = pathNode.OSMNodeId;
                     if (!dict.ContainsKey(nodeKey))
                     {
                         dict[nodeKey] = new Node
@@ -164,9 +156,9 @@ namespace MySimulationAPI.Services
             }
             return dict;
         }
-        private static Dictionary<long, List<Edge>> BuildGraph(ICollection<Models.Path> paths, Dictionary<long, Node> nodes)  // Changed from int to long
+        private static Dictionary<long, List<Edge>> BuildGraph(ICollection<Models.Path> paths, Dictionary<long, Node> nodes)
         {
-            var graph = new Dictionary<long, List<Edge>>();  // Changed from int to long
+            var graph = new Dictionary<long, List<Edge>>();
             foreach (var node in nodes.Values)
                 graph[node.Id] = new List<Edge>();
 
@@ -178,9 +170,9 @@ namespace MySimulationAPI.Services
                     var n1 = nodeList[i];
                     var n2 = nodeList[i + 1];
 
-                    // Use OSMNodeId to look up nodes in the graph (not the database Id)
-                    long n1Key = n1.OSMNodeId;  // Changed from int cast to long
-                    long n2Key = n2.OSMNodeId;  // Changed from int cast to long
+                    // Use OSMNodeId to look up nodes in the graph 
+                    long n1Key = n1.OSMNodeId;
+                    long n2Key = n2.OSMNodeId;
 
                     var distance = HaversineMeters(n1.Lat, n1.Lon, n2.Lat, n2.Lon);
 
@@ -204,24 +196,14 @@ namespace MySimulationAPI.Services
                     }
                 }
             }
-            // Console.WriteLine($"[Routing] Loaded {nodes.Count} unique nodes");
-            // Console.WriteLine($"[Routing] Graph has {graph.Sum(kvp => kvp.Value.Count)} directed edges");
             var disconnected = nodes.Keys.Where(id => !graph.ContainsKey(id) || graph[id].Count == 0).Count();
-            // Console.WriteLine($"[Routing] {disconnected} disconnected nodes");
 
-            // Analyze graph connectivity
-            var (componentCount, largestComponent) = AnalyzeConnectivity(graph, nodes);
-            if (componentCount > 1)
-            {
-                // Console.WriteLine($"[Routing] WARNING: Graph has {componentCount} disconnected components!");
-                // Console.WriteLine($"[Routing] Largest component has {largestComponent} nodes ({100.0 * largestComponent / nodes.Count:F1}% of total)");
-                // Console.WriteLine($"[Routing] Routes between components will use direct paths as fallback");
-            }
+
 
             return graph;
         }
 
-        private static NodeGridIndex BuildGrid(Dictionary<long, Node> nodes)  // Changed from int to long
+        private static NodeGridIndex BuildGrid(Dictionary<long, Node> nodes)
         {
             double minLat = nodes.Values.Min(n => n.Lat);
             double minLon = nodes.Values.Min(n => n.Lon);
@@ -235,57 +217,7 @@ namespace MySimulationAPI.Services
             return new NodeGridIndex(nodes, minLon, minLat, cellSizeDeg, cols, rows);
         }
 
-        // Analyze graph connectivity using BFS to find connected components
-        private static (int componentCount, int largestComponentSize) AnalyzeConnectivity(
-            Dictionary<long, List<Edge>> graph,
-            Dictionary<long, Node> nodes)
-        {
-            var visited = new HashSet<long>();
-            int componentCount = 0;
-            int largestComponentSize = 0;
-
-            foreach (var nodeId in nodes.Keys)
-            {
-                if (visited.Contains(nodeId)) continue;
-                if (!graph.ContainsKey(nodeId) || graph[nodeId].Count == 0) continue;
-
-                // BFS to find all nodes in this component
-                var queue = new Queue<long>();
-                queue.Enqueue(nodeId);
-                visited.Add(nodeId);
-                int componentSize = 0;
-
-                while (queue.Count > 0)
-                {
-                    var current = queue.Dequeue();
-                    componentSize++;
-
-                    if (graph.TryGetValue(current, out var edges))
-                    {
-                        foreach (var edge in edges)
-                        {
-                            if (!visited.Contains(edge.ToId))
-                            {
-                                visited.Add(edge.ToId);
-                                queue.Enqueue(edge.ToId);
-                            }
-                        }
-                    }
-                }
-
-                componentCount++;
-                if (componentSize > largestComponentSize)
-                {
-                    largestComponentSize = componentSize;
-                }
-            }
-
-            return (componentCount, largestComponentSize);
-        }
-
-        // -----------------------------
         // Public Route Computation
-        // -----------------------------
         public (List<(double Lat, double Lon)>? path, int travelTime) ComputeRoute(
             double startLat, double startLon,
             double endLat, double endLon,
@@ -296,7 +228,6 @@ namespace MySimulationAPI.Services
 
             if (startId == -1L || endId == -1L)
             {
-                // Console.WriteLine($"[RoutingService] WARNING: Could not find nearest node for route ({startLat:F6}, {startLon:F6}) -> ({endLat:F6}, {endLon:F6}). StartId={startId}, EndId={endId}. Using direct path.");
                 return CreateDirectPath(startLat, startLon, endLat, endLon, avgSpeedMph);
             }
 
@@ -313,7 +244,6 @@ namespace MySimulationAPI.Services
             {
                 // Graph is disconnected - these nodes cannot reach each other
                 // Use direct path as fallback (agent will "teleport" but at realistic speed)
-                // Console.WriteLine($"[RoutingService] WARNING: A* failed to find route between nodes {startId} and {endId} (disconnected graph components). Using direct path.");
                 return CreateDirectPath(startLat, startLon, endLat, endLon, avgSpeedMph);
             }
 
@@ -360,9 +290,7 @@ namespace MySimulationAPI.Services
             return (path, travelTime);
         }
 
-        // -----------------------------
         // A* Search Implementation
-        // -----------------------------
         private List<long>? FindPathAStar(long startId, long endId)
         {
             var key = (startId, endId);
@@ -419,9 +347,9 @@ namespace MySimulationAPI.Services
             return null;
         }
 
-        private static List<long> ReconstructPath(Dictionary<long, long> cameFrom, long current)  // Changed from int to long
+        private static List<long> ReconstructPath(Dictionary<long, long> cameFrom, long current)
         {
-            var path = new List<long> { current };  // Changed from int to long
+            var path = new List<long> { current };
             while (cameFrom.TryGetValue(current, out var prev))
             {
                 current = prev;
@@ -431,9 +359,7 @@ namespace MySimulationAPI.Services
             return path;
         }
 
-        // -----------------------------
         // Helpers
-        // -----------------------------
         private static double HeuristicMeters(Node a, Node b) =>
             HaversineMeters(a.Lat, a.Lon, b.Lat, b.Lon);
 

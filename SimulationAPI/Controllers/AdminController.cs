@@ -155,7 +155,6 @@ namespace MySimulationAPI.Controllers
 
                 foreach (var context in loadedContexts)
                 {
-                    // Get the owner username from database
                     var owner = await _db.Users
                         .Where(u => u.Id == context.Simulation.UserId)
                         .Select(u => u.Username)

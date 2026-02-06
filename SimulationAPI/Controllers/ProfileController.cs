@@ -11,7 +11,7 @@ namespace MySimulationAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // require JWT
+    [Authorize]
     public class ProfileController : ControllerBase
     {
         private readonly SimDbContext _db;
@@ -21,7 +21,6 @@ namespace MySimulationAPI.Controllers
             _db = db;
         }
 
-        // Helper to get logged-in user
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
         /// <summary>
@@ -48,7 +47,6 @@ namespace MySimulationAPI.Controllers
             });
         }
 
-        // PUT /api/profile
         /// <summary>
         /// Update profile details of the logged-in user
         /// </summary>
@@ -74,6 +72,10 @@ namespace MySimulationAPI.Controllers
 
             return Ok(new { message = "Profile updated successfully" });
         }
+
+        /// <summary>
+        /// Update the logged-in user's password
+        /// </summary>
         [HttpPost("change-password")]
         public IActionResult ChangePassword([FromBody] ChangePasswordDto dto)
         {

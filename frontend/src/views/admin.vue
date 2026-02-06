@@ -552,7 +552,7 @@ const fetchDatabaseStats = async () => {
 const deleteAllSimulations = async () => {
   if (
     !confirm(
-      "Are you sure you want to delete ALL simulations? This action cannot be undone!"
+      "Are you sure you want to delete ALL simulations? This action cannot be undone!",
     )
   ) {
     return;
@@ -569,7 +569,7 @@ const deleteAllSimulations = async () => {
 const deleteAllPresets = async () => {
   if (
     !confirm(
-      "Are you sure you want to delete ALL user-created presets? Default presets will be preserved."
+      "Are you sure you want to delete ALL user-created presets? Default presets will be preserved.",
     )
   ) {
     return;
@@ -628,7 +628,7 @@ const runSimulation = async (id) => {
 const unloadAllSimulations = async () => {
   if (
     !confirm(
-      "Are you sure you want to unload ALL simulations from memory? Running simulations will be stopped."
+      "Are you sure you want to unload ALL simulations from memory? Running simulations will be stopped.",
     )
   ) {
     return;

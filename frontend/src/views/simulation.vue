@@ -238,7 +238,7 @@ async function loadSimulation() {
     isInitializing.value = true;
     error.value = null;
 
-    // Connect to SignalR hub for real-time updates
+    // Connect to SignalR hub for realtime updates
     await connect();
 
     // Fetch core simulation details
@@ -260,7 +260,7 @@ async function loadSimulation() {
 
 async function refreshSimulationData() {
   try {
-    // Re-fetch simulation details to get updated values
+    // Refetch simulation details to get updated values
     simulationData.value = await simulationApi.getById(id.value);
   } catch (err: any) {
     console.error("Failed to refresh simulation data:", err);
@@ -298,7 +298,7 @@ async function handleTickChange(tick: number) {
 async function handleReset() {
   if (
     !confirm(
-      "Are you sure you want to reset this simulation? All computed data will be lost."
+      "Are you sure you want to reset this simulation? All computed data will be lost.",
     )
   ) {
     return;
@@ -314,7 +314,7 @@ async function handleReset() {
 async function handleUnload() {
   if (
     !confirm(
-      "Unload this simulation from memory? You will be redirected to the home screen."
+      "Unload this simulation from memory? You will be redirected to the home screen.",
     )
   ) {
     return;

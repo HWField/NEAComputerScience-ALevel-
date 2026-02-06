@@ -11,7 +11,7 @@ namespace MySimulationAPI.Services
         public int CurrentSegmentIndex { get; set; } = 0;
         public double OffsetMetersOnSegment { get; set; } = 0.0;
         public bool IsMoving { get; set; } = false;
-        public double SpeedMetersPerSecond { get; set; } = 1.4; // walking speed
+        public double SpeedMetersPerSecond { get; set; } = 1.4; // average walking speed
     }
 
     public class MovementSystem

@@ -57,6 +57,7 @@ export interface SimulationDetail {
 }
 
 // SignalR/Hub related types
+// These instances enable real-time updates from the backend to the frontend, allowing the UI to reflect changes in simulation state, tick progression, and metrics without needing to poll the server continually.
 export interface SimulationState {
   currentTick: number;
   status: string;
@@ -122,7 +123,6 @@ export type ConnectionStatus =
   | "reconnecting"
   | "failed";
 
-// Mitigation types
 export interface Mitigation {
   id: number;
   name: string;
@@ -191,19 +191,17 @@ export interface UpdateSnapshotFrequencyDto {
 }
 
 export const simulationApi = {
-  // Get all simulations
+  // Making Api calls relating to the simulation, these functions abstract away the details of the HTTP requests and provide a clean interface for the rest of the frontend to interact with the backend API.
   async getAll(): Promise<Simulation[]> {
     const response = await api.get("/simulation");
     return response.data;
   },
 
-  // Get single simulation details
   async getById(id: number): Promise<SimulationDetail> {
     const response = await api.get(`/simulation/${id}`);
     return response.data;
   },
 
-  // Load simulation into memory
   async load(id: number): Promise<void> {
     await api.post(`/simulation/${id}/load`);
   },
@@ -231,7 +229,6 @@ export const simulationApi = {
     await api.delete(`/simulation/${id}`);
   },
 
-  // Reset simulation (remove computed data)
   async reset(id: number): Promise<void> {
     await api.delete(`/simulation/${id}/reset`);
   },
@@ -245,10 +242,9 @@ export const simulationApi = {
     return response.data;
   },
 
-  // Batch update all mitigations (replaces all existing mitigations)
   async updateMitigations(
     id: number,
-    mitigations: UpdateMitigationDto[]
+    mitigations: UpdateMitigationDto[],
   ): Promise<Mitigation[]> {
     const response = await api.put(`/simulation/${id}/mitigations`, {
       mitigations,
@@ -256,37 +252,33 @@ export const simulationApi = {
     return response.data;
   },
 
-  // Update disease properties
   async updateDisease(
     id: number,
-    dto: UpdateDiseaseDto
+    dto: UpdateDiseaseDto,
   ): Promise<{ message: string; requiresReset: boolean }> {
     const response = await api.put(`/simulation/${id}/disease`, dto);
     return response.data;
   },
 
-  // Update initial infection count
   async updateInitialInfection(
     id: number,
-    dto: UpdateInitialInfectionDto
+    dto: UpdateInitialInfectionDto,
   ): Promise<{ message: string; initialInfectionCount: number }> {
     const response = await api.put(`/simulation/${id}/initial-infection`, dto);
     return response.data;
   },
 
-  // Update metric recording frequency
   async updateMetricFrequency(
     id: number,
-    dto: UpdateMetricFrequencyDto
+    dto: UpdateMetricFrequencyDto,
   ): Promise<{ message: string; metricRecordingFrequency: number }> {
     const response = await api.put(`/simulation/${id}/metric-frequency`, dto);
     return response.data;
   },
 
-  // Update snapshot saving frequency
   async updateSnapshotFrequency(
     id: number,
-    dto: UpdateSnapshotFrequencyDto
+    dto: UpdateSnapshotFrequencyDto,
   ): Promise<{ message: string; snapshotSavingFrequency: number }> {
     const response = await api.put(`/simulation/${id}/snapshot-frequency`, dto);
     return response.data;
@@ -296,7 +288,7 @@ export const simulationApi = {
   async getMetrics(
     id: number,
     startTick?: number,
-    endTick?: number
+    endTick?: number,
   ): Promise<MetricsResponse> {
     const params = new URLSearchParams();
     if (startTick !== undefined)
@@ -306,7 +298,7 @@ export const simulationApi = {
     const response = await api.get(
       `/simulation/${id}/metrics${
         params.toString() ? `?${params.toString()}` : ""
-      }`
+      }`,
     );
     return response.data;
   },

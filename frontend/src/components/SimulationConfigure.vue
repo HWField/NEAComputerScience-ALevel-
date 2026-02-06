@@ -1,6 +1,6 @@
 <template>
   <div class="grid grid-cols-12 gap-6">
-    <!-- Left Column - Disease Profile -->
+    <!-- Left Column Disease Profile -->
     <div class="col-span-6 space-y-6">
       <!-- Disease Info Card -->
       <div class="card bg-base-100 shadow-xl">
@@ -194,7 +194,7 @@
                 <span class="font-medium"
                   >{{
                     (simulationData.disease.severeSymptomsRate * 100).toFixed(
-                      1
+                      1,
                     )
                   }}%</span
                 >
@@ -204,7 +204,7 @@
                 <span class="font-medium"
                   >{{
                     (simulationData.disease.hospitalSeekingRate * 100).toFixed(
-                      1
+                      1,
                     )
                   }}%</span
                 >
@@ -306,7 +306,7 @@
                 <span class="font-medium text-success"
                   >{{
                     (simulationData.disease.vaccineEffectiveness * 100).toFixed(
-                      0
+                      0,
                     )
                   }}% reduction</span
                 >
@@ -470,7 +470,7 @@
       </div>
     </div>
 
-    <!-- Right Column - Population & Mitigations -->
+    <!-- Right Column Population & Mitigations -->
     <div class="col-span-6 space-y-6">
       <!-- Population Stats Card -->
       <div class="card bg-base-100 shadow-xl">
@@ -811,7 +811,7 @@
                       <span>Compliance Rate:</span>
                       <span class="font-medium">{{
                         formatMitigationPercent(
-                          selfIsolation.complianceRate ?? 0.7
+                          selfIsolation.complianceRate ?? 0.7,
                         )
                       }}</span>
                     </div>
@@ -819,7 +819,7 @@
                       <span>Symptom Threshold:</span>
                       <span class="font-medium">{{
                         formatMitigationPercent(
-                          selfIsolation.symptomThreshold ?? 0.3
+                          selfIsolation.symptomThreshold ?? 0.3,
                         )
                       }}</span>
                     </div>
@@ -877,7 +877,7 @@
                       <span>Vaccination Rate:</span>
                       <span class="font-medium">{{
                         formatMitigationPercent(
-                          vaccination.vaccinationRate ?? 0.7
+                          vaccination.vaccinationRate ?? 0.7,
                         )
                       }}</span>
                     </div>
@@ -980,7 +980,7 @@
                         <span class="label-text"
                           >Compliance Rate ({{
                             formatMitigationPercent(
-                              selfIsolation?.complianceRate ?? 0.7
+                              selfIsolation?.complianceRate ?? 0.7,
                             )
                           }})</span
                         >
@@ -1003,7 +1003,7 @@
                         <span class="label-text"
                           >Symptom Threshold ({{
                             formatMitigationPercent(
-                              selfIsolation?.symptomThreshold ?? 0.3
+                              selfIsolation?.symptomThreshold ?? 0.3,
                             )
                           }})</span
                         >
@@ -1108,7 +1108,7 @@
                         <span class="label-text"
                           >Adoption Rate ({{
                             formatMitigationPercent(
-                              maskWearing?.adoptionRate ?? 0.6
+                              maskWearing?.adoptionRate ?? 0.6,
                             )
                           }})</span
                         >
@@ -1217,7 +1217,7 @@
                         <span class="label-text"
                           >Vaccination Rate ({{
                             formatMitigationPercent(
-                              vaccination?.vaccinationRate ?? 0.7
+                              vaccination?.vaccinationRate ?? 0.7,
                             )
                           }})</span
                         >
@@ -1378,15 +1378,15 @@ const mitigations = ref<Mitigation[]>([]);
 
 // Computed properties to extract specific mitigation types
 const selfIsolation = computed(() =>
-  mitigations.value.find((m) => m.type === "SelfIsolation")
+  mitigations.value.find((m) => m.type === "SelfIsolation"),
 );
 
 const maskWearing = computed(() =>
-  mitigations.value.find((m) => m.type === "MaskWearing")
+  mitigations.value.find((m) => m.type === "MaskWearing"),
 );
 
 const vaccination = computed(() =>
-  mitigations.value.find((m) => m.type === "Vaccination")
+  mitigations.value.find((m) => m.type === "Vaccination"),
 );
 
 // Watch for simulation data changes to update edit values
@@ -1415,7 +1415,7 @@ watch(
       snapshotFrequencyEdit.value = newData.snapshotSavingFrequency;
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 function toggleSection(section: keyof typeof expandedSections.value) {
@@ -1459,13 +1459,13 @@ async function saveDisease() {
   try {
     const response = await simulationApi.updateDisease(
       props.simulationData.id,
-      diseaseEdit
+      diseaseEdit,
     );
 
     toast.show(
       response.message +
         " - Please reset the simulation for changes to take effect.",
-      "success"
+      "success",
     );
 
     isEditingDisease.value = false;
@@ -1473,7 +1473,7 @@ async function saveDisease() {
   } catch (error: any) {
     toast.show(
       "Failed to update disease: " + (error.response?.data || error.message),
-      "error"
+      "error",
     );
   } finally {
     isSaving.value = false;
@@ -1517,7 +1517,7 @@ async function saveInfectionAndFrequencies() {
   } catch (error: any) {
     toast.show(
       "Failed to update parameters: " + (error.response?.data || error.message),
-      "error"
+      "error",
     );
   } finally {
     isSaving.value = false;
@@ -1547,7 +1547,7 @@ watch(
     if (newId) {
       loadMitigations();
     }
-  }
+  },
 );
 
 function cancelEditingMitigations() {
@@ -1589,7 +1589,7 @@ async function saveEditingMitigations() {
     // Send batch update - this replaces ALL mitigations
     const updated = await simulationApi.updateMitigations(
       props.simulationData.id,
-      mitigationDtos
+      mitigationDtos,
     );
 
     // Update local state with response
@@ -1599,12 +1599,12 @@ async function saveEditingMitigations() {
 
     toast.show(
       "Mitigation changes saved successfully! Note: Changes will affect future simulation outcomes.",
-      "success"
+      "success",
     );
   } catch (error: any) {
     toast.show(
       "Failed to save mitigations: " + (error.response?.data || error.message),
-      "error"
+      "error",
     );
   } finally {
     mitigationsLoading.value = false;
@@ -1618,7 +1618,7 @@ async function loadMitigations() {
     mitigationsLoading.value = true;
     mitigationsError.value = null;
     mitigations.value = await simulationApi.getMitigations(
-      props.simulationData.id
+      props.simulationData.id,
     );
   } catch (err: any) {
     mitigationsError.value =
@@ -1645,7 +1645,7 @@ function formatMitigationPercent(value: number): string {
 }
 
 function toggleMitigation(
-  type: "SelfIsolation" | "MaskWearing" | "Vaccination"
+  type: "SelfIsolation" | "MaskWearing" | "Vaccination",
 ) {
   if (!isEditingMitigations.value) return;
   const existing = mitigations.value.find((m) => m.type === type);
@@ -1660,7 +1660,7 @@ function toggleMitigation(
 }
 
 function deleteMitigation(
-  type: "SelfIsolation" | "MaskWearing" | "Vaccination"
+  type: "SelfIsolation" | "MaskWearing" | "Vaccination",
 ) {
   if (!isEditingMitigations.value) return;
 
@@ -1669,7 +1669,7 @@ function deleteMitigation(
 }
 
 function createDefaultMitigation(
-  type: "SelfIsolation" | "MaskWearing" | "Vaccination"
+  type: "SelfIsolation" | "MaskWearing" | "Vaccination",
 ): Mitigation {
   const base = {
     id: -Date.now(), // Temporary negative ID for new items

@@ -12,7 +12,7 @@ namespace MySimulationAPI.Services
         private readonly SimulationContext _context;
         private Random _rng;
 
-        // Thread-local Random for parallel routine generation
+        // Thread local random for parallel routine generation
         [ThreadStatic]
         private static Random? _threadRng;
 
@@ -25,7 +25,7 @@ namespace MySimulationAPI.Services
         public List<RoutineEvent> GenerateAgentRoutine(Agent agent)
         {
             var events = new List<RoutineEvent>();
-            // Use thread-local RNG for parallel safety
+            // thread-local RNG for parallel safety
             var rng = _threadRng ??= new Random(Guid.NewGuid().GetHashCode());
             var buildingService = _context.BuildingService;
             var routingService = _context.RoutingService;
@@ -36,28 +36,12 @@ namespace MySimulationAPI.Services
             // local location tracker used whilst calcuating routes
             (double curLat, double curLon) = (agent.House.Latitude, agent.House.Longitude);
 
-            // ------------------------------
-            // Local helper: add a routine event
-            // ------------------------------
             void AddRoutineEvent(int day, TimeOnly start, TimeSpan duration, RoutineEventType type, Building target)
             {
                 var (path, travelTime) = routingService.ComputeRoute(
                     curLat, curLon,
                     target.Latitude, target.Longitude
                 );
-
-                // Debug: Log the first path generation
-                if (events.Count == 0)
-                {
-                    // Console.WriteLine($"[AgentService] First route computed:");
-                    // Console.WriteLine($"  - Path nodes: {path?.Count ?? 0}");
-                    if (path != null && path.Count > 0)
-                    {
-                        // Console.WriteLine($"  - First node: ({path[0].Lat}, {path[0].Lon})");
-                        // Console.WriteLine($"  - Last node: ({path[^1].Lat}, {path[^1].Lon})");
-                    }
-                    // Console.WriteLine($"  - Travel time: {travelTime}s");
-                }
 
                 events.Add(new RoutineEvent
                 {
@@ -75,9 +59,7 @@ namespace MySimulationAPI.Services
                 curLon = target.Longitude;
             }
 
-            // ------------------------------
             // STUDENT
-            // ------------------------------
             if (agent is StudentAgent)
             {
                 for (int day = 0; day <= 4; day++) // Weekdays
@@ -116,12 +98,12 @@ namespace MySimulationAPI.Services
                     }
                 }
 
-                // Weekends - more social activities
+                // Weekends, more social activities
                 for (int day = 5; day <= 6; day++)
                 {
                     var morningHome = new TimeOnly(rng.Next(8, 11), 0);
 
-                    // Morning at home - always add to ensure agent has a starting position
+                    // Morning at home, always add to ensure agent has a starting position
                     AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningHome.Hour), RoutineEventType.Home, agent.House);
 
                     // Daytime activity (80% chance)
@@ -157,9 +139,7 @@ namespace MySimulationAPI.Services
                 return events;
             }
 
-            // ------------------------------
             // OFFICE WORKER
-            // ------------------------------
             if (agent is OfficeWorkerAgent)
             {
                 for (int day = 0; day <= 4; day++) // Weekdays
@@ -189,7 +169,7 @@ namespace MySimulationAPI.Services
                             }
                         }
 
-                        // After work activity (30% chance) - gym, drinks, shopping
+                        // After work activity (30% chance) e.g gym, drinks, shopping
                         var workEnd = workStart.AddHours(workDuration);
                         if (rng.NextDouble() < 0.3)
                         {
@@ -221,15 +201,15 @@ namespace MySimulationAPI.Services
                     }
                     else
                     {
-                        // No workplace - stay home all day
+                        // No workplace, stay home all day
                         AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(24), RoutineEventType.Home, agent.House);
                     }
                 }
 
-                // Weekends - errands and leisure
+                // Weekends, errands and leisure
                 for (int day = 5; day <= 6; day++)
                 {
-                    // Morning at home - always add to ensure starting position
+                    // Morning at home, always add to ensure starting position
                     var morningEnd = new TimeOnly(rng.Next(8, 12), rng.Next(0, 60));
                     AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningEnd.Hour), RoutineEventType.Home, agent.House);
 
@@ -259,7 +239,7 @@ namespace MySimulationAPI.Services
                         AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(2, 5)), type, dest);
                     }
 
-                    // Evening activity on Saturday (40% chance - dinner, nightlife)
+                    // Evening activity on Saturday (40% chance, dinner, nightlife)
                     if (day == 5 && rng.NextDouble() < 0.4)
                     {
                         var eveningStart = new TimeOnly(rng.Next(18, 21), rng.Next(0, 60));
@@ -276,9 +256,7 @@ namespace MySimulationAPI.Services
                 return events;
             }
 
-            // ------------------------------
             // MEDICAL WORKER
-            // ------------------------------
             if (agent is MedicalWorkerAgent)
             {
                 // Medical workers have rotating shifts (day/evening/night)
@@ -354,12 +332,10 @@ namespace MySimulationAPI.Services
                 return events;
             }
 
-            // ------------------------------
             // RETAIL WORKER
-            // ------------------------------
             if (agent is RetailWorkerAgent)
             {
-                // Retail workers typically work 5-6 days with varied shifts
+                // Retail workers typically work 5 or 6 days with varied shifts
                 for (int day = 0; day <= 6; day++)
                 {
                     if (agent.Workplace == null)
@@ -448,9 +424,7 @@ namespace MySimulationAPI.Services
                 return events;
             }
 
-            // ------------------------------
             // SERVICE WORKER (Hospitality, Leisure staff)
-            // ------------------------------
             if (agent is ServiceWorkerAgent)
             {
                 // Service workers often have evening/night shifts, work weekends
@@ -462,10 +436,10 @@ namespace MySimulationAPI.Services
                         continue;
                     }
 
-                    // 80% chance of working (service industry is demanding)
+                    // 80% chance of working
                     if (rng.NextDouble() < 0.8)
                     {
-                        // Varied shift times - often later in the day for hospitality
+                        // Varied shift times, often later in the day for hospitality
                         var shiftStart = new TimeOnly(rng.Next(10, 18), rng.Next(0, 60));
                         var shiftDuration = TimeSpan.FromHours(rng.Next(7, 10));
 
@@ -489,10 +463,10 @@ namespace MySimulationAPI.Services
                             }
                         }
 
-                        // After work - often late
+                        // After work
                         var workEnd = shiftStart.Add(shiftDuration);
 
-                        // Occasional late-night socializing after work (25% chance)
+                        // Occasional socializing after work (25% chance)
                         if (rng.NextDouble() < 0.25 && workEnd.Hour >= 20)
                         {
                             var socialStart = workEnd.AddMinutes(rng.Next(15, 46));
@@ -502,7 +476,7 @@ namespace MySimulationAPI.Services
                             AddRoutineEvent(day, socialStart, TimeSpan.FromHours(rng.Next(1, 3)), RoutineEventType.Leisure, dest);
                         }
 
-                        // Home (often late at night)
+                        // Home
                         var homeTime = workEnd.AddMinutes(rng.Next(30, 91));
                         var hoursUntilMidnight = 24 - homeTime.Hour;
                         AddRoutineEvent(day, homeTime, TimeSpan.FromHours(hoursUntilMidnight), RoutineEventType.Home, agent.House);
@@ -547,9 +521,7 @@ namespace MySimulationAPI.Services
                 return events;
             }
 
-            // ------------------------------
             // ELDERLY / RETIRED
-            // ------------------------------
             if (agent is ElderlyRetiredAgent)
             {
                 for (int day = 0; day <= 6; day++)
@@ -558,7 +530,7 @@ namespace MySimulationAPI.Services
                     var morningEnd = new TimeOnly(rng.Next(7, 11), rng.Next(0, 60));
                     AddRoutineEvent(day, new TimeOnly(0, 0), TimeSpan.FromHours(morningEnd.Hour), RoutineEventType.Home, agent.House);
 
-                    // Morning activity (60% chance - shopping, errands, socializing)
+                    // Morning activity (60% chance: shopping, errands, socializing)
                     if (rng.NextDouble() < 0.6)
                     {
                         var activityStart = new TimeOnly(rng.Next(9, 12), rng.Next(0, 60));
@@ -591,7 +563,7 @@ namespace MySimulationAPI.Services
                         AddRoutineEvent(day, activityStart, TimeSpan.FromHours(rng.Next(1, 3)), type, dest);
                     }
 
-                    // Afternoon activity (40% chance - less frequent)
+                    // Afternoon activity (40% chance, less frequent)
                     if (rng.NextDouble() < 0.4)
                     {
                         var afternoonStart = new TimeOnly(rng.Next(14, 16), rng.Next(0, 60));
@@ -632,12 +604,12 @@ namespace MySimulationAPI.Services
             double chronicConditionChance;
             double baseSusceptibility;
 
-            // --- Defaults (used as catch for unspecific agent types) ---
+            // Defaults (used as catch for unspecific agent types)
             baseImmunity = 0.7;
             chronicConditionChance = 0.1;
             baseSusceptibility = 0.3;
 
-            // --- Type-specific overrides ---
+            // Type-specific overrides
             switch (agent)
             {
                 case StudentAgent:
@@ -677,7 +649,7 @@ namespace MySimulationAPI.Services
                     break;
             }
 
-            // --- Random variation (introduce diversity) ---
+            // Random variation (introduce diversity) 
             double immunityVariation = 0.15;         // 
             double susceptibilityVariation = 0.15;   // 
 
@@ -691,14 +663,14 @@ namespace MySimulationAPI.Services
                 baseSusceptibility + (_rng.NextDouble() * 2 - 1) * susceptibilityVariation,
                 0.05, 1.0);
 
-            // --- Adjust for chronic conditions ---
+            // Adjust for chronic conditions 
             if (hasChronicCondition)
             {
-                finalImmunity = Math.Max(0.05, finalImmunity * 0.8);          // 20% weaker immunity
+                finalImmunity = Math.Max(0.05, finalImmunity * 0.8); // 20% weaker immunity
                 finalSusceptibility = Math.Min(1.0, finalSusceptibility * 1.3); // 30% more vulnerable
             }
 
-            // --- Create profile ---
+            // Create profile 
             return new MedicalProfile
             {
                 AgentId = agent.Id,
@@ -739,7 +711,7 @@ namespace MySimulationAPI.Services
                 ref var agent = ref agents[i];
                 int agentId = agent.Id; // Capture for lambda use
 
-                // --- Check for Self-Isolation ---
+                // Check for Self-Isolation 
                 // If agent is symptomatic and self-isolation policy is active, force them to stay home
                 bool shouldIsolate = false;
                 if (selfIsolationMitigation != null &&
@@ -765,7 +737,7 @@ namespace MySimulationAPI.Services
                 var agentRoutines = routinesLookup[agentId].OrderBy(r => r.StartTick).ToList();
                 if (!agentRoutines.Any())
                 {
-                    // No routines today - find a Home event from any day to get home position
+                    // no routines today - find a Home event from any day to get home position
                     var anyHomeEvent = routines.FirstOrDefault(r => r.AgentId == agentId && r.Type == (byte)RoutineEventType.Home);
                     if (anyHomeEvent.BuildingId != 0 && buildingIndexById.TryGetValue(anyHomeEvent.BuildingId, out var homeIdx))
                     {
@@ -826,9 +798,7 @@ namespace MySimulationAPI.Services
                 int arrivalTick = evt.StartTick;
                 int eventEndTick = evt.StartTick + evt.DurationTicks;
 
-                // ========================================
                 // PHASE 1: TRAVELING TO THE DESTINATION
-                // ========================================
                 if (tickOfDay >= travelStartTick && tickOfDay < arrivalTick)
                 {
                     // Agent is currently traveling
@@ -867,9 +837,7 @@ namespace MySimulationAPI.Services
                         agent.CurrentBuildingId = 0;
                     }
                 }
-                // ========================================
                 // PHASE 2: AT THE DESTINATION
-                // ========================================
                 else if (tickOfDay >= arrivalTick && tickOfDay < eventEndTick)
                 {
                     // Agent has arrived and is at the building
@@ -878,7 +846,7 @@ namespace MySimulationAPI.Services
                     // Position agent at building coordinates
                     if (evt.BuildingId != 0 && buildingIndexById.TryGetValue(evt.BuildingId, out var bidx))
                     {
-                        // If we have a path, place agent at the final path node (entrance)
+                        // If has a path, place agent at the final path node (entrance)
                         // Otherwise use building center
                         if (evt.Path != null && evt.Path.Length > 0)
                         {

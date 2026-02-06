@@ -159,6 +159,6 @@ watch(
     if (props.simulationData?.id) {
       fetchMetrics();
     }
-  }
+  },
 );
 </script>

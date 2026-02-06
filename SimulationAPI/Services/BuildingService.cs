@@ -11,7 +11,7 @@ namespace MySimulationAPI.Services
         private readonly SimulationContext _context;
         private readonly RoutingService _routingService;
 
-        // Cached buildings and KD-trees
+        // Cached buildings and KDtrees
         private readonly List<Building> _buildings;
         private readonly Dictionary<Type, KDTree<Building>> _kdTrees;
 
@@ -73,14 +73,9 @@ namespace MySimulationAPI.Services
             return (T)list[rng.Next(list.Count)];
         }
 
-
-
-
         public static class GeoUtils
         {
-
             // Calculate approximate distance using Haversine formula (in meters)
-
             public static double Distance(double lat1, double lon1, double lat2, double lon2)
             {
                 const double R = 6371000; // Earth's radius in meters
@@ -98,9 +93,7 @@ namespace MySimulationAPI.Services
             private static double ToRadians(double degrees) => degrees * Math.PI / 180.0;
         }
 
-        // ---------------------------------------------------------
         // KD-Tree for 2D nearest neighbour search
-        // ---------------------------------------------------------
         public class KDTree<T>
         {
             private class Node
@@ -267,7 +260,7 @@ namespace MySimulationAPI.Services
             }
 
             var elapsed = (DateTime.Now - startTime).TotalSeconds;
-            Console.WriteLine($"✓ Housing assigned in {elapsed:F2}s ({agents.Count / elapsed:F0} agents/s)");
+            Console.WriteLine($"Housing assigned in {elapsed:F2}s ({agents.Count / elapsed:F0} agents/s)");
         }
 
         public void AssignWorkplaces(
@@ -335,11 +328,11 @@ namespace MySimulationAPI.Services
                 var typeTime = (DateTime.Now - typeStartTime).TotalSeconds;
 
                 totalAssigned += assigned;
-                Console.WriteLine($"  ✓ Assigned {assigned}/{typeAgents.Count} in {typeTime:F2}s ({(assigned / typeTime):F0} agents/s)");
+                Console.WriteLine($"Assigned {assigned}/{typeAgents.Count} in {typeTime:F2}s ({(assigned / typeTime):F0} agents/s)");
             }
 
             var totalTime = (DateTime.Now - startTime).TotalSeconds;
-            Console.WriteLine($"\n✓ Workplace assignment complete in {totalTime:F1}s");
+            Console.WriteLine($"\nWorkplace assignment complete in {totalTime:F1}s");
             Console.WriteLine($"  Total assigned: {totalAssigned}/{agentsNeedingWork.Count} agents");
             Console.WriteLine($"  Average rate: {(totalAssigned / totalTime):F0} agents/s");
         }
@@ -390,7 +383,7 @@ namespace MySimulationAPI.Services
                     weightedCandidates.Add((building, weight));
                 }
 
-                // Sort by weight descending - most preferred first
+                // Sort by weight descending, most preferred first
                 weightedCandidates.Sort((a, b) => b.weight.CompareTo(a.weight));
 
                 candidateData[i] = (agent, weightedCandidates);
@@ -427,7 +420,7 @@ namespace MySimulationAPI.Services
                 // Use probabilistic selection from top candidates
                 Building? chosen = null;
 
-                // Take top N candidates with remaining capacity
+                // Take top n candidates with remaining capacity
                 var availableCandidates = candidates
                     .Where(c => c.building.RemainingCapacity > 0)
                     .Take(shortlistSize)
@@ -467,7 +460,7 @@ namespace MySimulationAPI.Services
             // Fallback for unassigned agents assign to any building with capacity
             if (unassignedAgents.Count > 0)
             {
-                Console.WriteLine($"    ⚠ {unassignedAgents.Count} agents couldn't find nearby capacity, using fallback...");
+                Console.WriteLine($" {unassignedAgents.Count} agents couldn't find nearby capacity, using fallback...");
 
                 // Find all buildings with remaining capacity, sorted by capacity (largest first)
                 var availableBuildings = allBuildings
@@ -501,12 +494,12 @@ namespace MySimulationAPI.Services
 
                 if (fallbackAssigned > 0)
                 {
-                    Console.WriteLine($"    ✓ Fallback assigned {fallbackAssigned} agents");
+                    Console.WriteLine($"Fallback assigned {fallbackAssigned} agents");
                 }
 
                 if (fallbackAssigned < unassignedAgents.Count)
                 {
-                    Console.WriteLine($"    ⚠ {unassignedAgents.Count - fallbackAssigned} agents remain unassigned (insufficient total capacity)");
+                    Console.WriteLine($" {unassignedAgents.Count - fallbackAssigned} agents remain unassigned (insufficient total capacity)");
                 }
             }
 
@@ -523,11 +516,5 @@ namespace MySimulationAPI.Services
         Retail,         // RetailBuilding - OSM: shop=*, building=retail (stores, supermarkets, shopping centers)
         Hospitality,    // RetailBuilding with HasFood=true - OSM: amenity=restaurant, cafe, bar, pub, fast_food
         Recreation,     // OSM: leisure=sports_centre, fitness_centre, swimming_pool, park, amenity=cinema, theatre, nightclub, casino
-
-        // // Additional types from OSM (might implement later)
-        // Industrial,     // OSM: building=industrial, warehouse
-        // Government,     // OSM: amenity=townhall, government offices
-        // Religious,      // OSM: amenity=place_of_worship
-        // Transport       // OSM: amenity=bus_station, railway=station
     }
 }

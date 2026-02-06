@@ -9,7 +9,7 @@ namespace MySimulationAPI.Models
         public required string Name { get; set; }
         public int UserId { get; set; }
         public User? User { get; set; }
-        public string Status { get; set; } = "Created"; // e.g., Created, Archived, (soft) Deleted
+        public string Status { get; set; } = "Created"; // Created, Archived, (soft) Deleted
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int TickLength { get; set; } // Number of seconds each tick lasts 
         public int InitialInfectionCount { get; set; } = 0; // Number of agents initially infected (for seeding/reset)

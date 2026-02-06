@@ -72,11 +72,11 @@ const displayedAgentCount = ref(0);
 
 // Agent status colors
 const statusColors = {
-  Healthy: "#36d399", // success
-  Infected: "#f87272", // error
-  Recovered: "#3abff8", // info
-  Quarantined: "#fbbd23", // warning
-  Dead: "#6b7280", // gray
+  Healthy: "#36d399",
+  Infected: "#f87272",
+  Recovered: "#3abff8",
+  Quarantined: "#fbbd23",
+  Dead: "#6b7280",
 };
 
 function initializeMap() {
@@ -85,7 +85,7 @@ function initializeMap() {
   // map centered on the simulation area
   map = L.map(mapContainer.value, {
     attributionControl: false,
-    preferCanvas: true, //  Canvas for better performance with many markers
+    preferCanvas: true,
   }).setView([props.mapArea.centerLat, props.mapArea.centerLon], 13);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -173,7 +173,7 @@ watch(
       displayedAgentCount.value = 0;
     }
   },
-  { deep: true, immediate: true }
+  { deep: true, immediate: true },
 );
 
 onMounted(() => {

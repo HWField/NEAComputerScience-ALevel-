@@ -12,18 +12,18 @@ using Swashbuckle.AspNetCore.Swagger;
 using Microsoft.OpenApi.Writers;
 using System.Diagnostics;
 
-// Set process priority to High for maximum CPU allocation
-// Note: Requires running with 'sudo dotnet run' on macOS/Linux
+// Set process priority to High for maximum CPU time allocation
+// Requires running with 'sudo dotnet run' on macOS/Linux
 try
 {
     using var currentProcess = Process.GetCurrentProcess();
     currentProcess.PriorityClass = ProcessPriorityClass.High;
-    Console.WriteLine("[Startup] ✓ Process priority set to HIGH");
+    Console.WriteLine("[Startup] Process priority set to HIGH");
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"[Startup] ⚠ Could not set HIGH priority: {ex.Message}");
-    Console.WriteLine("[Startup] → Run with 'sudo dotnet run' for HIGH priority");
+    Console.WriteLine($"[Startup] Could not set HIGH priority: {ex.Message}");
+    Console.WriteLine("[Startup] Run with 'sudo dotnet run' for HIGH priority");
 }
 
 var builder = WebApplication.CreateBuilder(args);
@@ -103,15 +103,14 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 
-// Swagger service
-
+// Swagger service for auto-generating API documentation and providing an interactive UI for testing endpoints
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Simulation API",
-        Version = "v1",
+        Version = "V7",
         Description = "API for epidemic simulation with realistic agents and OSM data",
         Contact = new OpenApiContact
         {

@@ -88,7 +88,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 .AsNoTracking()
                 .ToList();
 
-            // Instantiate services using in-memory data
+            // Instantiate services using inmemory data
             RoutingService = new RoutingService(this);
             BuildingService = new BuildingService(this);
             SnapshotManager = new SnapshotManager(this);
@@ -139,7 +139,7 @@ namespace MySimulationAPI.SimulationConfiguration
         {
             return Task.Run(() =>
             {
-                // --- Buildings ---
+                // Buildings
                 BuildingStates = new BuildingState[Buildings.Count];
                 for (int i = 0; i < Buildings.Count; i++)
                 {
@@ -155,10 +155,10 @@ namespace MySimulationAPI.SimulationConfiguration
                     };
                 }
 
-                // --- Agents ---
+                // Agents
                 AgentStates = new AgentState[Agents.Count];
 
-                // --- Apply Mitigations ---
+                // Apply Mitigations
                 var routineList = new List<RoutineEventState>();
                 for (int i = 0; i < Agents.Count; i++)
                 {
@@ -179,7 +179,7 @@ namespace MySimulationAPI.SimulationConfiguration
                         IsIsolating = false,
                         InfectionCount = 0
                     };
-                    // --- Routines ---
+                    // Routines
                     foreach (var ev in a.RoutineEvents)
                     {
                         routineList.Add(new RoutineEventState

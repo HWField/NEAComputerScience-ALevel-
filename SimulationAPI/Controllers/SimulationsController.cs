@@ -13,7 +13,7 @@ namespace MySimulationAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // require JWT on all routes
+    [Authorize]
     public class SimulationController : ControllerBase
     {
         private readonly SimDbContext _db;
@@ -36,7 +36,6 @@ namespace MySimulationAPI.Controllers
             _simulationManager = simulationManager;
         }
 
-        // Helper to get logged-in user
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
         // Helper to check if user is admin
         private bool IsAdmin() => User.IsInRole("Admin");
@@ -493,6 +492,9 @@ namespace MySimulationAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Gets all mitigations for a simulation
+        /// </summary>
         [HttpGet("{id}/mitigations")]
         public async Task<IActionResult> GetMitigations(int id)
         {
@@ -649,9 +651,7 @@ namespace MySimulationAPI.Controllers
             return Ok(result);
         }
 
-        // ==========================================
         // SIMULATION CONFIGURATION UPDATE ENDPOINTS
-        // ==========================================
 
         /// <summary>
         /// Updates disease properties for a simulation.

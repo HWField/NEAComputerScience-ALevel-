@@ -9,7 +9,7 @@ namespace MySimulationAPI.Models
 
         public int PresetRefID { get; set; } // Reference to geographicAreaPreset
 
-        // Boundaries
+        // Boundaries of map area
         public double CenterLat { get; set; }
         public double CenterLon { get; set; }
         public double RadiusKm { get; set; }

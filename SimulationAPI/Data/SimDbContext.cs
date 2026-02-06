@@ -17,7 +17,6 @@ namespace MySimulationAPI.Data
         // Simulation related models
         public DbSet<Simulation> Simulations { get; set; } = null!;
         public DbSet<Agent> Agents { get; set; } = null!;
-
         public DbSet<RoutineEvent> RoutineEvents { get; set; } = null!;
         public DbSet<Building> Buildings { get; set; } = null!;
         public DbSet<Models.Path> Paths { get; set; } = null!;
@@ -51,17 +50,17 @@ namespace MySimulationAPI.Data
                 .HasValue<ElderlyRetiredAgent>("ElderlyRetired")
                 .HasValue<ServiceWorkerAgent>("ServiceWorker");
 
-            // Configure Agent -> RoutineEvent relationship
+            // Configure Agent to RoutineEvent relationship
             modelBuilder.Entity<Agent>()
                 .HasMany(a => a.RoutineEvents)
                 .WithOne(e => e.Agent)
                 .HasForeignKey(e => e.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Need to configure the conversion for CachedPath property as it stores a complex type (non primative)
+            // Configure the conversion for CachedPath property as it stores a complex type (non primative)
             var jsonOptions = new JsonSerializerOptions
             {
-                IncludeFields = true  // This enables serialization of tuple fields (Item1, Item2)
+                IncludeFields = true  // Enables serialization of tuple fields (Item1, Item2)
             };
 
             modelBuilder.Entity<RoutineEvent>()
@@ -82,21 +81,21 @@ namespace MySimulationAPI.Data
                 .HasForeignKey<MedicalProfile>(m => m.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Configure Agent -> Home relationship
+            // Configure Agent to Home relationship
             modelBuilder.Entity<Agent>()
                 .HasOne(a => a.House)
                 .WithMany()
                 .HasForeignKey(a => a.HouseId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Configure Agent -> Workplace relationship
+            // Configure Agent to Workplace relationship
             modelBuilder.Entity<Agent>()
                 .HasOne(a => a.Workplace)
                 .WithMany()
                 .HasForeignKey(a => a.WorkplaceId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Configure Simulation -> MapArea one-to-one relationship
+            // Configure Simulation to MapArea one-to-one relationship
             modelBuilder.Entity<Simulation>()
                 .HasOne(s => s.MapArea)
                 .WithOne(m => m.Simulation)
@@ -134,12 +133,12 @@ namespace MySimulationAPI.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
 
-            // --- SimulationMetric unique index ---
+            // SimulationMetric unique index
             modelBuilder.Entity<SimulationMetric>()
                 .HasIndex(m => new { m.SimulationId, m.Tick })
                 .IsUnique();
 
-            // Configure MapArea cascade deletes
+            // Configure MapArea cascade deletes to ensure related entities are deleted when a MapArea is removed reducing orphaned records and maintaining data integrity
             modelBuilder.Entity<MapArea>()
                 .HasMany(m => m.Buildings)
                 .WithOne(b => b.MapArea)
@@ -205,7 +204,7 @@ namespace MySimulationAPI.Data
                 .HasForeignKey(b => b.SimulationSnapshotId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // --- SimulationSnapshot unique index ---
+            // SimulationSnapshot unique index
             modelBuilder.Entity<SimulationSnapshot>()
                 .HasIndex(s => new { s.SimulationId, s.Tick })
                 .IsUnique();

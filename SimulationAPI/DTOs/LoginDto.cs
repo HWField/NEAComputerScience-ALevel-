@@ -1,9 +1,0 @@
-namespace MySimulationAPI.DTOs
-{
-    public class LoginDto
-    {
-        public string Username { get; set; } = null!;
-        public string Password { get; set; } = null!;
-        public string DeviceInfo { get; set; } = null!;
-    }
-}

@@ -32,7 +32,7 @@ namespace MySimulationAPI.Services
     string name, double latitude, double longitude, double radiusKm,
     List<OSMBuildingPreset> buildings, List<OSMPathPreset> paths, int? userId = null)
         {
-            // Disable tracking completely for performance
+            // Disable tracking completely to improve performance
             _db.ChangeTracker.AutoDetectChangesEnabled = false;
 
             // insert the parent preset
@@ -96,7 +96,7 @@ namespace MySimulationAPI.Services
             {
                 var nodeEntities = new List<OSMPathNodePreset>();
 
-                foreach (var (pathEntity, originalPath) in pathEntities.Zip(paths!))  // paths! is safe here due to check above
+                foreach (var (pathEntity, originalPath) in pathEntities.Zip(paths!))
                 {
                     if (originalPath.Nodes is null || !originalPath.Nodes.Any())
                         continue;
@@ -119,7 +119,7 @@ namespace MySimulationAPI.Services
                 }
             }
 
-            // Re-enable trackings
+            // Reenable tracking
             _db.ChangeTracker.AutoDetectChangesEnabled = true;
 
             // Return a detached preset with populated collections (for caller convenience)
@@ -129,9 +129,10 @@ namespace MySimulationAPI.Services
             return preset;
         }
 
+        // Seed default presets (admin user, a couple of diseases and a sample map preset) on application startup to give users location and disease data to use immediately
         public async Task SeedDefaultsAsync()
         {
-            // === Seed Admin User ===
+            // Seed Admin User
             if (!await _db.Users.AnyAsync(u => u.Username == "admin"))
             {
                 var adminUser = new User
@@ -143,7 +144,7 @@ namespace MySimulationAPI.Services
                 _db.Users.Add(adminUser);
             }
 
-            // === Seed Global Disease Presets ===
+            // Seed Global Disease Presets
             if (!await _db.DiseasePresets.AnyAsync(d => d.Name == "Covid-19"))
             {
                 _db.DiseasePresets.Add(new DiseasePreset
@@ -183,14 +184,6 @@ namespace MySimulationAPI.Services
                     VaccineEffectiveness = 0.6         // 60% efficacy (varies by strain)
                 });
             }
-
-            // === Seed Global MapArea Presets ===
-            // if (!await _db.MapAreaPresets.AnyAsync(m => m.Name == "CambridgeCity"))
-            // {
-            //     await FetchAndCreateMapPresetAsync("CambridgeCity", 52.1951, 0.1313, 1);
-            // }
-            // delay here to avoid overloading the OSM API
-            // await Task.Delay(1000);
 
             if (!await _db.MapAreaPresets.AnyAsync(m => m.Name == "SaffronWalden"))
             {

@@ -27,7 +27,7 @@ namespace MySimulationAPI.SimulationConfiguration
             _hubContext = hubContext;
         }
 
-        // Create initial simulation with just name (will later add input for parameters such as seed, tick rate etc)
+        // Create initial simulation with just name (will later input parameters such as seed, tick rate etc)
         public async Task<int> InitialiseSimulation(string simulationName, int userId)
         {
             using var db = _dbFactory.CreateDbContext();
@@ -114,7 +114,7 @@ namespace MySimulationAPI.SimulationConfiguration
 
 
             // Transform to simulation buildings (parallelized)
-            // cant easily bulk insert with TPH inheritance, so split into separate lists and insert each type separately
+            // can't easily bulk insert with TPH inheritance, so split into separate lists and insert each type separately
             // also cant use SetOutputIdentity with TPH, so need to later re-query to get the IDs
             // also need to set the shadow property 'BuildingType' manually for each type so that the discriminator is set correctly
             var newBuildings = new List<Building>(buildingPresets.Count);
@@ -485,7 +485,7 @@ namespace MySimulationAPI.SimulationConfiguration
             var assignStart = DateTime.Now;
             context.BuildingService.AssignHousing();
             var assignTime = (DateTime.Now - assignStart).TotalSeconds;
-            Console.WriteLine($"✓ Done in {assignTime:F1}s");
+            Console.WriteLine($"Done in {assignTime:F1}s");
 
             await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
                 "Assigning Workplaces", $"Assigning workplaces...", 30, 0, agents.Count);
@@ -494,7 +494,7 @@ namespace MySimulationAPI.SimulationConfiguration
             assignStart = DateTime.Now;
             context.BuildingService.AssignWorkplaces();
             assignTime = (DateTime.Now - assignStart).TotalSeconds;
-            Console.WriteLine($"✓ Done in {assignTime:F1}s");
+            Console.WriteLine($"Done in {assignTime:F1}s");
 
             await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
                 "Saving Assignments", "Saving building assignments...", 35, 0, agents.Count);
@@ -597,10 +597,10 @@ namespace MySimulationAPI.SimulationConfiguration
 
             // Final progress update
             var totalTime = (DateTime.Now - startTime).TotalSeconds;
-            Console.WriteLine($"\n[Routine Generation] ✓ Completed in {totalTime:F1}s ({agents.Count / totalTime:F0} agents/s)");
+            Console.WriteLine($"\n[Routine Generation] Completed in {totalTime:F1}s ({agents.Count / totalTime:F0} agents/s)");
             if (errors > 0)
             {
-                Console.WriteLine($"[Routine Generation] ⚠ {errors} errors occurred");
+                Console.WriteLine($"[Routine Generation] {errors} errors occurred");
             }
 
             await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
@@ -657,7 +657,7 @@ namespace MySimulationAPI.SimulationConfiguration
             }
 
             var dbTime = (DateTime.Now - dbStart).TotalSeconds;
-            Console.WriteLine($"\n[Database] ✓ Done in {dbTime:F1}s");
+            Console.WriteLine($"\n[Database] Done in {dbTime:F1}s");
 
             await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
                 "Generating Profiles", $"Creating medical profiles...", 90, 0, agents.Count);
@@ -671,7 +671,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 profile.AgentId = agent.Id; // Set FK explicitly
                 medicalProfiles.Add(profile);
             }
-            Console.WriteLine("✓ Done");
+            Console.WriteLine("Done");
 
             await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
                 "Saving Profiles", "Saving medical profiles...", 92, 0, medicalProfiles.Count);
@@ -689,7 +689,7 @@ namespace MySimulationAPI.SimulationConfiguration
                 dbStart = DateTime.Now;
                 await _db.BulkInsertAsync(medicalProfiles, profileBulkConfig);
                 dbTime = (DateTime.Now - dbStart).TotalSeconds;
-                Console.WriteLine($"✓ Done in {dbTime:F1}s");
+                Console.WriteLine($"Done in {dbTime:F1}s");
             }
             catch
             {
@@ -705,7 +705,7 @@ namespace MySimulationAPI.SimulationConfiguration
             await SimulationHub.BroadcastSetupProgress(_hubContext, simulationId,
                 "Complete", "Population setup complete!", 100, 1, 1);
 
-            Console.WriteLine($"✓ Setup complete!");
+            Console.WriteLine($"Setup complete!");
         }
 
 
@@ -850,26 +850,6 @@ namespace MySimulationAPI.SimulationConfiguration
             Console.WriteLine($"[SimulationSetup] Seeded {count} initial infection(s) for simulation {simulationId}");
         }
 
-        private Agent CreateRandomAgent(int simId)
-        {
-            var type = _rng.Next(6);
-            Agent agent = type switch
-            {
-                0 => new StudentAgent(),
-                1 => new OfficeWorkerAgent(),
-                2 => new MedicalWorkerAgent(),
-                3 => new RetailWorkerAgent(),
-                4 => new ElderlyRetiredAgent(),
-                5 => new ServiceWorkerAgent(),
-                _ => new StudentAgent()
-            };
-
-            agent.Name = GenerateRandomName(_rng);
-            agent.SimulationId = simId;
-            return agent;
-
-
-        }
         public string GenerateRandomName(Random _rng)
         {
             string[] first = { "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda" };

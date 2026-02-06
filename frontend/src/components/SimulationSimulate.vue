@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="grid grid-cols-12 gap-6">
-      <!-- Left Sidebar - Population Overview -->
+      <!-- Left Sidebar Population Overview -->
       <div class="col-span-3 space-y-6">
         <!-- Population Stats Card -->
         <div class="card bg-base-100 shadow-xl">
@@ -26,7 +26,7 @@
                 <div class="stat-value text-2xl">
                   {{
                     formatNumber(
-                      metrics?.totalAgents || simulationData?.agentCount || 0
+                      metrics?.totalAgents || simulationData?.agentCount || 0,
                     )
                   }}
                 </div>
@@ -181,7 +181,7 @@
         </div>
       </div>
 
-      <!-- Center - Map View -->
+      <!-- Center Map View -->
       <div class="col-span-9 space-y-6">
         <!-- Map Card -->
         <div class="card bg-base-100 shadow-xl">
@@ -528,7 +528,7 @@ function formatTime(tick: number): string {
 
   return `${String(days).padStart(3, "0")}d ${String(hours).padStart(
     2,
-    "0"
+    "0",
   )}h ${String(minutes).padStart(2, "0")}m`;
 }
 
@@ -589,7 +589,9 @@ function handleTickChange(event: Event) {
   border: 3px solid hsl(var(--b1));
   position: relative;
   margin-top: -8.5px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .timeline-slider::-moz-range-track {
@@ -608,7 +610,9 @@ function handleTickChange(event: Event) {
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   border: 3px solid hsl(var(--b1));
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .timeline-slider:hover::-webkit-slider-thumb {

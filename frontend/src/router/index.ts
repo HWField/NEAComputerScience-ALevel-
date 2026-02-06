@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import DashboardView from "@/views/dashboard.vue";
 import AdminView from "@/views/admin.vue";
-import HelpView from "@/views/help.vue";
 import AuthenticationView from "@/views/authentication.vue";
 import SettingsView from "@/views/settings.vue";
 import SimulationView from "@/views/simulation.vue";
@@ -9,6 +8,7 @@ import Error from "@/views/error.vue";
 import { useUserStore } from "@/stores/useUserStore";
 import { useToastStore } from "@/stores/useToastStore";
 import MainLayout from "@/layouts/MainLayout.vue";
+// Creates a new router instance which components can use to navigate users around the webapp.
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -27,12 +27,6 @@ const router = createRouter({
           name: "admin",
           component: AdminView,
           meta: { requiresAuth: true, requiresAdmin: true },
-        },
-        {
-          path: "help",
-          name: "help",
-          component: HelpView,
-          meta: { requiresAuth: true },
         },
         {
           path: "settings",

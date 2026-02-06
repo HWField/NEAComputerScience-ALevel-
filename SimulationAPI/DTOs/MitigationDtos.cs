@@ -6,7 +6,6 @@ namespace MySimulationAPI.DTOs
     {
         [Required]
         public string Type { get; set; } = null!; // "SelfIsolation", "MaskWearing", "Vaccination"
-
         public string? Name { get; set; }
         public bool? IsActive { get; set; }
 

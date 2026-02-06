@@ -3,6 +3,7 @@ import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import axios from "../api/axios";
 
+// Global store to handle user authentication and profile data
 export const useUserStore = defineStore(
   "userStore",
   () => {
@@ -44,7 +45,7 @@ export const useUserStore = defineStore(
           document.documentElement.setAttribute("data-theme", newTheme);
         }
       },
-      { immediate: true }
+      { immediate: true },
     );
 
     async function Login(userData, redirect = null) {
@@ -85,7 +86,7 @@ export const useUserStore = defineStore(
     };
   },
 
-  // Enable persistence
+  // Enable persistence for auth keys within the user store, so that users remain logged in across page refreshes and browser sessions.
   {
     persist: {
       enabled: true,
@@ -97,5 +98,5 @@ export const useUserStore = defineStore(
         },
       ],
     },
-  }
+  },
 );

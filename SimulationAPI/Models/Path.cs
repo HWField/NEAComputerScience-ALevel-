@@ -12,10 +12,10 @@ namespace MySimulationAPI.Models
         // Road/walkway classification
         public PathType Type { get; set; } = PathType.Road;
 
-        // Speed modifier (e.g. cars faster on motorways, slow on residential)
+        // Speed modifier (e.g. agent moves faster on motorways, slower in residential areas)
         public double SpeedModifier { get; set; } = 1.0;
 
-        // One-way restrictions
+        // Oneway restrictions
         public bool IsOneWay { get; set; } = false;
 
         public int MapAreaId { get; set; }

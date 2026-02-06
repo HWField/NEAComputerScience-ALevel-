@@ -82,7 +82,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
 );
 
 interface Props {
@@ -142,7 +142,7 @@ const dailyAggregatedData = computed(() => {
     } else if (previous) {
       current.newInfections = Math.max(
         0,
-        current.totalInfections - previous.totalInfections
+        current.totalInfections - previous.totalInfections,
       );
     }
   }
@@ -183,7 +183,7 @@ const rValues = computed(() => {
       }
     }
 
-    // Calculate R_t if we have valid data
+    // Calculate R_t if has valid data
     if (currentWindowCount > 0 && previousWindowCount > 0) {
       const currentAvg = currentWindowSum / currentWindowCount;
       const previousAvg = previousWindowSum / previousWindowCount;
@@ -242,7 +242,6 @@ const yAxisMax = computed(() => {
   if (rValues.value.length === 0) return 5;
   const maxR = Math.max(...rValues.value.map((v) => v.rValue));
 
-  // Add 20% padding above the max value for better visibility
   const paddedMax = maxR * 1.2;
 
   // Round up to nearest nice number for better axis labels
@@ -251,7 +250,6 @@ const yAxisMax = computed(() => {
   if (paddedMax <= 10) return 10;
   if (paddedMax <= 20) return 20;
 
-  // For very high values, round to nearest 10
   return Math.ceil(paddedMax / 10) * 10;
 });
 
@@ -317,7 +315,7 @@ const chartOptions = computed<ChartOptions<"line">>(() => ({
           return context[0].label;
         },
         label: (context) => {
-          if (context.datasetIndex === 1) return ""; // Hide R=1 line from tooltip
+          if (context.datasetIndex === 1) return "";
           return `R_t: ${context.parsed.y?.toFixed(2) ?? "N/A"}`;
         },
         afterLabel: (context) => {

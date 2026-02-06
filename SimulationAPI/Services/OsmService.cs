@@ -11,6 +11,7 @@ namespace MySimulationAPI.Services
         private readonly HttpClient _http = new();
         private static readonly Random _rnd = new();
 
+        // Amenity classifications based on OSM tags to determine building types for capacity estimation and agent assignment.
         private static readonly HashSet<string> LeisureAmenities = new()
         {
             "park", "cinema", "theatre", "cafe", "pub", "bar", "sports_centre", "swimming_pool",
@@ -53,17 +54,17 @@ namespace MySimulationAPI.Services
         {
             double radiusMeters = radiusKm * 1000;
             string query = $@"
-[out:json];
-(
-  node(around:{radiusMeters},{lat},{lon})[building];
-  way(around:{radiusMeters},{lat},{lon})[building];
-  relation(around:{radiusMeters},{lat},{lon})[building];
-  node(around:{radiusMeters},{lat},{lon})[amenity];
-  way(around:{radiusMeters},{lat},{lon})[amenity];
-  relation(around:{radiusMeters},{lat},{lon})[amenity];
-);
-out center;
-";
+                [out:json];
+                (
+                node(around:{radiusMeters},{lat},{lon})[building];
+                way(around:{radiusMeters},{lat},{lon})[building];
+                relation(around:{radiusMeters},{lat},{lon})[building];
+                node(around:{radiusMeters},{lat},{lon})[amenity];
+                way(around:{radiusMeters},{lat},{lon})[amenity];
+                relation(around:{radiusMeters},{lat},{lon})[amenity];
+                );
+                out center;
+                ";
 
             using var response = await _http.GetAsync(
                 "https://overpass-api.de/api/interpreter?data=" + Uri.EscapeDataString(query),
@@ -223,16 +224,16 @@ out center;
         {
             double radiusMeters = radiusKm * 1000;
             string query = $@"
-[out:json];
-(
-  way(around:{radiusMeters},{lat},{lon})[highway];
-  way(around:{radiusMeters},{lat},{lon})[footway];
-  way(around:{radiusMeters},{lat},{lon})[path];
-  way(around:{radiusMeters},{lat},{lon})[cycleway];
-);
-(._;>;);
-out body;
-";
+                [out:json];
+                (
+                way(around:{radiusMeters},{lat},{lon})[highway];
+                way(around:{radiusMeters},{lat},{lon})[footway];
+                way(around:{radiusMeters},{lat},{lon})[path];
+                way(around:{radiusMeters},{lat},{lon})[cycleway];
+                );
+                (._;>;);
+                out body;
+                ";
 
             using var response = await _http.GetAsync(
                 "https://overpass-api.de/api/interpreter?data=" + Uri.EscapeDataString(query),
@@ -322,8 +323,7 @@ out body;
                     {
                         pathNodes.Add(new OSMPathNodePreset
                         {
-                            // CRITICAL: Store the OSM node ID so we can identify shared nodes
-                            OSMNodeId = nodeRef,  // This is the key to graph connectivity!
+                            OSMNodeId = nodeRef,
                             Latitude = coords.Lat,
                             Longitude = coords.Lon
                         });

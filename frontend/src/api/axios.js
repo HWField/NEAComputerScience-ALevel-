@@ -2,7 +2,7 @@ import axios from "axios";
 import router from "@/router";
 import { useUserStore } from "@/stores/useUserStore";
 
-// Create an Axios instance targeting the backend API
+// Create an Axios instance targeting the backend API address, this enables all other components to make authenticated requests without needing to specify the full URL or handle token management themselves.
 const BASE_URL = "http://127.0.0.1:5081/api";
 
 const api = axios.create({
@@ -12,33 +12,33 @@ const api = axios.create({
   },
 });
 
-// Function to get the base URL
 export const getBaseUrl = () => BASE_URL;
 
-// Function to refresh token
 const refreshAccessToken = async () => {
-  console.error("Refreshing token...");
+  console.log("Refreshing token...");
   const userStore = useUserStore();
 
   try {
     // Create a separate axios instance to avoid interceptor loops
     const response = await axios.post(
-      `${BASE_URL}/refresh`,
-      {},
+      `${BASE_URL}/auth/refresh`,
+      {
+        refreshToken: userStore.refreshToken,
+      },
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${userStore.refreshToken}`,
         },
-      }
+      },
     );
 
     // Update token in store
-    userStore.token = response.data.access_token;
+    userStore.token = response.data.accessToken;
 
-    return response.data.access_token;
+    return response.data.accessToken;
   } catch (error) {
     // If refresh token is invalid or expired, log the user out
+    console.error("Failed to refresh token:", error);
     await userStore.Logout();
     router.push("/login");
     return null;
@@ -56,7 +56,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 api.interceptors.response.use(
@@ -111,7 +111,7 @@ api.interceptors.response.use(
       });
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

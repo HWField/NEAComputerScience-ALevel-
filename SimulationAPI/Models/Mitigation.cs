@@ -35,7 +35,6 @@ namespace MySimulationAPI.Models
         // Percentage of population that will wear masks (0.0 to 1.0)
         public double AdoptionRate { get; set; } = 0.6;
         // Reduction in transmission probability when mask is worn (0.0 to 1.0)
-        // Uses disease's MaskEffectiveness as baseline, modified by proper usage
         public double EffectivenessModifier { get; set; } = 1.0;
         public MaskWearingMitigation()
         {

@@ -12,7 +12,7 @@ namespace MySimulationAPI.Services
         private readonly Random _rng;
         private readonly Disease? _disease;
 
-        // Realistic airborne transmission parameters
+        // airborne transmission parameters
         private const float INFECTION_RADIUS_METERS = 2.0f;
         private const float INDOOR_MULTIPLIER = 2.5f;
         private const float OUTDOOR_DECAY = 0.15f;
@@ -43,7 +43,7 @@ namespace MySimulationAPI.Services
             _disease = context.Simulation.Disease;
 
             // Calculate per-tick transmission probability if disease is configured
-            // InfectionRate is probability per HOUR of close contact exposure
+            // InfectionRate is probability per hour of close contact exposure
             // Convert to per-tick based on tick length
             if (_disease != null)
             {
@@ -146,15 +146,14 @@ namespace MySimulationAPI.Services
             if (agents.Length == 0)
                 return;
 
-            // Use local variables during computation to avoid intermediate states being read
             int activeInfections = 0;
             int symptomaticCases = 0;
             int reportedCases = 0;
 
-            // --- Build spatial index for proximity queries ---
+            //  Build spatial index for proximity queries 
             var spatialIndex = BuildSpatialIndex(agents);
 
-            // --- Process infection spread (infectious agents spreading to healthy agents) ---
+            //  Process infection spread (infectious agents spreading to healthy agents) 
             for (int i = 0; i < agents.Length; i++)
             {
                 ref var infectious = ref agents[i];
@@ -192,7 +191,7 @@ namespace MySimulationAPI.Services
                 for (int j = 0; j < nearby.Count; j++)
                 {
                     int otherIdx = nearby[j];
-                    if (otherIdx == i) continue; // Don't infect self
+                    if (otherIdx == i) continue;
 
                     ref var susceptible = ref agents[otherIdx];
                     if ((AgentHealthState)susceptible.HealthState != AgentHealthState.Healthy)
@@ -210,7 +209,7 @@ namespace MySimulationAPI.Services
                 }
             }
 
-            // --- Progress disease state for all infected/recovered agents ---
+            //  Progress disease state for all infected/recovered agents 
             for (int i = 0; i < agents.Length; i++)
             {
                 ref var agent = ref agents[i];
@@ -231,13 +230,13 @@ namespace MySimulationAPI.Services
             // Base transmission probability per tick (time-scaled)
             float transmissionProb = _transmissionPerTick;
 
-            // --- Environmental Modifiers ---
+            //  Environmental Modifiers 
             if (isIndoors)
                 transmissionProb *= INDOOR_MULTIPLIER;
             else
                 transmissionProb *= OUTDOOR_DECAY;
 
-            // --- Intervention: Masks (probabilistic check per transmission attempt) ---
+            //  Intervention: Masks (probabilistic check per transmission attempt) 
             var maskMitigation = _context.Mitigations.OfType<MaskWearingMitigation>().FirstOrDefault();
             if (maskMitigation != null && maskMitigation.IsActive)
             {
@@ -259,7 +258,7 @@ namespace MySimulationAPI.Services
                 }
             }
 
-            // --- Host Susceptibility ---
+            //  Host Susceptibility 
             float effectiveSusceptibility = susceptible.Susceptibility;
 
             // Intervention: Vaccination (probabilistic check per transmission attempt)
@@ -289,13 +288,13 @@ namespace MySimulationAPI.Services
             if (susceptible.HasChronicCondition)
                 transmissionProb *= 1.5f;
 
-            // --- Viral Load (infection stage) ---
+            //  Viral Load (infection stage) 
             float viralLoadMultiplier = infectious.InfectionProgress < 0.5f
                 ? 0.5f + infectious.InfectionProgress
                 : 1.5f - infectious.InfectionProgress;
             transmissionProb *= Math.Max(0.3f, viralLoadMultiplier);
 
-            // --- Behavioral Factor: Symptomatic agents may reduce contacts ---
+            //  Behavioral Factor: Symptomatic agents may reduce contacts 
             // If infectious agent has moderate/severe symptoms, they're less likely to be in public
             if (infectious.SymptomSeverity > 0.4f && !isIndoors)
             {
@@ -350,15 +349,9 @@ namespace MySimulationAPI.Services
                             : 2f - agent.InfectionProgress * 2f; // Declining
 
                         float currentSymptoms = agent.SymptomSeverity * symptomMultiplier;
-
-                        // Hospital-seeking behavior for severe symptoms
-                        if (currentSymptoms > 0.7f && _rng.NextDouble() < _disease.HospitalSeekingRate / ticksPerDay)
-                        {
-                            // later expand to actually modify agent routines
-                        }
                     }
 
-                    // --- Mortality Check (once at peak) ---
+                    //  Mortality Check (once at peak) 
                     float prevProgress = agent.InfectionProgress - progressPerTick;
                     if (prevProgress < 0.5f && agent.InfectionProgress >= 0.5f)
                     {
@@ -381,7 +374,7 @@ namespace MySimulationAPI.Services
                         }
                     }
 
-                    // --- Recovery ---
+                    //  Recovery 
                     if (agent.InfectionProgress >= 1f)
                     {
                         agent.HealthState = (byte)AgentHealthState.Recovered;
@@ -486,7 +479,7 @@ namespace MySimulationAPI.Services
 
         private static float MetersToLatLonRadius(float latitude, float meters)
         {
-            // Accurate Haversine-based conversion
+            // Haversine-based conversion
             // At equator: 1 degree lat ≈ 111km
             // Longitude varies by cos(latitude)
             const float METERS_PER_DEGREE = 111_000f;
@@ -494,9 +487,7 @@ namespace MySimulationAPI.Services
         }
     }
 
-    // ----------------------------------------------
     // Optimized Spatial Index (Grid-based for speed)
-    // ----------------------------------------------
     public class SpatialIndex
     {
         private const int GRID_SIZE = 50; // 50x50 grid for fast lookup

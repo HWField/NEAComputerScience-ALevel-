@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 
+// Global store to manage toasts (notifications) issued by components across the app.
 export const useToastStore = defineStore("toastStore", {
   state: () => ({
     toasts: [] as {
@@ -12,7 +13,7 @@ export const useToastStore = defineStore("toastStore", {
     show(
       message: string,
       type: "success" | "error" | "info" | "warning" = "info",
-      duration = 3000
+      duration = 3000,
     ) {
       const id = Date.now();
       this.toasts.push({ id, message, type });

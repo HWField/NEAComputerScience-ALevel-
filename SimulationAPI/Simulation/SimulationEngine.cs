@@ -45,12 +45,12 @@ namespace MySimulationAPI.SimulationRuntime
             _cts = new CancellationTokenSource();
 
             metricsIntervalTicks = _context.Simulation.MetricRecordingFrequency;
-            // Start real-time snapshot timer if in real time mode
+            // Start realtime snapshot timer if in real time mode
             if (!targetTick.HasValue)
             {
                 var interval = TimeSpan.FromSeconds(_context.Simulation.SnapshotSavingFrequency);
                 _snapshotTimer = new System.Threading.Timer(
-                    _ => _snapshotRequested = true, // Lambda: signal snapshot request
+                    _ => _snapshotRequested = true, // signal snapshot request
                     null,
                     interval, // first snapshot after interval
                     interval  // then every interval
@@ -92,7 +92,7 @@ namespace MySimulationAPI.SimulationRuntime
                 // Check if real-time snapshot was requested (only in non-target mode)
                 if (_snapshotRequested && !targetTick.HasValue)
                 {
-                    // Acquire semaphore to ensure atomic snapshot
+                    // get semaphore to ensure atomic snapshot
                     await _snapshotSemaphore.WaitAsync(token);
                     try
                     {
@@ -129,11 +129,9 @@ namespace MySimulationAPI.SimulationRuntime
                     break;
                 }
 
-                // -------------------------
                 // Calculate target delay
                 // Only apply delay if no target tick (real-time mode)
                 // When target tick is set, run at full speed
-                // -------------------------
                 if (!targetTick.HasValue)
                 {
                     double ticksPerDay = 86400.0 / _context.TickLength;

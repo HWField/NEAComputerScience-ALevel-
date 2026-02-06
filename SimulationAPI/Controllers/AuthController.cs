@@ -25,16 +25,15 @@ namespace MySimulationAPI.Controllers
             _config = config;
         }
 
-        // Helper to get logged-in user
+        // Helper function to get logged-in user
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-
 
         // REGISTER
         /// <summary>
         /// Registers a new user with a username and password.
         /// </summary>
         [HttpPost("register")]
-        public IActionResult Register([FromBody] LoginDto dto) // changed to LoginDto for simplicity as contain the same information
+        public IActionResult Register([FromBody] LoginDto dto) // also uses LoginDto for simplicity as contains the same information
         {
             if (_db.Users.Any(u => u.Username == dto.Username))
                 return BadRequest("Username taken");
@@ -49,7 +48,7 @@ namespace MySimulationAPI.Controllers
             _db.Users.Add(user);
             _db.SaveChanges();
 
-            var accessToken = GenerateJwt(user, TimeSpan.FromHours(99999)); // TEMP: long-lived token for testing
+            var accessToken = GenerateJwt(user, TimeSpan.FromMinutes(5));
 
             // Generate per-device refresh token
             var refreshToken = Guid.NewGuid().ToString("N");
@@ -83,11 +82,8 @@ namespace MySimulationAPI.Controllers
             if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
                 return Unauthorized("Invalid credentials");
 
-            // Generate access token
-            // var accessToken = GenerateJwt(user, TimeSpan.FromMinutes(5));
-            var accessToken = GenerateJwt(user, TimeSpan.FromHours(99999)); // TEMP: long-lived token for testing
+            var accessToken = GenerateJwt(user, TimeSpan.FromMinutes(5));
 
-            // Generate per-device refresh token
             var refreshToken = Guid.NewGuid().ToString("N");
 
             user.RefreshTokens.Add(new RefreshToken
@@ -134,6 +130,8 @@ namespace MySimulationAPI.Controllers
 
             return Ok(sessions);
         }
+
+
         // REFRESH JWT
         /// <summary>
         /// Refreshes the JWT access token using a valid refresh token.
@@ -148,6 +146,9 @@ namespace MySimulationAPI.Controllers
                 return Unauthorized("Invalid refresh token");
 
             var user = refreshToken.User;
+
+            refreshToken.LastUsedAt = DateTime.UtcNow;
+            _db.SaveChanges();
 
             // Issue new access token (refresh token remains valid until manually revoked)
             var newAccessToken = GenerateJwt(user, TimeSpan.FromMinutes(5));
@@ -216,7 +217,7 @@ namespace MySimulationAPI.Controllers
             return Ok(new { message = "All devices logged out successfully" });
         }
 
-        // HELPER: Generate JWT with Role Claim
+        // Helper function to generate JWT with Role Claim
         private string GenerateJwt(User user, TimeSpan expires)
         {
             var jwtKey = _config["Jwt:Key"];
@@ -232,7 +233,7 @@ namespace MySimulationAPI.Controllers
                 {
                     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new Claim(ClaimTypes.Name, user.Username),
-                    new Claim(ClaimTypes.Role, user.Role) // role claim
+                    new Claim(ClaimTypes.Role, user.Role)
                 }),
                 Expires = DateTime.UtcNow.Add(expires),
                 Issuer = jwtIssuer,

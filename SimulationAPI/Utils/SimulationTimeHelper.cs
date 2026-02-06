@@ -3,7 +3,7 @@ using System;
 namespace MySimulationAPI.Utils
 {
     /// <summary>
-    /// Helper class for converting real-world time -> simulation ticks.
+    /// Helper class for converting real-world time to simulation ticks.
     /// Tick length is variable per simulation (e.g., 1 tick = 5 seconds).
     /// </summary>
     public static class SimulationTimeHelper
@@ -37,7 +37,9 @@ namespace MySimulationAPI.Utils
             int tickOfDay = (int)(currentTick % ticksPerDay);
             return (dayIndex, tickOfDay);
         }
-
+        /// <summary>
+        /// Converts a TimeOnly to the corresponding tick of the day, given the tick length in seconds.
+        /// </summary>
         public static int ConvertTimeToTick(TimeOnly time, int tickLengthSeconds)
         {
             // Total seconds since midnight

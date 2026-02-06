@@ -138,12 +138,12 @@ namespace MySimulationAPI.Services
 
             if (amenity == "hospital" || healthcare == "hospital" || emergency == "yes")
             {
-                // Large hospital: ~50-100 beds per floor
+                // Large hospital: about 50-100 beds per floor
                 return levels * 75;
             }
             else if (amenity == "clinic" || healthcare == "clinic" || amenity == "doctors")
             {
-                // Clinic: ~10-20 capacity per floor
+                // Clinic: about 10-20 capacity per floor
                 return levels * 15;
             }
             else if (amenity == "pharmacy")
@@ -279,7 +279,7 @@ namespace MySimulationAPI.Services
                 // Try to parse building:levels
                 if (int.TryParse(tags.BuildingLevels, out int levels) && levels > 0)
                 {
-                    return Math.Min(levels, 100); // Cap at 100 floors for safety
+                    return Math.Min(levels, 100); // Cap at 100 floors to prevent unrealistic values, kept high for skyscraperes if simulating e.g London
                 }
             }
 
