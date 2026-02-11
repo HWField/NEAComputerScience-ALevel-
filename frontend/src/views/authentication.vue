@@ -135,6 +135,9 @@ const handleSubmit = async () => {
               <input
                 v-model="form.username"
                 type="text"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
                 placeholder="Enter your username"
                 class="input input-bordered w-full pl-10 focus:input-primary"
               />

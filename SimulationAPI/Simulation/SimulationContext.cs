@@ -135,7 +135,7 @@ namespace MySimulationAPI.SimulationConfiguration
         }
 
         public Task GenerateStatesAsync()
-        // Generates a base state for agents and buildings, Done at a later stage to allow for modifications before starting the simulation
+        // Generates a base state for agents and buildings, Done after constructor called to allow for modifications before starting the simulation
         {
             return Task.Run(() =>
             {

@@ -501,6 +501,105 @@
         </div>
       </div>
     </div>
+
+    <!-- User Details Modal -->
+    <dialog
+      id="user_details_modal"
+      class="modal"
+      :class="{ 'modal-open': selectedUser !== null }"
+    >
+      <div class="modal-box w-full max-w-md">
+        <h3 class="font-bold text-lg mb-4">User Details</h3>
+
+        <div v-if="selectedUser" class="space-y-4">
+          <!-- User ID -->
+          <div>
+            <label class="label">
+              <span class="label-text font-medium">User ID</span>
+            </label>
+            <input
+              type="text"
+              class="input input-bordered w-full"
+              :value="selectedUser.id"
+              disabled
+            />
+          </div>
+
+          <!-- Username -->
+          <div>
+            <label class="label">
+              <span class="label-text font-medium">Username</span>
+            </label>
+            <input
+              type="text"
+              class="input input-bordered w-full"
+              :value="selectedUser.username"
+              disabled
+            />
+          </div>
+
+          <!-- User Role -->
+          <div>
+            <label class="label">
+              <span class="label-text font-medium">Role</span>
+            </label>
+            <select
+              v-model="selectedUserRole"
+              class="select select-bordered w-full"
+            >
+              <option value="User">User</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+
+          <!-- Status Indicator -->
+          <div>
+            <label class="label">
+              <span class="label-text font-medium">Current Role</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <span
+                class="badge"
+                :class="
+                  selectedUser.role === 'Admin' ? 'badge-error' : 'badge-ghost'
+                "
+              >
+                {{ selectedUser.role }}
+              </span>
+              <span
+                v-if="selectedUserRole !== selectedUser.role"
+                class="text-sm text-warning"
+              >
+                Changes unsaved
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-action mt-6">
+          <button @click="closeUserModal" class="btn btn-ghost">Cancel</button>
+          <button
+            v-if="selectedUserRole !== selectedUser?.role"
+            @click="updateUserRole"
+            class="btn btn-primary"
+            :disabled="updatingRole"
+          >
+            <span
+              v-if="updatingRole"
+              class="loading loading-spinner loading-sm"
+            ></span>
+            <span v-else>Save Changes</span>
+          </button>
+        </div>
+      </div>
+      <form
+        method="dialog"
+        class="modal-backdrop"
+        @submit.prevent="closeUserModal"
+      >
+        <button></button>
+      </form>
+    </dialog>
   </div>
 </template>
 
@@ -520,6 +619,10 @@ const loadingStats = ref(false);
 const loadedSimulations = ref([]);
 const loadingMemory = ref(false);
 
+const selectedUser = ref(null);
+const selectedUserRole = ref("User");
+const updatingRole = ref(false);
+
 const fetchUsers = async () => {
   loadingUsers.value = true;
   try {
@@ -534,7 +637,42 @@ const fetchUsers = async () => {
 };
 
 const viewUserDetails = (user) => {
-  toast.show(`Viewing details for ${user.username}`, "info");
+  selectedUser.value = user;
+  selectedUserRole.value = user.role;
+  document.getElementById("user_details_modal").showModal();
+};
+
+const closeUserModal = () => {
+  selectedUser.value = null;
+  selectedUserRole.value = "User";
+  document.getElementById("user_details_modal").close();
+};
+
+const updateUserRole = async () => {
+  if (!selectedUser.value) return;
+
+  updatingRole.value = true;
+  try {
+    await axios.put(`/Admin/users/${selectedUser.value.id}/role`, {
+      role: selectedUserRole.value,
+    });
+
+    // Update the user in the list
+    const userIndex = users.value.findIndex(
+      (u) => u.id === selectedUser.value.id,
+    );
+    if (userIndex !== -1) {
+      users.value[userIndex].role = selectedUserRole.value;
+      selectedUser.value.role = selectedUserRole.value;
+    }
+
+    toast.show(`User role updated to ${selectedUserRole.value}`, "success");
+  } catch (err) {
+    toast.show("Failed to update user role", "error");
+    selectedUserRole.value = selectedUser.value.role;
+  } finally {
+    updatingRole.value = false;
+  }
 };
 
 const fetchDatabaseStats = async () => {

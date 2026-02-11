@@ -225,11 +225,6 @@ namespace MySimulationAPI.Controllers
         /// <summary>
         /// Configure the map area for the simulation.
         /// </summary>
-        /// <remarks>
-        /// This endpoint allows you to associate a geographical area with a simulation.
-        /// You can either use a predefined area preset (<c>PresetId</c>) or define a custom area
-        /// using latitude, longitude, and radius in kilometers.
-        /// </remarks>
         [HttpPost("{id}/map-area")]
         public async Task<IActionResult> SetupMapArea(int id, [FromBody] SetupMapAreaDto dto)
         {
@@ -806,6 +801,9 @@ namespace MySimulationAPI.Controllers
         }
 
 
+        /// <summary>
+        /// Get all metrics for a simulation, optionally filtered by tick range.
+        /// </summary>
         [HttpGet("{id}/metrics")]
         public async Task<IActionResult> GetMetrics(int id, [FromQuery] long? startTick = null, [FromQuery] long? endTick = null)
         {

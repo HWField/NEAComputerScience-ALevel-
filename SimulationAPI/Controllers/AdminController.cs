@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MySimulationAPI.Data;
+using MySimulationAPI.DTOs;
 using MySimulationAPI.SimulationConfiguration;
 
 namespace MySimulationAPI.Controllers
@@ -112,7 +113,7 @@ namespace MySimulationAPI.Controllers
 
 
         /// <summary>
-        /// Get Users
+        /// Get all Users
         /// </summary>
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers()
@@ -135,6 +136,41 @@ namespace MySimulationAPI.Controllers
                 return StatusCode(500, new
                 {
                     message = "Error retrieving users",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Update user role
+        /// </summary>
+        [HttpPut("users/{id}/role")]
+        public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateUserRoleDto dto)
+        {
+            try
+            {
+                var user = await _db.Users.FindAsync(id);
+
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                if (dto.Role != "User" && dto.Role != "Admin")
+                {
+                    return BadRequest(new { message = "Invalid role. Must be 'User' or 'Admin'" });
+                }
+
+                user.Role = dto.Role;
+                await _db.SaveChangesAsync();
+
+                return Ok(new { message = $"User role updated to {dto.Role}" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Error updating user role",
                     error = ex.Message
                 });
             }

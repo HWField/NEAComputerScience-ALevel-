@@ -9,7 +9,7 @@
           <div class="w-10 rounded-full">
             <img
               alt="Tailwind CSS Navbar component"
-              src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
+              src="https://img.freepik.com/premium-photo/astronaut-outer-space_780593-3769.jpg?w=360"
             />
           </div>
         </div>

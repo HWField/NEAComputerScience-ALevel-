@@ -35,7 +35,7 @@ const fetchSimulations = async () => {
     simulations.value = res.data
       .sort(
         (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )
       .map((sim: any) => ({
         id: sim.id,
@@ -50,17 +50,17 @@ const fetchSimulations = async () => {
 
     totalSimulations.value = simulations.value.length;
     activeSimulations.value = simulations.value.filter(
-      (s) => s.status === "running"
+      (s) => s.status === "running",
     ).length;
     completedSimulations.value = simulations.value.filter(
-      (s) => s.status === "completed"
+      (s) => s.status === "completed",
     ).length;
     totalAgents.value = simulations.value
       .reduce((sum, s) => sum + s.agentCount, 0)
       .toLocaleString();
     avgDuration.value = Math.round(
       simulations.value.reduce((sum, s) => sum + (s.progress || 0), 0) /
-        (simulations.value.length || 1)
+        (simulations.value.length || 1),
     );
   } catch (error) {
     console.error("Failed to fetch simulations:", error);

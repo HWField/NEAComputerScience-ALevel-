@@ -54,7 +54,50 @@
         "tags": [
           "Admin"
         ],
-        "summary": "Get Users",
+        "summary": "Get all Users",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Admin/users/{id}/role": {
+      "put": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Update user role",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -679,7 +722,6 @@
           "Simulation"
         ],
         "summary": "Configure the map area for the simulation.",
-        "description": "This endpoint allows you to associate a geographical area with a simulation.\nYou can either use a predefined area preset (`PresetId`) or define a custom area\nusing latitude, longitude, and radius in kilometers.",
         "parameters": [
           {
             "name": "id",
@@ -1302,6 +1344,7 @@
         "tags": [
           "Simulation"
         ],
+        "summary": "Get all metrics for a simulation, optionally filtered by tick range.",
         "parameters": [
           {
             "name": "id",
@@ -1774,6 +1817,16 @@
           "frequency": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateUserRoleDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
